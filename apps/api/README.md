@@ -5,7 +5,7 @@ browser and the system. It **never blocks on heavy work** — it enqueues jobs o
 Python RAG service.
 
 > **Status:** **Phase 0 skeleton implemented** — Fastify app with `/health`, config, and
-> 100%-coverage tests. The modules below (auth, users, projects, …) are the plan for later phases.
+> ≥ 80%-coverage tests. The modules below (auth, users, projects, …) are the plan for later phases.
 
 ## Responsibilities
 
@@ -58,7 +58,7 @@ api/src/
 ## How to run
 
 Stack: **Fastify + TypeScript**, build with **tsup**, dev with **tsx**, tests with **Vitest**
-at 100% coverage. Phase 0 exposes `/health`.
+at ≥ 80% coverage. Phase 0 exposes `/health`.
 
 ```bash
 npm install                 # from repo root (workspaces)

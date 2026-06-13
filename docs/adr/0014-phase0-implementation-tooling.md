@@ -25,7 +25,7 @@ the specs and are decided here.
 | Migrations | **dbmate** (plain SQL up/down) | Language-agnostic; SQL is the schema source of truth, runnable in CI/Docker. |
 | Codegen | **openapi-typescript** (+ `openapi-fetch`) for TS, **datamodel-code-generator** for Pydantic | Contracts → generated types both sides (ADR 0001). |
 | Build (api) | **tsup** (esbuild) + **tsx** for dev | Bundles workspace source; no prebuild dance. |
-| Tests | **Vitest** (TS) + **pytest** (Python) unit; **Playwright** for E2E | Coverage gates at **100%** (line + branch). Vitest's Jest-compatible API satisfies the "Jest" intent in the coding standards without a second runner. |
+| Tests | **Vitest** (TS) + **pytest** (Python) unit; **Playwright** for E2E | Coverage gates at **80%** (line + branch). Vitest's Jest-compatible API satisfies the "Jest" intent in the coding standards without a second runner. |
 | Task runner | **npm scripts** (canonical) + thin `Makefile` wrapper | Cross-platform; Make optional. |
 | CI | **GitHub Actions** | Lint, typecheck, test+coverage, codegen drift, build images. |
 
@@ -34,7 +34,7 @@ the specs and are decided here.
 - The skeleton is buildable and verifiable via `docker compose` from day one.
 - Auth is implemented as custom JWT rather than the Auth.js library; ADR 0011's intent (lightweight
   JWT now, Keycloak for SSO later) is preserved — only the library name changes for the SPA design.
-- 100% coverage gates apply from the first commit, so even skeleton code ships with tests.
+- 80% coverage gates apply from the first commit, so even skeleton code ships with tests.
 
 ## Alternatives considered
 

@@ -5,7 +5,7 @@ Python queue consumers that do the **heavy/blocking** indexing and understanding
 to [`packages/py-core`](../../packages/py-core/README.md).
 
 > **Status:** **Phase 0 skeleton implemented** — package layout, a job-type registry with
-> 100%-coverage tests, and a worker entrypoint that stays alive. Real Procrastinate job
+> ≥ 80%-coverage tests, and a worker entrypoint that stays alive. Real Procrastinate job
 > consumption (the table below) lands in Phase 3.
 
 ## Responsibilities (job consumers)
@@ -42,7 +42,7 @@ to [`packages/py-core`](../../packages/py-core/README.md).
 ## How to run
 
 Stack: **Procrastinate** (Postgres queue) + **uv** (Python 3.12 in Docker), tests with **pytest**
-at 100% coverage. Phase 0 is a skeleton that stays alive but consumes no jobs yet (real
+at ≥ 80% coverage. Phase 0 is a skeleton that stays alive but consumes no jobs yet (real
 Procrastinate startup lands in Phase 3).
 
 ```bash

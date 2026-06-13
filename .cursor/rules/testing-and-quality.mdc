@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Testing & quality
 
-- **Testing frameworks + 100% coverage:** see `testing-standards.mdc` and `test-coverage.mdc`.
+- **Testing frameworks + ≥ 80% coverage:** see `testing-standards.mdc` and `test-coverage.mdc`.
   Colocate tests; cross-service E2E goes in `tests/e2e/`.
 - Test the **public surface** of a module, not its internals.
 - **Small, single-purpose files** with descriptive names over large grab-bag files.

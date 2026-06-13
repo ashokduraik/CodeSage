@@ -11,6 +11,8 @@ export interface AppConfig {
   nodeEnv: string;
   /** Whether to enable the Fastify/Pino request logger (disabled in tests). */
   logger: boolean;
+  /** PostgreSQL connection URL (DATABASE_URL). Required in all non-test environments. */
+  databaseUrl: string;
 }
 
 /**
@@ -25,5 +27,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     port: Number(env.API_PORT ?? "3000"),
     nodeEnv: env.NODE_ENV ?? "development",
     logger: env.NODE_ENV !== "test",
+    databaseUrl: env.DATABASE_URL ?? "",
   };
 }

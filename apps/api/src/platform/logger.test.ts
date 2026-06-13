@@ -4,7 +4,7 @@ import type { AppConfig } from "./config";
 
 /** Minimal config fixture for testing logger options only. */
 function cfg(nodeEnv: string, logger: boolean): AppConfig {
-  return { host: "0.0.0.0", port: 3000, nodeEnv, logger };
+  return { host: "0.0.0.0", port: 3000, nodeEnv, logger, databaseUrl: "" };
 }
 
 describe("buildLoggerOptions", () => {

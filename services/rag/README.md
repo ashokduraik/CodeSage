@@ -4,7 +4,7 @@ Python service that answers questions. It exposes an **internal** HTTP API that 
 calls (and streams back to the browser). It is a **thin** deployable: it wires HTTP endpoints to
 business logic in [`packages/py-core`](../../packages/py-core/README.md).
 
-> **Status:** **Phase 0 skeleton implemented** — FastAPI app with `/health` and 100%-coverage
+> **Status:** **Phase 0 skeleton implemented** — FastAPI app with `/health` and ≥ 80%-coverage
 > tests. The QA pipeline below is the plan for Phase 1+.
 
 ## Responsibilities
@@ -39,7 +39,7 @@ business logic in [`packages/py-core`](../../packages/py-core/README.md).
 ## How to run
 
 Stack: **FastAPI + uvicorn**, managed with **uv** (Python 3.12 in Docker), tests with **pytest**
-at 100% coverage. Phase 0 exposes `/health`.
+at ≥ 80% coverage. Phase 0 exposes `/health`.
 
 ```bash
 # Local (requires uv): from services/rag

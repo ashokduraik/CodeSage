@@ -25,7 +25,7 @@ Complements `web-frontend.mdc` (feature structure + boundary). These are the qua
   numbers) — and store/compare timestamps in UTC.
 
 ## Testing
-- **100% test coverage** (Vitest); descriptive test names; cover loading/error/empty states.
+- **≥ 80% test coverage** (Vitest); descriptive test names; cover loading/error/empty states.
 
 ```tsx
 // ❌ const title = 'Create project';

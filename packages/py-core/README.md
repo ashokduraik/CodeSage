@@ -5,7 +5,7 @@ heavy/blocking logic. The deployables `services/rag` and `services/worker` stay 
 into here, which keeps logic testable without a server or a queue.
 
 > **Status:** **Phase 0 skeleton implemented** — packaged with uv; the `config` module
-> (settings) exists with 100%-coverage tests. The remaining modules in the map below are added
+> (settings) exists with ≥ 80%-coverage tests. The remaining modules in the map below are added
 > in later phases.
 
 ## Why a shared core

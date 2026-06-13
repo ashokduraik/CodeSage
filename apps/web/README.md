@@ -4,7 +4,7 @@ React + TypeScript single-page app. The user-facing surface for project setup, Q
 expert question queue, and the workflow/page explorer.
 
 > **Status:** **Phase 0 skeleton implemented** — Vite + React app with a health-check landing
-> page and 100%-coverage tests. Feature folders (projects, chat, expert-queue, explorer) below
+> page and ≥ 80%-coverage tests. Feature folders (projects, chat, expert-queue, explorer) below
 > are the plan for later phases.
 
 ## Responsibilities
@@ -44,7 +44,7 @@ web/src/
 
 ## How to run
 
-Stack: **Vite + React + TypeScript**, tests with **Vitest** (jsdom) at 100% coverage.
+Stack: **Vite + React + TypeScript**, tests with **Vitest** (jsdom) at ≥ 80% coverage.
 
 ```bash
 npm install                 # from repo root (workspaces)

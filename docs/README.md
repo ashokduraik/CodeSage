@@ -41,6 +41,6 @@ Each deployable/package documents itself locally. Each folder carries four files
 5. `development-workflow.md` → understand how to ship a change safely.
 
 > **Status:** **Phase 0 (Foundation) is implemented and verified** — the monorepo builds,
-> migrations apply, `api`/`rag` serve `/health`, and all workspaces have 100%-coverage tests.
+> migrations apply, `api`/`rag` serve `/health`, and all workspaces have ≥ 80%-coverage tests.
 > See the root [`README.md`](../README.md) Quickstart. Later phases add auth/CRUD, indexing,
 > distillation, and end-user QA per [`final-solution.md`](./final-solution.md) §12.

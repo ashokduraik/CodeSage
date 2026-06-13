@@ -1,9 +1,21 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { ApiError } from "./errors";
-import { buildApp } from "../http/app";
 
-/** Shared test config: no listening, no logging. */
-const TEST_CONFIG = { host: "127.0.0.1", port: 0, nodeEnv: "test", logger: false } as const;
+vi.mock('postgres', () => {
+  const mockSql = Object.assign(vi.fn(), { end: vi.fn().mockResolvedValue(undefined) });
+  return { default: vi.fn(() => mockSql) };
+});
+
+const { buildApp } = await import("../http/app");
+
+/** Shared test config: no listening, no logging, fake DB URL (no real connection made). */
+const TEST_CONFIG = {
+  host: "127.0.0.1",
+  port: 0,
+  nodeEnv: "test",
+  logger: false,
+  databaseUrl: "postgresql://test:test@localhost:5432/test",
+} as const;
 
 describe("ApiError", () => {
   it("constructs with statusCode, code, and message", () => {

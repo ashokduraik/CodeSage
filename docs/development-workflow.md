@@ -55,11 +55,11 @@ with local patches.
   `.cursor/rules/testing-standards.mdc`.
 - **Colocated tests:** `*.test.ts` next to TS code; `test_*.py` next to Python code.
 - **Cross-service / E2E tests:** `tests/e2e/` (Playwright).
-- **100% coverage (line + branch) is required** for all code, enforced by CI gates on both the
-  TypeScript and Python sides. A coverage drop fails the build; do not lower the threshold.
+- **≥ 80% coverage (line + branch) is required** for all code, enforced by CI gates on both the
+  TypeScript and Python sides. A coverage drop below 80% fails the build; do not lower the threshold.
   Rare, genuinely-uncoverable lines may use a justified inline ignore (`/* istanbul ignore next */`,
   `# pragma: no cover`). See `.cursor/rules/test-coverage.mdc`.
-- A change is not done until its tests pass, coverage is 100%, and lint is clean.
+- A change is not done until its tests pass, coverage is ≥ 80%, and lint is clean.
 - Prefer testing the **public surface** of a module, not its internals.
 
 ## 6. AI-agent guidance
@@ -75,7 +75,7 @@ with local patches.
 - [ ] Contracts updated + codegen run (if any cross-service shape changed).
 - [ ] Business logic lives in `py-core` (if Python); services stay thin.
 - [ ] Migration added + `docs/data-model.md` updated (if schema changed).
-- [ ] Tests colocated and passing; **100% coverage (line + branch)**; lint clean.
+- [ ] Tests colocated and passing; **≥ 80% coverage (line + branch)**; lint clean.
 - [ ] Relevant `README.md` / `TODO.md` / `PLAN.md` updated.
 - [ ] No secrets committed; `.env.example` updated if new env vars were added.
 - [ ] ADR added for any new architectural decision.

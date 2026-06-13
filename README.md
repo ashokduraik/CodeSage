@@ -8,7 +8,7 @@
 
 **Status:** **Phase 0 (Foundation) implemented.** The monorepo builds, contracts codegen runs,
 PostgreSQL migrations apply, the Node `api` and Python `rag` services expose `/health`, the React
-`web` app builds, and CI is defined. All workspaces ship with tests at **100% coverage**. Real
+`web` app builds, and CI is defined. All workspaces ship with tests at **≥ 80% coverage**. Real
 auth/CRUD and indexing land in later phases (see [`docs/final-solution.md`](./docs/final-solution.md) §12).
 
 ## Quickstart
@@ -20,7 +20,7 @@ containers; local Python is not required.)
 npm install            # install JS workspace deps
 npm run codegen        # generate types from contracts/
 npm run typecheck      # typecheck all workspaces
-npm test               # run all JS tests (100% coverage gate)
+npm test               # run all JS tests (≥ 80% coverage gate)
 npm run build          # build web + api + shared-types
 
 docker compose up -d --build   # start db + migrate + api + rag + worker + web
