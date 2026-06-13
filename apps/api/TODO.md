@@ -3,11 +3,11 @@
 Checklist organized by module. (Global sequencing lives in `docs/final-solution.md` §12.)
 
 ## Platform & HTTP
-- [ ] Server bootstrap + middleware + error handling.
-- [ ] Config + structured logging.
+- [x] Server bootstrap + middleware + error handling (`platform/errors.ts` — global `{ error: { code, message } }` handler + 404 handler).
+- [x] Config + structured logging (`platform/config.ts` adds `nodeEnv`; `platform/logger.ts` builds Pino options: debug in dev, info in prod).
 - [ ] PostgreSQL client (shared single datastore).
 - [ ] Job-enqueue helper (Postgres queue, payloads from `contracts/jobs.schema.json`).
-- [ ] OpenAPI wiring from `contracts/openapi.node.yaml`.
+- [x] OpenAPI wiring from `contracts/openapi.node.yaml` (`/health` endpoint defined; `HealthResponse` generated into `@codesage/shared-types`).
 
 ## auth
 - [ ] Auth.js / JWT login + session.

@@ -1,0 +1,10 @@
+{
+  "app": {
+    "title": "CodeSage"
+  },
+  "status": {
+    "checking": "Checking API\u2026",
+    "healthy": "API healthy: {{service}}",
+    "unreachable": "API unreachable"
+  }
+}

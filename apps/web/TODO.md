@@ -5,9 +5,9 @@ Component checklist, organized by feature. Check items as they land. (Global seq
 
 ## Foundation
 - [ ] Choose build tool + package manager (record ADR if non-obvious).
-- [ ] App shell: routing, providers, layout.
+- [x] App shell: routing, providers, layout (React Query `QueryClientProvider` + i18next `initReactI18next` wired in `main.tsx`).
 - [ ] Auth-aware navigation + login screen (against Node Auth.js/JWT).
-- [ ] Typed API client scaffold generated from `contracts/`.
+- [x] Typed API client scaffold generated from `contracts/` (`getHealth` uses `NodeApi.components['schemas']['HealthResponse']`; `NodePaths` exported from generated types).
 - [ ] WebSocket client utility for streamed responses.
 
 ## Projects feature

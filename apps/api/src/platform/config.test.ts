@@ -6,6 +6,7 @@ describe("loadConfig", () => {
     const cfg = loadConfig({});
     expect(cfg.host).toBe("0.0.0.0");
     expect(cfg.port).toBe(3000);
+    expect(cfg.nodeEnv).toBe("development");
     expect(cfg.logger).toBe(true);
   });
 
@@ -13,12 +14,14 @@ describe("loadConfig", () => {
     const cfg = loadConfig({ API_HOST: "127.0.0.1", API_PORT: "8080", NODE_ENV: "production" });
     expect(cfg.host).toBe("127.0.0.1");
     expect(cfg.port).toBe(8080);
+    expect(cfg.nodeEnv).toBe("production");
     expect(cfg.logger).toBe(true);
   });
 
-  it("disables the logger under NODE_ENV=test", () => {
+  it("disables the logger and sets nodeEnv=test under NODE_ENV=test", () => {
     const cfg = loadConfig({ NODE_ENV: "test" });
     expect(cfg.logger).toBe(false);
+    expect(cfg.nodeEnv).toBe("test");
   });
 
   it("falls back to process.env by default", () => {

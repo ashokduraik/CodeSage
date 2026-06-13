@@ -1,16 +1,39 @@
-# PLACEHOLDER / TEMPLATE — internal Python RAG API.
-# Status: skeleton only. Fill in real paths/schemas during Phase 0.
+# SINGLE SOURCE OF TRUTH for the Node API -> Python RAG service internal contract.
 # Called by apps/api (not the browser). Edit here, then run codegen -> Pydantic models in py-core.
 openapi: 3.1.0
 info:
   title: CodeSage RAG API (internal)
   version: 0.0.0
   description: >-
-    Internal API exposed by services/rag. Placeholder skeleton — the QA query endpoint
-    is added in Phase 1. See docs/final-solution.md §8-§9.
-paths: {}
+    Internal API exposed by services/rag. See docs/final-solution.md §8-§9.
+paths:
+  /health:
+    get:
+      operationId: getRagHealth
+      summary: RAG service health check
+      description: Returns the liveness status of the Python RAG service.
+      responses:
+        '200':
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
   # TODO(Phase 1): POST /rag/query  (question + audience + optional page context -> streamed,
   #                grounded answer with citations; abstain path returns "not certain").
 components:
-  schemas: {}
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+      properties:
+        status:
+          type: string
+          enum: ['ok']
+          description: Always "ok" when the service is reachable.
+        service:
+          type: string
+          description: Name of the reporting service.
   # TODO(Phase 1): RagQueryRequest, RagAnswerChunk, Citation, ...
