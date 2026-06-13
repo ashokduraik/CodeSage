@@ -1,0 +1,30 @@
+---
+description: Backend API standards for the Node service (REST, errors, logging, config)
+globs: apps/api/**
+alwaysApply: false
+---
+
+# Backend API standards (apps/api)
+
+Complements `node-api.mdc` (boundary + module structure). These are the quality rules.
+
+## Architecture
+- Follow **RESTful** conventions (nouns, plural resources, correct verbs/status codes).
+- Use **middleware for authentication** and authorization (RBAC), not per-handler checks.
+- **Logging with levels** (debug/info/warn/error) via the Fastify/pino logger; structured logs.
+- All configuration via **environment variables**, loaded and validated in **one central config
+  module** (`src/platform/config.ts`). No `process.env` reads scattered across modules.
+
+## Error handling
+- Return a **consistent error response shape** for every error, e.g.:
+
+```ts
+// { error: { code: string; message: string; details?: unknown } }
+return reply.status(400).send({
+  error: { code: 'VALIDATION_ERROR', message: 'email is required' },
+});
+```
+
+- **Log every error with context** (request id, route, user id where available).
+- Use **appropriate HTTP status codes** (400/401/403/404/409/422/500…).
+- **Validate every request** (params, query, body) at the edge before business logic.

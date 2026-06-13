@@ -1,0 +1,26 @@
+---
+description: Security standards — secrets, tokens, access control, self-hosting, OSS-only
+alwaysApply: true
+---
+
+# Security standards
+
+CodeSage is self-hosted and handles private source code + repo tokens. Security is not optional.
+
+## Secrets & tokens
+- **Never commit secrets.** Document variables in `.env.example`; real `.env` is git/cursor-ignored.
+- Repo tokens are **encrypted at rest** (app-level envelope encryption) in PostgreSQL; decrypt
+  only in memory when needed (e.g. worker `sync`).
+- Recommend/expect **least-privilege, read-only** deploy tokens for connected repositories.
+- **Never log** secrets, tokens, passwords, or full sensitive request bodies.
+
+## Access control
+- Enforce **RBAC** (admin / expert / developer / end_user) at the API and data boundaries;
+  scope queries by project. **Audit-log** sensitive actions (actor, action, target, ts).
+- **Parameterized queries only**; sanitize/validate all inputs (see `database-standards.mdc`).
+
+## Deployment posture
+- **Self-hosted only:** code, embeddings, and LLM inference run on internal machines — **no
+  source code leaves the network**.
+- **Open-source only (NFR-10):** do not introduce paid/commercial-only products or services.
+  If a capability seems to need one, raise it (write an ADR) instead of adding it.

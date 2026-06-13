@@ -1,0 +1,23 @@
+---
+description: Conventions for Python core and services (heavy/blocking work)
+globs: packages/py-core/**,services/**
+alwaysApply: false
+---
+
+# Python — core library & services
+
+- **Business logic lives in `packages/py-core`.** `services/rag` and `services/worker` are **thin**
+  wiring (HTTP endpoints / queue consumers). If you write algorithms in `services/*`, move them to
+  `py-core`.
+- **One module = one concern**, exposing a small public surface via `__init__.py`. No deep imports
+  into another module's internals.
+- **Isolate external deps** so escape hatches stay cheap: DB in `db`, LLM in `llm`, embeddings in
+  `embedding`, vector/graph access in `retrieval`/`graph`. A swap touches one module.
+- **Prompts only in `py-core/llm` and `py-core/distill`.**
+- **Single datastore = PostgreSQL**; all persistence through `py-core/db`. No new data system
+  without an ADR.
+- **Ground + confidence:** every derived artifact carries confidence + citations; abstain (return
+  "not certain" / raise an expert question) rather than hallucinate.
+- **Incremental:** support upsert/delete of only affected entities on re-index.
+- Type hints everywhere; Pydantic for cross-service payloads (from `contracts/`); colocated
+  `test_*.py`.

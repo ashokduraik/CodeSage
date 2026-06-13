@@ -1,0 +1,20 @@
+---
+description: Testing, structure, and quality conventions across the repo
+alwaysApply: true
+---
+
+# Testing & quality
+
+- **Testing frameworks + 100% coverage:** see `testing-standards.mdc` and `test-coverage.mdc`.
+  Colocate tests; cross-service E2E goes in `tests/e2e/`.
+- Test the **public surface** of a module, not its internals.
+- **Small, single-purpose files** with descriptive names over large grab-bag files.
+- **No deep cross-module imports** — modules expose a public surface (`index.ts`/`__init__.py`).
+- **Document every function** with JSDoc/docstrings (purpose, params, returns). Other comments
+  explain **why / intent**, not a line-by-line narration of what the code does.
+- A change is **done** only when tests pass, lint/typecheck is clean, and the relevant
+  `README.md`/`TODO.md`/`PLAN.md` is updated.
+- **Never commit secrets.** Document env vars in `.env.example`.
+- Record any new architectural decision as an ADR in `docs/adr/`.
+
+Full Definition of Done: `docs/development-workflow.md` §7.

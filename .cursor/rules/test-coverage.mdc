@@ -1,0 +1,32 @@
+---
+description: All code must reach 100% test coverage (line and branch)
+alwaysApply: true
+---
+
+# 100% code coverage — required
+
+Every change ships with tests that bring the affected code to **100% coverage — both line and
+branch.** No code is "done" until coverage is complete and green.
+
+## Rules
+
+- Write tests **with** the code (same change/PR), not later. Cover every branch, error path, and
+  edge case — not just the happy path.
+- **CI enforces the threshold.** Coverage gates are set to 100% (line + branch); a drop fails the
+  build. Do not lower the threshold to make a build pass.
+- Coverage tooling: **TypeScript** (`apps/web`, `apps/api`, `packages/shared-types`) and
+  **Python** (`services/*`, `packages/py-core`) both run coverage in CI.
+- Test the module's **public surface** and its behavior, not implementation details.
+- If a line is genuinely impossible to cover, justify it with an explicit, reviewed ignore
+  annotation (e.g. `/* istanbul ignore next */`, `# pragma: no cover`) — used **rarely** and only
+  with a one-line reason. Do not blanket-ignore files.
+- 100% coverage is a floor, not the goal: prefer meaningful assertions over tests written only to
+  touch lines.
+
+## Definition of Done (coverage part)
+
+- [ ] New/changed code has tests covering every line and branch.
+- [ ] Coverage report shows 100% for the touched packages; CI gate passes.
+- [ ] Any `ignore`/`no cover` is justified inline and reviewed.
+
+See `docs/development-workflow.md` §5.

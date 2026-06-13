@@ -1,0 +1,23 @@
+---
+description: Grounding & trust — cite sources, show confidence, never hallucinate
+globs: services/**,packages/py-core/**
+alwaysApply: false
+---
+
+# Grounding & trust (QA + distillation)
+
+Trust is a product feature (NFR-7). The QA and distillation paths must never fabricate answers.
+
+## Rules
+- **Ground every answer** in retrieved context and attach **citations** (code refs or
+  expert-verified knowledge). No ungrounded answers.
+- If retrieved context does **not** support an answer, **abstain** — return "not certain" and
+  optionally raise an **expert question**. Never hallucinate to fill the gap.
+- Every **derived artifact** (`workflows`, `page_map`, `permission_rules`, `data_flows`) carries
+  **confidence + source citations** — never produce one without them.
+- **Expert answers are authoritative overrides**: they outrank LLM-inferred values and survive
+  re-indexing; don't overwrite them with inferred data.
+- Re-indexing is **incremental**: update only affected entities; mark touched derived artifacts
+  stale and re-derive just those.
+- The **router** (code vs product) and the **expert-question loop** are core IP — keep them as
+  explicit, owned code in `py_core` (not buried in a framework).

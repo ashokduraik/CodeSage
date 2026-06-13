@@ -1,0 +1,23 @@
+# PLACEHOLDER / TEMPLATE — public Node REST/WS API.
+# Status: skeleton only. Fill in real paths/schemas during Phase 0.
+# This is the SINGLE SOURCE OF TRUTH for the browser <-> Node API.
+# Edit here, then run codegen -> packages/shared-types. Do NOT hand-write TS types.
+openapi: 3.1.0
+info:
+  title: CodeSage Node API
+  version: 0.0.0
+  description: >-
+    Public, non-blocking API served by apps/api. Placeholder skeleton — endpoints
+    (auth, users, projects, repos, knowledge, questions, chat WS, webhooks) are added
+    in Phase 0 as they are implemented. See docs/final-solution.md §9.
+servers:
+  - url: /api
+paths: {}
+  # TODO(Phase 0): POST /auth/login, POST /users
+  # TODO(Phase 0): POST /projects, POST /projects/{id}/repos
+  # TODO(Phase 0): GET /projects/{id}/workflows | pages | questions
+  # TODO(Phase 0): POST /projects/{id}/questions/{qid}/answer
+  # TODO(Phase 0): WS /chat (documented separately), POST /webhooks/{provider}
+components:
+  schemas: {}
+  # TODO(Phase 0): shared schemas (User, Project, Repo, Citation, ...)

@@ -1,0 +1,81 @@
+# Local development stack (all services on one host). See docs/final-solution.md §11 for the
+# two-machine production topology (deploy/db, deploy/app). GPU services (vllm, tei) are added
+# in later phases and are intentionally omitted from this Phase 0 skeleton.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-codesage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-codesage}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-codesage} -d ${POSTGRES_DB:-codesage}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: ghcr.io/amacneil/dbmate:2
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://codesage:change-me@db:5432/codesage?sslmode=disable}
+      DBMATE_NO_DUMP_SCHEMA: "true"
+      DBMATE_MIGRATIONS_DIR: /db/migrations
+    volumes:
+      - ./db:/db
+    command: ["up"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  rag:
+    build:
+      context: .
+      dockerfile: services/rag/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://codesage:change-me@db:5432/codesage?sslmode=disable}
+    ports:
+      - "8001:8001"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      dockerfile: services/worker/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://codesage:change-me@db:5432/codesage?sslmode=disable}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  db_data:

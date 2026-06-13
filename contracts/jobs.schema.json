@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codesage.local/contracts/jobs.schema.json",
+  "title": "CodeSage job-queue payloads",
+  "description": "PLACEHOLDER / TEMPLATE. Single source of truth for job payloads that apps/api enqueues and services/worker consumes. Skeleton only — fill in real payloads during Phase 0/1. Edit here, then run codegen -> TS (shared-types) + Pydantic (py-core). See docs/final-solution.md §6 and ADR 0006.",
+  "type": "object",
+  "properties": {
+    "type": {
+      "description": "Job type. Each maps to a worker consumer.",
+      "enum": ["sync", "parse", "embed", "xrepo", "distill"]
+    },
+    "payload": {
+      "description": "Type-specific payload. TODO(Phase 0/1): define one sub-schema per job type.",
+      "type": "object"
+    }
+  },
+  "required": ["type", "payload"],
+  "$comment": "TODO: replace the generic payload with a discriminated union per job type (sync/parse/embed/xrepo/distill), e.g. sync => { repoId, sha }."
+}

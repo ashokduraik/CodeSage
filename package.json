@@ -1,0 +1,30 @@
+{
+  "name": "codesage",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Self-hosted, codebase-aware QA platform (monorepo root).",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "author": "Ashok Durai Kannan <ashokduraik@gmail.com>",
+  "workspaces": [
+    "packages/shared-types",
+    "apps/api",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "codegen": "node scripts/codegen.mjs",
+    "codegen:check": "node scripts/codegen.mjs --check",
+    "build": "npm run build -w @codesage/shared-types && npm run build -w @codesage/api && npm run build -w @codesage/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev:api": "npm run dev -w @codesage/api",
+    "dev:web": "npm run dev -w @codesage/web"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.4.3",
+    "typescript": "^5.6.3"
+  }
+}

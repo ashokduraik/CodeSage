@@ -1,0 +1,23 @@
+---
+description: Documentation & ADR conventions (keep docs in sync, record decisions)
+globs: docs/**,**/README.md,**/AGENTS.md,**/PLAN.md,**/TODO.md
+alwaysApply: false
+---
+
+# Documentation & ADRs
+
+Docs are part of the deliverable; keep them truthful and in sync with the code.
+
+## Conventions
+- Canonical specs live in `docs/` (`requirement.md`, `intermediate-solution.md`,
+  `final-solution.md`); treat them as source-of-truth context, not throwaway notes.
+- `docs/data-model.md` **mirrors** `db/migrations/` — update it in the **same change** as any
+  migration.
+- Each deployable/package keeps four docs: `README.md`, `PLAN.md`, `TODO.md`, `AGENTS.md`.
+  Update the relevant ones in the same change as code.
+- **One decision = one ADR** in `docs/adr/` (Status · Context · Decision · Consequences ·
+  Alternatives · Escape hatch). Add the ADR to `docs/adr/README.md`; ADRs are immutable once
+  Accepted — supersede with a new one rather than rewriting.
+- Write any **new architectural decision** as an ADR before/with the code that implements it.
+- Prefer updating an existing doc over creating a new file; never let docs claim something the
+  code doesn't do.

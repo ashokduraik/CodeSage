@@ -1,0 +1,26 @@
+---
+description: Conventions for the React + TypeScript frontend
+globs: apps/web/**
+alwaysApply: false
+---
+
+# apps/web — React frontend
+
+- **Feature-based structure:** each feature folder owns UI + hooks + API calls + tests. Cross-
+  feature reuse goes through `shared/` — no deep imports across features.
+- **Talk only to `apps/api`.** Never call the Python services directly.
+- **Use generated API types** from `packages/shared-types` (from `contracts/`). Never hand-write
+  request/response types.
+- **Thin components, logic in hooks.** Keep components presentational.
+- **Always render citations** where an answer is shown; handle the "unknown / not certain" path.
+- One component/hook per file; descriptive names; colocated `*.test.tsx`. No secrets.
+
+```tsx
+// ❌ BAD: hand-written shape + logic in the component
+const res = await fetch('/api/projects', { method: 'POST', body: JSON.stringify(data) });
+
+// ✅ GOOD: generated client + types, logic in a hook
+import { useCreateProject } from '../hooks/useCreateProject'; // wraps the typed client
+const { mutate } = useCreateProject();
+mutate(data); // data is typed from contracts/
+```
