@@ -15,6 +15,9 @@ const TEST_CONFIG = {
   nodeEnv: "test",
   logger: false,
   databaseUrl: "postgresql://test:test@localhost:5432/test",
+  jwtSecret: "test-secret-32-chars-long-enough!",
+  jwtTtl: "3600",
+  encryptionKey: "",
 } as const;
 
 describe("ApiError", () => {

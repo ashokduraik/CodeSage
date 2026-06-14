@@ -24,6 +24,9 @@ const TEST_CONFIG = {
   nodeEnv: 'test',
   logger: false,
   databaseUrl: 'postgresql://test:test@localhost:5432/test',
+  jwtSecret: 'test-secret-32-chars-long-enough!',
+  jwtTtl: '3600',
+  encryptionKey: '',
 } as const;
 
 let app: FastifyInstance | undefined;
@@ -53,6 +56,12 @@ describe('buildApp', () => {
     app = buildApp(TEST_CONFIG);
     await app.ready();
     expect(app.db).toBeDefined();
+  });
+
+  it('decorates the Fastify instance with the resolved config', async () => {
+    app = buildApp(TEST_CONFIG);
+    await app.ready();
+    expect(app.config).toMatchObject({ jwtSecret: 'test-secret-32-chars-long-enough!' });
   });
 
   it('passes databaseUrl to the postgres factory', async () => {

@@ -1,45 +1,86 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
 import "../i18n"; // initialise i18next before rendering
-import { App } from "./App";
+import { resetMockStore } from "@/shared/mock";
+import type { AuthContextValue } from "@/features/auth";
 
-/**
- * Wraps `ui` in a fresh QueryClient so each test starts with a clean cache.
- * `retry: false` prevents React Query from retrying failed requests in tests.
- */
-function renderWithProviders(ui: ReactNode) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
-}
-
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
+/** Mock the entire auth module so routing tests are not coupled to real auth logic. */
+vi.mock("@/features/auth", () => {
+  const { createContext } = require("react");
+  const AuthContext = createContext<AuthContextValue | null>(null);
+  const useAuth = () => {
+    const { useContext } = require("react");
+    const ctx = useContext(AuthContext);
+    if (!ctx) throw new Error("useAuth must be used within an AuthProvider.");
+    return ctx;
+  };
+  const AuthProvider = ({ children }: { children: import("react").ReactNode }) => children;
+  const LoginPage = () => <div>Login</div>;
+  return { AuthContext, useAuth, AuthProvider, LoginPage };
 });
 
+const AUTHENTICATED_CTX: AuthContextValue = {
+  user: { id: "u1", email: "test@example.com", role: "developer", createdAt: "2026-01-01T00:00:00.000Z" },
+  token: "mock-jwt",
+  isLoading: false,
+  login: vi.fn(),
+  logout: vi.fn(),
+};
+
+const UNAUTHENTICATED_CTX: AuthContextValue = {
+  user: null,
+  token: null,
+  isLoading: false,
+  login: vi.fn(),
+  logout: vi.fn(),
+};
+
+const LOADING_CTX: AuthContextValue = {
+  user: null,
+  token: null,
+  isLoading: true,
+  login: vi.fn(),
+  logout: vi.fn(),
+};
+
+import { AuthContext } from "@/features/auth";
+import { App } from "./App";
+
+function renderApp(path: string, authCtx: AuthContextValue = AUTHENTICATED_CTX) {
+  window.history.pushState({}, "", path);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <AuthContext.Provider value={authCtx}>
+        <App />
+      </AuthContext.Provider>
+    </QueryClientProvider>,
+  );
+}
+
+beforeEach(() => resetMockStore());
+afterEach(cleanup);
+
 describe("App", () => {
-  it("shows loading status while the health check is pending", () => {
-    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise(() => undefined)));
-    renderWithProviders(<App />);
-    expect(screen.getByTestId("status").textContent).toBe("Checking API\u2026");
+  it("renders the dashboard inside the app layout at the root route (authenticated)", async () => {
+    renderApp("/");
+    expect(screen.getAllByText("CodeSage").length).toBeGreaterThan(0);
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeTruthy();
   });
 
-  it("shows healthy status when the API responds", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: "ok", service: "api" }) }),
-    );
-    renderWithProviders(<App />);
-    expect(await screen.findByText("API healthy: api")).toBeTruthy();
+  it("redirects unknown routes to the dashboard (authenticated)", async () => {
+    renderApp("/does-not-exist");
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeTruthy();
   });
 
-  it("shows an error status when the API is unreachable", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503 }));
-    renderWithProviders(<App />);
-    expect(await screen.findByText("API unreachable")).toBeTruthy();
+  it("shows a spinner while loading the session", () => {
+    renderApp("/", LOADING_CTX);
+    expect(screen.getByRole("status")).toBeTruthy();
+  });
+
+  it("redirects to /login when unauthenticated", () => {
+    renderApp("/", UNAUTHENTICATED_CTX);
+    expect(screen.getByText("Login")).toBeTruthy();
   });
 });

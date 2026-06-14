@@ -3,9 +3,12 @@
 React + TypeScript single-page app. The user-facing surface for project setup, QA chat, the
 expert question queue, and the workflow/page explorer.
 
-> **Status:** **Phase 0 skeleton implemented** — Vite + React app with a health-check landing
-> page and ≥ 80%-coverage tests. Feature folders (projects, chat, expert-queue, explorer) below
-> are the plan for later phases.
+> **Status:** **Core UI shell implemented** — Vite + React + Tailwind app with a sidebar layout,
+> a **Dashboard** and a **Chat** experience (developer / end-user modes, citations, low-confidence
+> expert-review fallback). Data is served by a **temporary in-memory mock layer**
+> (`src/shared/mock/`) until the Node API contract exposes these endpoints; swap the mock for the
+> generated typed client when it lands. Remaining feature folders (projects, expert-queue,
+> explorer) below are the plan for later phases. The health-check client (`src/app/`) is retained.
 
 ## Responsibilities
 
@@ -25,21 +28,35 @@ expert question queue, and the workflow/page explorer.
 
 ## Tech
 
-- React + TypeScript, **feature-based** folder structure.
-- WebSocket client for streamed answers; typed REST client generated from contracts.
+- React + TypeScript, **feature-based** folder structure, **react-router-dom** for navigation.
+- **Tailwind CSS** with a CSS-variable design-token theme (`src/index.css`, light/dark via `.dark`).
+- UI primitives in `src/shared/ui/` are vendored shadcn/Radix-style components (Button, Input,
+  Dialog, etc.); a styled native `<select>` is used instead of a Radix listbox to keep the
+  dependency + test surface small.
+- WebSocket client for streamed answers (later); typed REST client generated from contracts.
 
-## Planned structure (per `docs/final-solution.md` §4.2)
+### Coverage note
+
+`src/shared/ui/**` and `src/test/**` are excluded from the coverage gate (see `vite.config.ts`):
+the UI primitives are third-party-derived wrappers, not our business logic. **All of our own code**
+(features, hooks, layout, lib, mock layer) is held to the workspace 100% line+branch threshold.
+
+## Structure (per `docs/final-solution.md` §4.2)
 
 ```
 web/src/
-├─ features/         # one folder per feature: UI + hooks + api calls + tests colocated
-│  ├─ projects/      # create project, attach repos
-│  ├─ chat/          # QA chat (dev + end-user), WS streaming, citations
-│  ├─ expert-queue/  # answer clarifying questions
-│  └─ explorer/      # workflow / page / permission browser
-├─ shared/           # reusable UI components, hooks, lib
-├─ api/              # thin client typed from contracts/
-└─ app/              # routing, providers, layout
+├─ features/         # one folder per feature: UI + hooks + tests colocated
+│  ├─ dashboard/     # overview stats + recent projects/conversations  (implemented)
+│  ├─ chat/          # QA chat (dev + end-user), citations, mock send  (implemented)
+│  ├─ projects/      # create project, attach repos                    (planned)
+│  ├─ expert-queue/  # answer clarifying questions                     (planned)
+│  └─ explorer/      # workflow / page / permission browser            (planned)
+├─ shared/
+│  ├─ ui/            # vendored UI primitives (excluded from coverage)
+│  ├─ layout/        # AppLayout, Sidebar, MobileNav + nav config
+│  ├─ lib/           # cn(), locale-aware relative time
+│  └─ mock/          # TEMPORARY in-memory data layer (replace with contracts client)
+└─ app/              # routing, providers, health-check client
 ```
 
 ## How to run

@@ -2,18 +2,128 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://codesage.local/contracts/jobs.schema.json",
   "title": "CodeSage job-queue payloads",
-  "description": "PLACEHOLDER / TEMPLATE. Single source of truth for job payloads that apps/api enqueues and services/worker consumes. Skeleton only — fill in real payloads during Phase 0/1. Edit here, then run codegen -> TS (shared-types) + Pydantic (py-core). See docs/final-solution.md §6 and ADR 0006.",
+  "description": "Single source of truth for job payloads that apps/api enqueues and services/worker consumes. Edit here, then run codegen -> TS (shared-types) + Pydantic (py-core). See docs/final-solution.md §6 and ADR 0006.",
   "type": "object",
-  "properties": {
-    "type": {
-      "description": "Job type. Each maps to a worker consumer.",
-      "enum": ["sync", "parse", "embed", "xrepo", "distill"]
-    },
-    "payload": {
-      "description": "Type-specific payload. TODO(Phase 0/1): define one sub-schema per job type.",
-      "type": "object"
-    }
-  },
   "required": ["type", "payload"],
-  "$comment": "TODO: replace the generic payload with a discriminated union per job type (sync/parse/embed/xrepo/distill), e.g. sync => { repoId, sha }."
+  "discriminator": {
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "type": { "const": "sync" },
+        "payload": { "$ref": "#/$defs/SyncPayload" }
+      },
+      "required": ["type", "payload"]
+    },
+    {
+      "properties": {
+        "type": { "const": "parse" },
+        "payload": { "$ref": "#/$defs/ParsePayload" }
+      },
+      "required": ["type", "payload"]
+    },
+    {
+      "properties": {
+        "type": { "const": "embed" },
+        "payload": { "$ref": "#/$defs/EmbedPayload" }
+      },
+      "required": ["type", "payload"]
+    },
+    {
+      "properties": {
+        "type": { "const": "xrepo" },
+        "payload": { "$ref": "#/$defs/XrepoPayload" }
+      },
+      "required": ["type", "payload"]
+    },
+    {
+      "properties": {
+        "type": { "const": "distill" },
+        "payload": { "$ref": "#/$defs/DistillPayload" }
+      },
+      "required": ["type", "payload"]
+    }
+  ],
+  "$defs": {
+    "SyncPayload": {
+      "type": "object",
+      "description": "Clone/fetch repo to filesystem and detect changed files.",
+      "required": ["repoId"],
+      "properties": {
+        "repoId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID of the repo row in the repos table."
+        },
+        "sinceSha": {
+          "type": "string",
+          "description": "If present, only sync changes since this commit SHA (incremental). Absent on initial sync."
+        }
+      }
+    },
+    "ParsePayload": {
+      "type": "object",
+      "description": "tree-sitter parse of specific changed files.",
+      "required": ["repoId", "files", "sha"],
+      "properties": {
+        "repoId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Relative file paths to parse."
+        },
+        "sha": {
+          "type": "string",
+          "description": "Current HEAD SHA at parse time."
+        }
+      }
+    },
+    "EmbedPayload": {
+      "type": "object",
+      "description": "Embed code chunks and upsert vectors into pgvector.",
+      "required": ["repoId", "chunkIds"],
+      "properties": {
+        "repoId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "chunkIds": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "IDs of code_chunks rows to embed."
+        }
+      }
+    },
+    "XrepoPayload": {
+      "type": "object",
+      "description": "Cross-repo link resolution for a project.",
+      "required": ["projectId"],
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "DistillPayload": {
+      "type": "object",
+      "description": "LLM distillation of workflows/pages/permissions/data-flows.",
+      "required": ["projectId"],
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "staleArtifactIds": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "IDs of stale derived artifacts to re-derive. If absent, derive all."
+        }
+      }
+    }
+  }
 }

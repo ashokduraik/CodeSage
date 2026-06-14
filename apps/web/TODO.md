@@ -5,24 +5,31 @@ Component checklist, organized by feature. Check items as they land. (Global seq
 
 ## Foundation
 - [ ] Choose build tool + package manager (record ADR if non-obvious).
-- [x] App shell: routing, providers, layout (React Query `QueryClientProvider` + i18next `initReactI18next` wired in `main.tsx`).
-- [ ] Auth-aware navigation + login screen (against Node Auth.js/JWT).
-- [x] Typed API client scaffold generated from `contracts/` (`getHealth` uses `NodeApi.components['schemas']['HealthResponse']`; `NodePaths` exported from generated types).
+- [x] App shell: routing (`react-router-dom`), providers, layout (`AppLayout` + `Sidebar` + `MobileNav`); React Query `QueryClientProvider` + i18next wired in `main.tsx`.
+- [x] Tailwind CSS + design-token theme (`src/index.css`); vendored UI primitives in `src/shared/ui/`.
+- [x] Auth-aware navigation + login screen — `AuthContext`/`useAuth` (JWT, localStorage), `LoginPage`, `ProtectedRoute` guard; `AuthProvider` wraps the app in `main.tsx`.
+- [x] Typed API client — `shared/lib/apiClient.ts` (`apiFetch` typed against `@codesage/shared-types`; Authorization header injection).
+- [ ] Replace `src/shared/mock/` with the real typed API client (chat/dashboard still mock-backed).
 - [ ] WebSocket client utility for streamed responses.
 
+## Dashboard feature
+- [x] Overview stat cards (projects, sessions, knowledge, reviews).
+- [x] Recent projects list with status badges; recent conversations list.
+- [x] Loading / error / empty states; colocated tests.
+
 ## Projects feature
-- [ ] Create project form.
-- [ ] Attach repo(s): URL + token + branch + role (`frontend`/`backend`/`iam`).
-- [ ] Multi-repo management UI for a project.
+- [x] Create project form (`CreateProjectDialog` + `useCreateProject`).
+- [x] Attach repo(s): URL + token + branch + role — `AttachRepoDialog` + `useAttachRepo` (enqueues sync job on attach).
+- [ ] Multi-repo management UI for a project (per-repo list + status).
 - [ ] Index/job status display per repo.
 
 ## Chat feature
-- [ ] Conversation list + message thread.
-- [ ] WebSocket streaming of answers.
-- [ ] Citation rendering (code refs + expert-verified KB).
-- [ ] Audience toggle (developer vs end-user).
+- [x] Conversation list + message thread (mock-backed).
+- [x] New-conversation dialog with audience toggle (developer vs end-user) + project scope.
+- [x] Citation rendering (source chips) + low-confidence "sent for expert review" state.
+- [ ] WebSocket streaming of answers (currently a mock React Query mutation).
+- [ ] Citation rendering against real code refs + expert-verified KB.
 - [ ] Page-context capture for page-scoped product questions.
-- [ ] "Unknown / not certain" answer state.
 
 ## Expert-queue feature
 - [ ] Question queue list with context references.

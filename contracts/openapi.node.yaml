@@ -3,7 +3,7 @@
 openapi: 3.1.0
 info:
   title: CodeSage Node API
-  version: 0.0.0
+  version: 0.1.0
   description: >-
     Public, non-blocking API served by apps/api. See docs/final-solution.md §9.
 servers:
@@ -21,12 +21,291 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
-  # TODO(Phase 1): POST /auth/login, POST /users
-  # TODO(Phase 1): POST /projects, POST /projects/{id}/repos
-  # TODO(Phase 1): GET /projects/{id}/workflows | pages | questions
-  # TODO(Phase 1): POST /projects/{id}/questions/{qid}/answer
-  # TODO(Phase 1): WS /chat (documented separately), POST /webhooks/{provider}
+
+  /auth/login:
+    post:
+      operationId: login
+      summary: Authenticate with email + password and receive a JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/me:
+    get:
+      operationId: getMe
+      summary: Returns the authenticated user's profile.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Authenticated user profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Missing or invalid token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users:
+    post:
+      operationId: createUser
+      summary: Create a new user (admin only).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already in use.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects:
+    get:
+      operationId: listProjects
+      summary: List all projects accessible to the authenticated user.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of projects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+        '401':
+          description: Missing or invalid token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createProject
+      summary: Create a new project.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      summary: Get a single project by ID.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteProject
+      summary: Delete a project and all associated data.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Project deleted.
+        '404':
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{projectId}/repos:
+    get:
+      operationId: listRepos
+      summary: List repos attached to a project.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of repos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Repo'
+        '404':
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: attachRepo
+      summary: Attach a repository to a project and enqueue an initial sync job.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRepoRequest'
+      responses:
+        '202':
+          description: Repo attached; sync job enqueued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachRepoResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{projectId}/repos/{repoId}:
+    delete:
+      operationId: deleteRepo
+      summary: Detach a repository from a project.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: repoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Repo detached.
+        '404':
+          description: Repo or project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthResponse:
       type: object
@@ -41,4 +320,224 @@ components:
         service:
           type: string
           description: Name of the reporting service.
-  # TODO(Phase 1): User, Project, Repo, Citation, ...
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+            message:
+              type: string
+              description: Human-readable error description.
+            details:
+              description: Optional extra context (e.g. field-level validation errors).
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address.
+        password:
+          type: string
+          minLength: 8
+          description: User's password (min 8 characters).
+
+    LoginResponse:
+      type: object
+      required:
+        - token
+        - user
+      properties:
+        token:
+          type: string
+          description: Signed JWT for use in Authorization headers.
+        user:
+          $ref: '#/components/schemas/User'
+
+    UserRole:
+      type: string
+      enum:
+        - admin
+        - expert
+        - developer
+        - end_user
+      description: RBAC role assigned to the user.
+
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - role
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier.
+        email:
+          type: string
+          format: email
+          description: User's email address.
+        role:
+          $ref: '#/components/schemas/UserRole'
+        createdAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the account was created.
+
+    CreateUserRequest:
+      type: object
+      required:
+        - email
+        - password
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address for the new account.
+        password:
+          type: string
+          minLength: 8
+          description: Initial password (min 8 characters).
+        role:
+          $ref: '#/components/schemas/UserRole'
+
+    CreateProjectRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Human-readable project name.
+
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique project identifier.
+        name:
+          type: string
+          description: Human-readable project name.
+        status:
+          type: string
+          description: Current lifecycle status of the project (e.g. active, indexing).
+        createdAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the project was created.
+
+    RepoProvider:
+      type: string
+      enum:
+        - github
+        - gitlab
+      description: Git hosting provider.
+
+    RepoRole:
+      type: string
+      enum:
+        - frontend
+        - backend
+        - iam
+        - other
+      description: Role this repo plays within the project.
+
+    CreateRepoRequest:
+      type: object
+      required:
+        - repoUrl
+        - provider
+        - branch
+        - role
+      properties:
+        repoUrl:
+          type: string
+          description: HTTPS clone URL of the repository.
+        provider:
+          $ref: '#/components/schemas/RepoProvider'
+        branch:
+          type: string
+          description: Branch to index (defaults to main).
+        role:
+          $ref: '#/components/schemas/RepoRole'
+        token:
+          type: string
+          description: >-
+            Read-only deploy token for private repos. Encrypted at rest; never
+            returned in responses.
+
+    Repo:
+      type: object
+      required:
+        - id
+        - projectId
+        - repoUrl
+        - provider
+        - branch
+        - role
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique repo identifier.
+        projectId:
+          type: string
+          format: uuid
+          description: Parent project ID.
+        repoUrl:
+          type: string
+          description: HTTPS clone URL.
+        provider:
+          $ref: '#/components/schemas/RepoProvider'
+        branch:
+          type: string
+          description: Indexed branch.
+        role:
+          $ref: '#/components/schemas/RepoRole'
+        lastIndexedSha:
+          type: string
+          description: Git SHA of the last successfully indexed commit.
+        createdAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the repo was attached.
+
+    AttachRepoResponse:
+      type: object
+      required:
+        - repo
+        - jobId
+      properties:
+        repo:
+          $ref: '#/components/schemas/Repo'
+        jobId:
+          type: string
+          format: uuid
+          description: ID of the enqueued sync job.

@@ -13,6 +13,18 @@ export interface AppConfig {
   logger: boolean;
   /** PostgreSQL connection URL (DATABASE_URL). Required in all non-test environments. */
   databaseUrl: string;
+  /** Secret used to sign JWTs (JWT_SECRET). Must be set in production. */
+  jwtSecret: string;
+  /**
+   * JWT expiry expressed as a seconds number or a string like "1h" (AUTH_TOKEN_TTL).
+   * Defaults to 3600 seconds (1 hour).
+   */
+  jwtTtl: string;
+  /**
+   * Base64-encoded 32-byte AES-256 key used for envelope encryption of repo tokens
+   * (TOKEN_ENC_KEY). Must be set when repos with tokens are used.
+   */
+  encryptionKey: string;
 }
 
 /**
@@ -28,5 +40,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     nodeEnv: env.NODE_ENV ?? "development",
     logger: env.NODE_ENV !== "test",
     databaseUrl: env.DATABASE_URL ?? "",
+    jwtSecret: env.JWT_SECRET ?? "dev-secret-change-me",
+    jwtTtl: env.AUTH_TOKEN_TTL ?? "3600",
+    encryptionKey: env.TOKEN_ENC_KEY ?? "",
   };
 }

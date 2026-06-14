@@ -57,8 +57,8 @@ Postgres covers everything the MVP needs, eliminating extra services:
 | Table | Purpose | Key columns / notes |
 |---|---|---|
 | `conversations` / `messages` | QA history | `audience` (`dev` \| `end_user`), `citations[]` |
-| `jobs` | The job queue | `type`, `payload` (JSON, see `contracts/jobs.schema.json`), `status`, `attempts`, `locked_at` |
-| `audit_log` | Security/audit trail | `actor`, `action`, `target`, `ts` |
+| `jobs` | Postgres-backed job queue (ADR 0006) | `type` (sync/parse/embed/xrepo/distill), `payload` (JSONB, see `contracts/jobs.schema.json`), `status` (`pending`/`running`/`done`/`failed`), `attempts`, `locked_at`; partial index on `status = 'pending'` for fast worker scans |
+| `audit_log` | Security/audit trail | `actor_id` (FK to users), `action`, `target`, `ts`; indexed on `actor_id` and `ts` |
 
 ## 3. Relationships (high level)
 

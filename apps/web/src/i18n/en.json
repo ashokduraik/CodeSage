@@ -1,10 +1,128 @@
 {
   "app": {
-    "title": "CodeSage"
+    "title": "CodeSage",
+    "tagline": "Codebase Intelligence"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "projects": "Projects",
+    "chat": "Chat",
+    "openMenu": "Open navigation menu",
+    "closeMenu": "Close navigation menu"
+  },
+  "auth": {
+    "loginSubtitle": "Sign in to your CodeSage workspace",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "••••••••",
+    "loginButton": "Sign in",
+    "loggingIn": "Signing in\u2026",
+    "loginError": "Invalid email or password. Please try again."
+  },
+  "projects": {
+    "title": "Projects",
+    "subtitle": "Connect and manage your code repositories",
+    "newProject": "New Project",
+    "noProjects": "No projects yet. Connect your first repository.",
+    "loadError": "Could not load projects. Please try again.",
+    "attachRepo": "Attach Repo",
+    "createDialog": {
+      "title": "Create Project",
+      "nameLabel": "Project Name",
+      "namePlaceholder": "e.g. Acme Platform",
+      "submit": "Create",
+      "creating": "Creating\u2026",
+      "error": "Failed to create project. Please try again."
+    },
+    "attachDialog": {
+      "title": "Attach Repository",
+      "urlLabel": "Clone URL",
+      "providerLabel": "Provider",
+      "roleLabel": "Role",
+      "roleFrontend": "Frontend",
+      "roleBackend": "Backend",
+      "roleIam": "IAM / Auth",
+      "roleOther": "Other",
+      "branchLabel": "Branch",
+      "tokenLabel": "Deploy Token",
+      "tokenOptional": "optional",
+      "tokenPlaceholder": "ghp_\u2026 or glpat-\u2026",
+      "submit": "Attach",
+      "attaching": "Attaching\u2026",
+      "error": "Failed to attach repository. Please try again."
+    }
   },
   "status": {
     "checking": "Checking API\u2026",
     "healthy": "API healthy: {{service}}",
-    "unreachable": "API unreachable"
+    "unreachable": "API unreachable",
+    "indexed": "Indexed",
+    "indexing": "Indexing",
+    "connecting": "Connecting",
+    "error": "Error",
+    "stale": "Stale"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Your codebase intelligence at a glance",
+    "loadError": "Could not load the dashboard. Please try again.",
+    "recentProjects": "Recent Projects",
+    "noProjects": "No projects connected yet.",
+    "recentConversations": "Recent Conversations",
+    "viewAll": "View all",
+    "repoCount_one": "{{count}} repo",
+    "repoCount_other": "{{count}} repos",
+    "stats": {
+      "projects": "Projects",
+      "indexedCount_one": "{{count}} indexed",
+      "indexedCount_other": "{{count}} indexed",
+      "sessions": "Chat Sessions",
+      "conversations": "Total conversations",
+      "knowledge": "Knowledge Entries",
+      "cataloged": "Answers catalogued",
+      "reviews": "Pending Reviews",
+      "awaiting": "Awaiting expert input"
+    }
+  },
+  "chat": {
+    "newChat": "New Chat",
+    "searchPlaceholder": "Search chats\u2026",
+    "noConversations": "No conversations yet",
+    "general": "General",
+    "messageCount_one": "{{count}} message",
+    "messageCount_other": "{{count}} messages",
+    "lowConfidence": "Low confidence \u2014 sent for expert review",
+    "inputPlaceholder": "Ask about your codebase\u2026",
+    "send": "Send message",
+    "toggleSidebar": "Toggle conversation list",
+    "selectConversation": "Select or start a conversation",
+    "firstQuestion": "Ask your first question about this project.",
+    "mode": {
+      "developer": "Developer",
+      "end_user": "End User"
+    },
+    "hero": {
+      "title": "Ask CodeSage",
+      "body": "Start a conversation to ask questions about your codebase. Choose Developer mode for code-level queries or End-User mode for navigation and workflow help.",
+      "cta": "Start a Conversation"
+    },
+    "new": {
+      "title": "New Conversation",
+      "titleLabel": "Title",
+      "titlePlaceholder": "e.g., Auth flow questions",
+      "modeLabel": "Mode",
+      "modeDeveloper": "Developer \u2014 code-level questions",
+      "modeEndUser": "End User \u2014 navigation, permissions, data",
+      "projectLabel": "Project (optional)",
+      "projectNone": "No project (general)",
+      "creating": "Creating\u2026",
+      "submit": "Start Chat",
+      "defaultTitle": "New Chat"
+    }
   }
 }

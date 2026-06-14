@@ -21,6 +21,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Authenticate with email + password and receive a JWT. */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns the authenticated user's profile. */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a new user (admin only). */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all projects accessible to the authenticated user. */
+        get: operations["listProjects"];
+        put?: never;
+        /** Create a new project. */
+        post: operations["createProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single project by ID. */
+        get: operations["getProject"];
+        put?: never;
+        post?: never;
+        /** Delete a project and all associated data. */
+        delete: operations["deleteProject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List repos attached to a project. */
+        get: operations["listRepos"];
+        put?: never;
+        /** Attach a repository to a project and enqueue an initial sync job. */
+        post: operations["attachRepo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/repos/{repoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Detach a repository from a project. */
+        delete: operations["deleteRepo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -33,6 +155,136 @@ export interface components {
             status: "ok";
             /** @description Name of the reporting service. */
             service: string;
+        };
+        ErrorResponse: {
+            error: {
+                /** @description Machine-readable error code. */
+                code: string;
+                /** @description Human-readable error description. */
+                message: string;
+                /** @description Optional extra context (e.g. field-level validation errors). */
+                details?: unknown;
+            };
+        };
+        LoginRequest: {
+            /**
+             * Format: email
+             * @description User's email address.
+             */
+            email: string;
+            /** @description User's password (min 8 characters). */
+            password: string;
+        };
+        LoginResponse: {
+            /** @description Signed JWT for use in Authorization headers. */
+            token: string;
+            user: components["schemas"]["User"];
+        };
+        /**
+         * @description RBAC role assigned to the user.
+         * @enum {string}
+         */
+        UserRole: "admin" | "expert" | "developer" | "end_user";
+        User: {
+            /**
+             * Format: uuid
+             * @description Unique user identifier.
+             */
+            id: string;
+            /**
+             * Format: email
+             * @description User's email address.
+             */
+            email: string;
+            role: components["schemas"]["UserRole"];
+            /**
+             * Format: date-time
+             * @description UTC timestamp when the account was created.
+             */
+            createdAt: string;
+        };
+        CreateUserRequest: {
+            /**
+             * Format: email
+             * @description Email address for the new account.
+             */
+            email: string;
+            /** @description Initial password (min 8 characters). */
+            password: string;
+            role: components["schemas"]["UserRole"];
+        };
+        CreateProjectRequest: {
+            /** @description Human-readable project name. */
+            name: string;
+        };
+        Project: {
+            /**
+             * Format: uuid
+             * @description Unique project identifier.
+             */
+            id: string;
+            /** @description Human-readable project name. */
+            name: string;
+            /** @description Current lifecycle status of the project (e.g. active, indexing). */
+            status: string;
+            /**
+             * Format: date-time
+             * @description UTC timestamp when the project was created.
+             */
+            createdAt: string;
+        };
+        /**
+         * @description Git hosting provider.
+         * @enum {string}
+         */
+        RepoProvider: "github" | "gitlab";
+        /**
+         * @description Role this repo plays within the project.
+         * @enum {string}
+         */
+        RepoRole: "frontend" | "backend" | "iam" | "other";
+        CreateRepoRequest: {
+            /** @description HTTPS clone URL of the repository. */
+            repoUrl: string;
+            provider: components["schemas"]["RepoProvider"];
+            /** @description Branch to index (defaults to main). */
+            branch: string;
+            role: components["schemas"]["RepoRole"];
+            /** @description Read-only deploy token for private repos. Encrypted at rest; never returned in responses. */
+            token?: string;
+        };
+        Repo: {
+            /**
+             * Format: uuid
+             * @description Unique repo identifier.
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @description Parent project ID.
+             */
+            projectId: string;
+            /** @description HTTPS clone URL. */
+            repoUrl: string;
+            provider: components["schemas"]["RepoProvider"];
+            /** @description Indexed branch. */
+            branch: string;
+            role: components["schemas"]["RepoRole"];
+            /** @description Git SHA of the last successfully indexed commit. */
+            lastIndexedSha?: string;
+            /**
+             * Format: date-time
+             * @description UTC timestamp when the repo was attached.
+             */
+            createdAt: string;
+        };
+        AttachRepoResponse: {
+            repo: components["schemas"]["Repo"];
+            /**
+             * Format: uuid
+             * @description ID of the enqueued sync job.
+             */
+            jobId: string;
         };
     };
     responses: never;
@@ -59,6 +311,355 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Authentication successful. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authenticated user profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description User created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Validation error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email already in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of projects. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"][];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Project created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Validation error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Project not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Project not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listRepos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of repos. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repo"][];
+                };
+            };
+            /** @description Project not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    attachRepo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRepoRequest"];
+            };
+        };
+        responses: {
+            /** @description Repo attached; sync job enqueued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachRepoResponse"];
+                };
+            };
+            /** @description Validation error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRepo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                repoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Repo detached. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Repo or project not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
