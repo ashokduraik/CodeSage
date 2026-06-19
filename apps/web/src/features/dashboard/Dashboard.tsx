@@ -92,7 +92,7 @@ export function Dashboard() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{project.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {project.language ?? "—"} · {t("dashboard.repoCount", { count: project.repoCount })}
+                      {t("dashboard.repoCount", { count: project.repoCount })}
                     </p>
                   </div>
                 </div>

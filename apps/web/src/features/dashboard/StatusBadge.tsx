@@ -1,8 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
-import type { ProjectStatus } from "@/shared/mock";
+import type { NodeApi } from "@codesage/shared-types";
+
+/** Project status values from the generated contract types. */
+type ProjectStatus = NodeApi.components["schemas"]["ProjectStatus"];
 
 const STATUS_CLASSES: Record<ProjectStatus, string> = {
+  active: "bg-slate-50 text-slate-700 border-slate-200",
   indexed: "bg-emerald-50 text-emerald-700 border-emerald-200",
   indexing: "bg-blue-50 text-blue-700 border-blue-200",
   connecting: "bg-amber-50 text-amber-700 border-amber-200",

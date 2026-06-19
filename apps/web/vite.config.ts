@@ -24,6 +24,10 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
     globals: false,
+    // Pin VITE_ env vars so tests are independent of the developer's local .env file.
+    env: {
+      VITE_API_BASE_URL: "/api",
+    },
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],

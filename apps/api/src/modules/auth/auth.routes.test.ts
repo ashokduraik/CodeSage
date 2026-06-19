@@ -23,6 +23,7 @@ const TEST_CONFIG = {
   jwtSecret: "test-secret-32-chars-long-enough!",
   jwtTtl: "3600",
   encryptionKey: "",
+  mockMode: false,
 } as const;
 
 const MOCK_RESPONSE = {

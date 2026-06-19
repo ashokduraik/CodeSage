@@ -10,8 +10,9 @@ describe("loadConfig", () => {
     expect(cfg.logger).toBe(true);
     expect(cfg.databaseUrl).toBe("");
     expect(cfg.jwtSecret).toBe("dev-secret-change-me");
-    expect(cfg.jwtTtl).toBe("3600");
+    expect(cfg.jwtTtl).toBe("1h");
     expect(cfg.encryptionKey).toBe("");
+    expect(cfg.mockMode).toBe(false);
   });
 
   it("reads overrides from env", () => {
@@ -32,6 +33,7 @@ describe("loadConfig", () => {
     expect(cfg.jwtSecret).toBe("supersecret");
     expect(cfg.jwtTtl).toBe("7200");
     expect(cfg.encryptionKey).toBe("dGVzdC1rZXktMzItYnl0ZXMtbG9uZy1wYWQ=");
+    expect(cfg.mockMode).toBe(false);
   });
 
   it("disables the logger and sets nodeEnv=test under NODE_ENV=test", () => {
@@ -43,5 +45,16 @@ describe("loadConfig", () => {
   it("falls back to process.env by default", () => {
     const cfg = loadConfig();
     expect(typeof cfg.port).toBe("number");
+  });
+
+  it("enables mockMode when MOCK_MODE=true", () => {
+    const cfg = loadConfig({ MOCK_MODE: "true" });
+    expect(cfg.mockMode).toBe(true);
+  });
+
+  it("leaves mockMode false for any value other than 'true'", () => {
+    expect(loadConfig({ MOCK_MODE: "false" }).mockMode).toBe(false);
+    expect(loadConfig({ MOCK_MODE: "1" }).mockMode).toBe(false);
+    expect(loadConfig({}).mockMode).toBe(false);
   });
 });

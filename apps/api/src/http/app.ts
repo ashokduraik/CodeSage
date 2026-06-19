@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import jwt from "@fastify/jwt";
+import cors from "@fastify/cors";
 import { loadConfig, type AppConfig } from "../platform/config";
 import { buildLoggerOptions } from "../platform/logger";
 import { registerErrorHandler } from "../platform/errors";
@@ -9,6 +10,7 @@ import { authRoutes } from "../modules/auth";
 import { usersRoutes } from "../modules/users";
 import { projectsRoutes } from "../modules/projects";
 import { reposRoutes } from "../modules/repos";
+import { dashboardRoutes } from "../modules/dashboard";
 
 /**
  * Extends the Fastify instance type so all route handlers can access `app.db`
@@ -42,6 +44,11 @@ export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
     await db.end();
   });
 
+  // CORS: allow all origins in non-production environments for local dev convenience.
+  if (config.nodeEnv !== "production") {
+    app.register(cors, { origin: true });
+  }
+
   // JWT plugin: signs and verifies tokens; augments FastifyRequest with jwtVerify().
   app.register(jwt, {
     secret: config.jwtSecret,
@@ -50,11 +57,12 @@ export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
 
   registerErrorHandler(app);
 
-  app.register(healthRoutes);
-  app.register(authRoutes);
-  app.register(usersRoutes);
-  app.register(projectsRoutes);
-  app.register(reposRoutes);
+  app.register(healthRoutes, { prefix: "/api" });
+  app.register(authRoutes, { prefix: "/api" });
+  app.register(usersRoutes, { prefix: "/api" });
+  app.register(projectsRoutes, { prefix: "/api" });
+  app.register(reposRoutes, { prefix: "/api" });
+  app.register(dashboardRoutes, { prefix: "/api" });
 
   return app;
 }

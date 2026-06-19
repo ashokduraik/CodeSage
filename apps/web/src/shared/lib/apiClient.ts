@@ -8,7 +8,8 @@
  * In production, consider migrating to HttpOnly cookies to mitigate XSS exposure.
  */
 
-const BASE_URL = "/api";
+/* istanbul ignore next -- fallback only reachable when VITE_API_BASE_URL is unset (runtime safety net; test env always provides the value) */
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api";
 
 /** Standard error response shape returned by the Node API for all failures. */
 export interface ApiErrorBody {

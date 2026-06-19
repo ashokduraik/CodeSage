@@ -20,13 +20,19 @@ const DB = {} as Sql;
 
 afterEach(() => vi.clearAllMocks());
 
-const ROW = { id: "p1", name: "Acme", status: "active", created_at: new Date("2026-01-01T00:00:00Z") };
+const ROW = {
+  id: "p1",
+  name: "Acme",
+  status: "active",
+  repo_count: 0,
+  created_at: new Date("2026-01-01T00:00:00Z"),
+};
 
 describe("listProjects", () => {
   it("returns mapped project responses", async () => {
     mockList.mockResolvedValue([ROW]);
     const result = await listProjects(DB);
-    expect(result).toEqual([{ id: "p1", name: "Acme", status: "active", createdAt: "2026-01-01T00:00:00.000Z" }]);
+    expect(result).toEqual([{ id: "p1", name: "Acme", status: "active", repoCount: 0, createdAt: "2026-01-01T00:00:00.000Z" }]);
   });
 
   it("returns empty array when there are no projects", async () => {

@@ -5,12 +5,34 @@ import "../i18n"; // initialise i18next before rendering
 import { resetMockStore } from "@/shared/mock";
 import type { AuthContextValue } from "@/features/auth";
 
+/**
+ * Mock useDashboardData so the Dashboard renders its loaded state without
+ * making real API calls. The integration test only cares about routing/layout.
+ */
+vi.mock("@/features/dashboard/useDashboardData", () => ({
+  useDashboardData: vi.fn(() => ({
+    isPending: false,
+    isError: false,
+    data: {
+      projects: [],
+      sessions: [],
+      stats: {
+        projectCount: 0,
+        indexedProjectCount: 0,
+        sessionCount: 0,
+        knowledgeCount: 0,
+        pendingReviewCount: 0,
+      },
+    },
+  })),
+}));
+
 /** Mock the entire auth module so routing tests are not coupled to real auth logic. */
 vi.mock("@/features/auth", () => {
-  const { createContext } = require("react");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createContext, useContext } = require("react") as typeof import("react");
   const AuthContext = createContext<AuthContextValue | null>(null);
   const useAuth = () => {
-    const { useContext } = require("react");
     const ctx = useContext(AuthContext);
     if (!ctx) throw new Error("useAuth must be used within an AuthProvider.");
     return ctx;

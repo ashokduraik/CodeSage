@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  getDashboardStats,
-  listProjects,
-  listSessions,
-  type ChatSession,
-  type DashboardStats,
-  type Project,
-} from "@/shared/mock";
+import { useAuth } from "@/features/auth";
+import { fetchProjects } from "@/features/projects/projectsClient";
+import { fetchDashboardStats, fetchDashboardSessions } from "./dashboardClient";
+import type { NodeApi } from "@codesage/shared-types";
+
+type Project = NodeApi.components["schemas"]["Project"];
+type DashboardStats = NodeApi.components["schemas"]["DashboardStats"];
+type ChatSession = NodeApi.components["schemas"]["ChatSession"];
 
 /** Stable query key for the aggregated dashboard data. */
 export const DASHBOARD_QUERY_KEY = ["dashboard"] as const;
@@ -19,21 +19,31 @@ export interface DashboardData {
 }
 
 /**
- * Loads the dashboard's projects, sessions and aggregate stats in one query.
- * Backed by the temporary mock layer; swap the queryFn for the typed API client
- * once the Node contract exposes these endpoints.
+ * Loads the dashboard's projects, sessions and aggregate stats in one React Query entry.
+ *
+ * Calls three API endpoints in parallel:
+ *   - `GET /projects` — list of projects with repo counts.
+ *   - `GET /dashboard/stats` — aggregate counters.
+ *   - `GET /dashboard/sessions` — recent chat sessions.
+ *
+ * The query is disabled when there is no JWT token (unauthenticated state).
+ *
  * @returns The TanStack Query result for {@link DashboardData}.
  */
 export function useDashboardData() {
+  const { token } = useAuth();
+
   return useQuery<DashboardData, Error>({
     queryKey: DASHBOARD_QUERY_KEY,
+    enabled: Boolean(token),
     queryFn: async () => {
-      const [projects, sessions, stats] = await Promise.all([
-        listProjects(),
-        listSessions(),
-        getDashboardStats(),
+      const t = token!;
+      const [projects, stats, sessions] = await Promise.all([
+        fetchProjects(t),
+        fetchDashboardStats(t),
+        fetchDashboardSessions(t),
       ]);
-      return { projects, sessions, stats };
+      return { projects, stats, sessions };
     },
   });
 }

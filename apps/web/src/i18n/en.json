@@ -61,6 +61,7 @@
     "checking": "Checking API\u2026",
     "healthy": "API healthy: {{service}}",
     "unreachable": "API unreachable",
+    "active": "Active",
     "indexed": "Indexed",
     "indexing": "Indexing",
     "connecting": "Connecting",

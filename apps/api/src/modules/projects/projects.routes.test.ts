@@ -31,12 +31,14 @@ const TEST_CONFIG = {
   jwtSecret: "test-secret-32-chars-long-enough!",
   jwtTtl: "3600",
   encryptionKey: "",
+  mockMode: false,
 } as const;
 
 const MOCK_PROJECT = {
   id: "p1",
   name: "Acme",
-  status: "active",
+  status: "active" as const,
+  repoCount: 0,
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
@@ -66,6 +68,21 @@ describe("GET /projects", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([MOCK_PROJECT]);
+    await app.close();
+  });
+
+  it("returns static mock data when mockMode is enabled", async () => {
+    const app = buildApp({ ...TEST_CONFIG, mockMode: true });
+    await app.ready();
+    const res = await app.inject({
+      method: "GET",
+      url: "/projects",
+      headers: { authorization: `Bearer ${devToken(app)}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as unknown[];
+    expect(body.length).toBeGreaterThan(0);
+    expect(mockList).not.toHaveBeenCalled();
     await app.close();
   });
 });

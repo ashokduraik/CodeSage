@@ -18,8 +18,8 @@ import { useProjects } from "./useProjects";
 const mockUseProjects = vi.mocked(useProjects);
 
 const PROJECTS = [
-  { id: "p1", name: "Acme Frontend", status: "active", createdAt: "2026-01-01T00:00:00.000Z" },
-  { id: "p2", name: "Acme API", status: "indexing", createdAt: "2026-01-02T00:00:00.000Z" },
+  { id: "p1", name: "Acme Frontend", status: "active" as const, repoCount: 0, createdAt: "2026-01-01T00:00:00.000Z" },
+  { id: "p2", name: "Acme API", status: "indexing" as const, repoCount: 1, createdAt: "2026-01-02T00:00:00.000Z" },
 ];
 
 function renderPage() {
@@ -35,39 +35,39 @@ afterEach(cleanup);
 
 describe("ProjectsPage", () => {
   it("shows a spinner while loading", () => {
-    mockUseProjects.mockReturnValue({ isPending: true, isError: false, data: undefined } as ReturnType<typeof useProjects>);
+    mockUseProjects.mockReturnValue({ isPending: true, isError: false, data: undefined } as unknown as ReturnType<typeof useProjects>);
     renderPage();
     expect(screen.getByRole("status")).toBeTruthy();
   });
 
   it("shows an error message when the query fails", () => {
-    mockUseProjects.mockReturnValue({ isPending: false, isError: true, data: undefined } as ReturnType<typeof useProjects>);
+    mockUseProjects.mockReturnValue({ isPending: false, isError: true, data: undefined } as unknown as ReturnType<typeof useProjects>);
     renderPage();
     expect(screen.getByRole("alert")).toBeTruthy();
   });
 
   it("shows an empty state when there are no projects", () => {
-    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: [] } as ReturnType<typeof useProjects>);
+    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: [] } as unknown as ReturnType<typeof useProjects>);
     renderPage();
     expect(screen.getByText("No projects yet. Connect your first repository.")).toBeTruthy();
   });
 
   it("renders the list of projects when data is available", () => {
-    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: PROJECTS } as ReturnType<typeof useProjects>);
+    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: PROJECTS } as unknown as ReturnType<typeof useProjects>);
     renderPage();
     expect(screen.getByText("Acme Frontend")).toBeTruthy();
     expect(screen.getByText("Acme API")).toBeTruthy();
   });
 
   it("opens the create dialog when New Project is clicked", () => {
-    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: [] } as ReturnType<typeof useProjects>);
+    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: [] } as unknown as ReturnType<typeof useProjects>);
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
     expect(screen.getByTestId("create-dialog")).toBeTruthy();
   });
 
   it("closes the create dialog when onClose is called", () => {
-    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: [] } as ReturnType<typeof useProjects>);
+    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: [] } as unknown as ReturnType<typeof useProjects>);
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
     fireEvent.click(screen.getByRole("button", { name: "close-create" }));
@@ -75,14 +75,14 @@ describe("ProjectsPage", () => {
   });
 
   it("opens the attach repo dialog when Attach Repo is clicked", () => {
-    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: PROJECTS } as ReturnType<typeof useProjects>);
+    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: PROJECTS } as unknown as ReturnType<typeof useProjects>);
     renderPage();
     fireEvent.click(screen.getAllByRole("button", { name: /attach repo/i })[0]!);
     expect(screen.getByTestId("attach-dialog")).toBeTruthy();
   });
 
   it("closes the attach dialog when onClose is called", () => {
-    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: PROJECTS } as ReturnType<typeof useProjects>);
+    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: PROJECTS } as unknown as ReturnType<typeof useProjects>);
     renderPage();
     fireEvent.click(screen.getAllByRole("button", { name: /attach repo/i })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "close-attach" }));

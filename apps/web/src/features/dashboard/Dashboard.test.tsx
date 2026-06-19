@@ -18,8 +18,8 @@ function hookState(over: Partial<ReturnType<typeof useDashboardData>>) {
 
 const POPULATED: DashboardData = {
   projects: [
-    { id: "p1", name: "acme/web", status: "indexed", repoCount: 3, language: "TypeScript" },
-    { id: "p2", name: "acme/api", status: "indexing", repoCount: 1, language: null },
+    { id: "p1", name: "acme/web", status: "indexed" as const, repoCount: 3, createdAt: "2026-06-14T12:00:00.000Z" },
+    { id: "p2", name: "acme/api", status: "indexing" as const, repoCount: 1, createdAt: "2026-06-14T12:00:00.000Z" },
   ],
   sessions: [
     {

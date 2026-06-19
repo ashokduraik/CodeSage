@@ -34,7 +34,7 @@ describe("useProjects", () => {
   });
 
   it("fetches and returns projects when a token is present", async () => {
-    const projects = [{ id: "p1", name: "Acme", status: "active", createdAt: "2026-01-01T00:00:00.000Z" }];
+    const projects = [{ id: "p1", name: "Acme", status: "active" as const, repoCount: 0, createdAt: "2026-01-01T00:00:00.000Z" }];
     mockUseAuth.mockReturnValue({
       user: null, token: "jwt", isLoading: false,
       login: vi.fn(), logout: vi.fn(),

@@ -16,8 +16,9 @@ export interface AppConfig {
   /** Secret used to sign JWTs (JWT_SECRET). Must be set in production. */
   jwtSecret: string;
   /**
-   * JWT expiry expressed as a seconds number or a string like "1h" (AUTH_TOKEN_TTL).
-   * Defaults to 3600 seconds (1 hour).
+   * JWT expiry as a time-span string accepted by fast-jwt / ms, e.g. "1h", "30m".
+   * Must NOT be a bare number string — "3600" is parsed as 3600 ms (3.6 s) by the
+   * ms library. Use "1h" or "3600s" instead. Defaults to "1h".
    */
   jwtTtl: string;
   /**
@@ -25,6 +26,12 @@ export interface AppConfig {
    * (TOKEN_ENC_KEY). Must be set when repos with tokens are used.
    */
   encryptionKey: string;
+  /**
+   * When true the API returns static mock data instead of querying the database.
+   * Intended for demos and local development without a live database.
+   * Activate by setting MOCK_MODE=true in the environment.
+   */
+  mockMode: boolean;
 }
 
 /**
@@ -41,7 +48,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     logger: env.NODE_ENV !== "test",
     databaseUrl: env.DATABASE_URL ?? "",
     jwtSecret: env.JWT_SECRET ?? "dev-secret-change-me",
-    jwtTtl: env.AUTH_TOKEN_TTL ?? "3600",
+    jwtTtl: env.AUTH_TOKEN_TTL ?? "1h",
     encryptionKey: env.TOKEN_ENC_KEY ?? "",
+    mockMode: env.MOCK_MODE === "true",
   };
 }

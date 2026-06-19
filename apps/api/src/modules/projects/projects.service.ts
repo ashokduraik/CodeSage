@@ -8,17 +8,25 @@ import {
 } from "./projects.repository";
 import type { NodeApi } from "@codesage/shared-types";
 
-/** Converts a repository row to the public API response shape. */
+type Project = NodeApi.components["schemas"]["Project"];
+type ProjectStatus = NodeApi.components["schemas"]["ProjectStatus"];
+
+/**
+ * Converts a repository row to the public API response shape.
+ * Casts the DB status string to the typed {@link ProjectStatus} union.
+ */
 function toProjectResponse(row: {
   id: string;
   name: string;
   status: string;
+  repo_count: number;
   created_at: Date;
-}): NodeApi.components["schemas"]["Project"] {
+}): Project {
   return {
     id: row.id,
     name: row.name,
-    status: row.status,
+    status: row.status as ProjectStatus,
+    repoCount: row.repo_count,
     createdAt: row.created_at.toISOString(),
   };
 }
@@ -28,9 +36,7 @@ function toProjectResponse(row: {
  * @param db - The postgres.js SQL client.
  * @returns Array of project responses (may be empty).
  */
-export async function listProjects(
-  db: Sql,
-): Promise<NodeApi.components["schemas"]["Project"][]> {
+export async function listProjects(db: Sql): Promise<Project[]> {
   const rows = await findAllProjects(db);
   return rows.map(toProjectResponse);
 }
@@ -42,10 +48,7 @@ export async function listProjects(
  * @returns The public project response.
  * @throws {@link ApiError} 404 when the project does not exist.
  */
-export async function getProject(
-  db: Sql,
-  id: string,
-): Promise<NodeApi.components["schemas"]["Project"]> {
+export async function getProject(db: Sql, id: string): Promise<Project> {
   const row = await findProjectById(db, id);
   if (!row) {
     throw new ApiError(404, "NOT_FOUND", "Project not found.");
@@ -60,10 +63,7 @@ export async function getProject(
  * @returns The newly created public project response.
  * @throws {@link ApiError} 400 when the name is blank.
  */
-export async function createProject(
-  db: Sql,
-  name: string,
-): Promise<NodeApi.components["schemas"]["Project"]> {
+export async function createProject(db: Sql, name: string): Promise<Project> {
   if (!name.trim()) {
     throw new ApiError(400, "VALIDATION_ERROR", "Project name must not be blank.");
   }

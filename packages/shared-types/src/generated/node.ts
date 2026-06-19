@@ -126,6 +126,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns aggregate dashboard counters for the authenticated user. */
+        get: operations["getDashboardStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns recent chat sessions for the dashboard overview. */
+        get: operations["listDashboardSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/repos/{repoId}": {
         parameters: {
             query?: never;
@@ -217,6 +251,11 @@ export interface components {
             /** @description Human-readable project name. */
             name: string;
         };
+        /**
+         * @description Lifecycle state of a project's indexing pipeline.
+         * @enum {string}
+         */
+        ProjectStatus: "active" | "indexed" | "indexing" | "stale" | "connecting" | "error";
         Project: {
             /**
              * Format: uuid
@@ -225,13 +264,52 @@ export interface components {
             id: string;
             /** @description Human-readable project name. */
             name: string;
-            /** @description Current lifecycle status of the project (e.g. active, indexing). */
-            status: string;
+            status: components["schemas"]["ProjectStatus"];
+            /** @description Number of repositories currently attached to this project. */
+            repoCount: number;
             /**
              * Format: date-time
              * @description UTC timestamp when the project was created.
              */
             createdAt: string;
+        };
+        /**
+         * @description Persona used in a chat session — code-level (developer) or product/usage (end_user).
+         * @enum {string}
+         */
+        ChatMode: "developer" | "end_user";
+        ChatSession: {
+            /** @description Unique session identifier. */
+            id: string;
+            /** @description Human-readable session title. */
+            title: string;
+            mode: components["schemas"]["ChatMode"];
+            /**
+             * Format: uuid
+             * @description Project this session is scoped to, or null for general sessions.
+             */
+            projectId?: string | null;
+            /** @description Display name of the scoped project, or null. */
+            projectName?: string | null;
+            /** @description Total number of messages in this session. */
+            messageCount: number;
+            /**
+             * Format: date-time
+             * @description ISO-8601 UTC timestamp of the latest message, or null if none yet.
+             */
+            lastMessageAt?: string | null;
+        };
+        DashboardStats: {
+            /** @description Total number of projects. */
+            projectCount: number;
+            /** @description Number of projects with status "indexed". */
+            indexedProjectCount: number;
+            /** @description Total number of chat sessions. */
+            sessionCount: number;
+            /** @description Total number of distilled knowledge entries. */
+            knowledgeCount: number;
+            /** @description Number of answers currently awaiting expert review. */
+            pendingReviewCount: number;
         };
         /**
          * @description Git hosting provider.
@@ -625,6 +703,64 @@ export interface operations {
             };
             /** @description Project not found. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getDashboardStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dashboard statistics. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardStats"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listDashboardSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of recent chat sessions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSession"][];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

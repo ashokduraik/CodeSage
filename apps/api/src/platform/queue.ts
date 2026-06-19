@@ -19,10 +19,14 @@ export type JobType = "sync" | "parse" | "embed" | "xrepo" | "distill";
  * @param payload - Type-specific payload object; must conform to `contracts/jobs.schema.json`.
  * @returns The UUID of the newly created job row.
  */
-export async function enqueueJob(db: Sql, type: JobType, payload: object): Promise<string> {
+export async function enqueueJob(
+  db: Sql,
+  type: JobType,
+  payload: Record<string, unknown>,
+): Promise<string> {
   const rows = await db<{ id: string }[]>`
     INSERT INTO jobs (type, payload)
-    VALUES (${type}, ${db.json(payload)})
+    VALUES (${type}, ${db.json(payload as Parameters<typeof db.json>[0])})
     RETURNING id
   `;
   const row = rows[0];

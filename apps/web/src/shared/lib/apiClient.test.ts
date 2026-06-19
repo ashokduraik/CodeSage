@@ -78,7 +78,7 @@ describe("apiFetch", () => {
       statusText: "Internal Server Error",
       json: vi.fn().mockRejectedValue(new SyntaxError("bad json")),
     } as unknown as Response);
-    const err = await apiFetch("/fail").catch((e) => e as ApiClientError);
+    const err = (await apiFetch("/fail").catch((e: unknown) => e)) as ApiClientError;
     expect(err).toBeInstanceOf(ApiClientError);
     expect(err.status).toBe(500);
     expect(err.code).toBe("REQUEST_ERROR");
@@ -98,7 +98,7 @@ describe("apiFetch", () => {
       statusText: "Bad Request",
       json: vi.fn().mockResolvedValue({ error: {} }),
     } as unknown as Response);
-    const err = await apiFetch("/bad").catch((e) => e as ApiClientError);
+    const err = (await apiFetch("/bad").catch((e: unknown) => e)) as ApiClientError;
     expect(err).toBeInstanceOf(ApiClientError);
     expect(err.code).toBe("REQUEST_ERROR");
     expect(err.message).toBe("Bad Request");

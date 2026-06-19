@@ -27,6 +27,7 @@ const TEST_CONFIG = {
   jwtSecret: 'test-secret-32-chars-long-enough!',
   jwtTtl: '3600',
   encryptionKey: '',
+  mockMode: false,
 } as const;
 
 let app: FastifyInstance | undefined;
@@ -76,5 +77,30 @@ describe('buildApp', () => {
     await app.close();
     app = undefined;
     expect(endSpy).toHaveBeenCalledOnce();
+  });
+
+  it('adds CORS headers in non-production environments', async () => {
+    app = buildApp({ ...TEST_CONFIG, nodeEnv: 'development' });
+    await app.ready();
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/health',
+      headers: {
+        origin: 'http://localhost:5173',
+        'access-control-request-method': 'GET',
+      },
+    });
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+  });
+
+  it('does not register CORS in production', async () => {
+    app = buildApp({ ...TEST_CONFIG, nodeEnv: 'production' });
+    await app.ready();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/health',
+      headers: { origin: 'http://evil.example.com' },
+    });
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
   });
 });

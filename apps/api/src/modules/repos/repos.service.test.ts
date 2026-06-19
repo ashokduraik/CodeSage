@@ -32,6 +32,7 @@ const PROJECT_ROW = {
   id: "p1",
   name: "Acme",
   status: "active",
+  repo_count: 0,
   created_at: new Date(),
 };
 

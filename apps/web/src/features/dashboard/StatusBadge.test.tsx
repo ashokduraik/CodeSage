@@ -17,4 +17,23 @@ describe("StatusBadge", () => {
     expect(screen.getByText("Indexing")).toBeTruthy();
     expect(container.querySelector(".animate-pulse")).toBeTruthy();
   });
+
+  it("renders the 'active' status without a pulse dot", () => {
+    const { container } = render(<StatusBadge status="active" />);
+    expect(screen.getByText("Active")).toBeTruthy();
+    expect(container.querySelector(".animate-pulse")).toBeNull();
+  });
+
+  it("renders the 'connecting' status with a pulse dot", () => {
+    const { container } = render(<StatusBadge status="connecting" />);
+    expect(container.querySelector(".animate-pulse")).toBeTruthy();
+  });
+
+  it("renders all known statuses without throwing", () => {
+    const statuses = ["active", "indexed", "indexing", "stale", "connecting", "error"] as const;
+    for (const status of statuses) {
+      const { unmount } = render(<StatusBadge status={status} />);
+      unmount();
+    }
+  });
 });

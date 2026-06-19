@@ -19,6 +19,7 @@ const TEST_CONFIG = {
   jwtSecret: "test-secret-32-chars-long-enough!",
   jwtTtl: "3600",
   encryptionKey: "",
+  mockMode: false,
 } as const;
 
 /** Creates a tagged-template-compatible mock that returns given rows. */
