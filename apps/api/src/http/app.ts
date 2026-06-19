@@ -5,12 +5,7 @@ import { loadConfig, type AppConfig } from "../platform/config";
 import { buildLoggerOptions } from "../platform/logger";
 import { registerErrorHandler } from "../platform/errors";
 import { createDbClient, type Sql } from "../platform/db";
-import { healthRoutes } from "../modules/health/health.routes";
-import { authRoutes } from "../modules/auth";
-import { usersRoutes } from "../modules/users";
-import { projectsRoutes } from "../modules/projects";
-import { reposRoutes } from "../modules/repos";
-import { dashboardRoutes } from "../modules/dashboard";
+import { registerRoutes } from "./routes";
 
 /**
  * Extends the Fastify instance type so all route handlers can access `app.db`
@@ -57,12 +52,7 @@ export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
 
   registerErrorHandler(app);
 
-  app.register(healthRoutes, { prefix: "/api" });
-  app.register(authRoutes, { prefix: "/api" });
-  app.register(usersRoutes, { prefix: "/api" });
-  app.register(projectsRoutes, { prefix: "/api" });
-  app.register(reposRoutes, { prefix: "/api" });
-  app.register(dashboardRoutes, { prefix: "/api" });
+  app.register(registerRoutes, { prefix: "/api" });
 
   return app;
 }

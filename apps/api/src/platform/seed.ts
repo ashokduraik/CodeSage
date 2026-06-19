@@ -14,14 +14,12 @@ const SEED_USERS: Array<{ email: string; password: string; role: string }> = [
   { email: 'dev@codesage.dev',    password: 'dev123',    role: 'developer' },
 ];
 
-const SEED_PROJECT = 'Demo Project';
-
 /**
  * Seeds the database with a minimal usable dev state on every non-production startup.
  *
  * - No-op in production (`NODE_ENV === 'production'`).
- * - Idempotent: all inserts use `ON CONFLICT DO NOTHING`, so re-running is safe.
- * - Creates three dev users (admin / expert / developer) and one demo project.
+ * - Idempotent: checks for existing rows before inserting, so re-running is safe.
+ * - Creates three dev users (admin / expert / developer).
  *
  * @param sql - Active postgres.js connection pool.
  * @param log - Fastify logger for structured output.
@@ -32,29 +30,19 @@ export async function runSeed(sql: Sql, log: FastifyBaseLogger): Promise<void> {
   }
 
   for (const user of SEED_USERS) {
+    const existing = await sql<{ id: string }[]>`
+      SELECT id FROM users WHERE email = ${user.email}
+    `;
+    if (existing.length > 0) {
+      log.debug({ email: user.email }, 'seed: user already exists');
+      continue;
+    }
+
     const hash = await bcrypt.hash(user.password, SALT_ROUNDS);
-    const rows = await sql<{ id: string }[]>`
+    await sql`
       INSERT INTO users (email, password_hash, role)
       VALUES (${user.email}, ${hash}, ${user.role}::user_role)
-      ON CONFLICT (email) DO NOTHING
-      RETURNING id
     `;
-    if (rows.length > 0) {
-      log.info({ email: user.email, role: user.role }, 'seed: user created');
-    } else {
-      log.debug({ email: user.email }, 'seed: user already exists');
-    }
-  }
-
-  const rows = await sql<{ id: string }[]>`
-    INSERT INTO projects (name, status)
-    VALUES (${SEED_PROJECT}, 'active')
-    ON CONFLICT DO NOTHING
-    RETURNING id
-  `;
-  if (rows.length > 0) {
-    log.info({ project: SEED_PROJECT, id: rows[0]?.id }, 'seed: project created');
-  } else {
-    log.debug({ project: SEED_PROJECT }, 'seed: project already exists');
+    log.info({ email: user.email, role: user.role }, 'seed: user created');
   }
 }
