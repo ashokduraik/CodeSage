@@ -7,20 +7,20 @@ import {
   type ReactNode,
 } from "react";
 import { apiFetch } from "@/shared/lib/apiClient";
+import {
+  clearAuthToken,
+  getAuthToken,
+  setAuthToken,
+} from "@/shared/lib/authTokenStorage";
 import type { NodeApi } from "@codesage/shared-types";
 
 type User = NodeApi.components["schemas"]["User"];
 type LoginResponse = NodeApi.components["schemas"]["LoginResponse"];
 
-/** Token localStorage key — holds the raw JWT string. */
-const TOKEN_KEY = "codesage_token";
-
 /** Shape of the auth context value consumed by {@link useAuth}. */
 export interface AuthContextValue {
   /** The authenticated user, or `null` when unauthenticated. */
   user: User | null;
-  /** The raw JWT string, or `null` when unauthenticated. */
-  token: string | null;
   /** Whether the initial session restore from localStorage is still in progress. */
   isLoading: boolean;
   /**
@@ -37,28 +37,26 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 /**
  * Provides authentication state to the component tree.
  * On mount, restores an existing JWT from localStorage and verifies it via `GET /users/me`.
+ * The JWT itself is not held in React state — only in localStorage via {@link setAuthToken}.
  * @param children - Child components.
  */
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Restore session from localStorage on mount.
   useEffect(() => {
-    const stored = localStorage.getItem(TOKEN_KEY);
+    const stored = getAuthToken();
     if (!stored) {
       setIsLoading(false);
       return;
     }
-    apiFetch<User>("/users/me", { token: stored })
+    apiFetch<User>("/users/me")
       .then((u) => {
-        setToken(stored);
         setUser(u);
       })
       .catch(() => {
-        // Token is invalid or expired; clear it silently.
-        localStorage.removeItem(TOKEN_KEY);
+        clearAuthToken();
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -67,20 +65,19 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     const res = await apiFetch<LoginResponse>("/auth/login", {
       method: "POST",
       body: { email, password },
+      skipAuth: true,
     });
-    localStorage.setItem(TOKEN_KEY, res.token);
-    setToken(res.token);
+    setAuthToken(res.token);
     setUser(res.user);
   }, []);
 
   const logout = useCallback((): void => {
-    localStorage.removeItem(TOKEN_KEY);
-    setToken(null);
+    clearAuthToken();
     setUser(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

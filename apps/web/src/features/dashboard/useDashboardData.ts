@@ -31,17 +31,16 @@ export interface DashboardData {
  * @returns The TanStack Query result for {@link DashboardData}.
  */
 export function useDashboardData() {
-  const { token } = useAuth();
+  const { user } = useAuth();
 
   return useQuery<DashboardData, Error>({
     queryKey: DASHBOARD_QUERY_KEY,
-    enabled: Boolean(token),
+    enabled: Boolean(user),
     queryFn: async () => {
-      const t = token!;
       const [projects, stats, sessions] = await Promise.all([
-        fetchProjects(t),
-        fetchDashboardStats(t),
-        fetchDashboardSessions(t),
+        fetchProjects(),
+        fetchDashboardStats(),
+        fetchDashboardSessions(),
       ]);
       return { projects, stats, sessions };
     },

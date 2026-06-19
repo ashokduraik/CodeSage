@@ -1,10 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { requireAuth } from "../../platform/auth.plugin";
 import { listRepos, attachRepo, detachRepo } from "./repos.service";
 import type { NodeApi } from "@codesage/shared-types";
 
 /**
  * Fastify plugin that registers repository management routes.
+ *
+ * JWT authentication is enforced by the global auth middleware in `platform/auth.middleware.ts`.
  *
  * Routes:
  * - `GET /projects/:projectId/repos` — list repos for a project.
@@ -14,12 +15,10 @@ import type { NodeApi } from "@codesage/shared-types";
  * @param app - The Fastify application instance.
  */
 export async function reposRoutes(app: FastifyInstance): Promise<void> {
-  const auth = { preHandler: requireAuth() };
-
   app.get<{
     Params: { projectId: string };
     Reply: NodeApi.components["schemas"]["Repo"][];
-  }>("/projects/:projectId/repos", auth, async (request) => {
+  }>("/projects/:projectId/repos", async (request) => {
     return listRepos(app.db, request.params.projectId);
   });
 
@@ -27,7 +26,7 @@ export async function reposRoutes(app: FastifyInstance): Promise<void> {
     Params: { projectId: string };
     Body: NodeApi.components["schemas"]["CreateRepoRequest"];
     Reply: NodeApi.components["schemas"]["AttachRepoResponse"];
-  }>("/projects/:projectId/repos", auth, async (request, reply) => {
+  }>("/projects/:projectId/repos", async (request, reply) => {
     const { projectId } = request.params;
     const { repoUrl, provider, branch, role, token } = request.body;
 
@@ -55,7 +54,6 @@ export async function reposRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete<{ Params: { projectId: string; repoId: string } }>(
     "/projects/:projectId/repos/:repoId",
-    auth,
     async (request, reply) => {
       await detachRepo(app.db, request.params.projectId, request.params.repoId);
       return reply.status(204).send();

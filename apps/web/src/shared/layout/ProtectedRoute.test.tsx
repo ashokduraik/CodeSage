@@ -7,10 +7,16 @@ import { ProtectedRoute } from "./ProtectedRoute";
 
 afterEach(cleanup);
 
+const MOCK_USER = {
+  id: "u1",
+  email: "test@example.com",
+  role: "developer" as const,
+  createdAt: "2026-01-01T00:00:00.000Z",
+};
+
 function renderWithAuth(auth: Partial<AuthContextValue>, initialPath = "/protected") {
   const value: AuthContextValue = {
     user: null,
-    token: null,
     isLoading: false,
     login: vi.fn(),
     logout: vi.fn(),
@@ -36,13 +42,13 @@ describe("ProtectedRoute", () => {
     expect(screen.getByRole("status")).toBeTruthy();
   });
 
-  it("redirects to /login when there is no token", () => {
-    renderWithAuth({ token: null, isLoading: false });
+  it("redirects to /login when the user is not authenticated", () => {
+    renderWithAuth({ user: null, isLoading: false });
     expect(screen.getByText("Login Page")).toBeTruthy();
   });
 
   it("renders the protected content when the user is authenticated", () => {
-    renderWithAuth({ token: "valid-jwt", isLoading: false });
+    renderWithAuth({ user: MOCK_USER, isLoading: false });
     expect(screen.getByText("Protected Content")).toBeTruthy();
   });
 });

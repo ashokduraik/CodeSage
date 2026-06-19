@@ -47,7 +47,7 @@ export async function loginUser(
   }
 
   const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
-  const token = app.jwt.sign(payload);
+  const token = app.jwt.sign(payload, { expiresIn: app.config.jwtTtl });
 
   return {
     token,

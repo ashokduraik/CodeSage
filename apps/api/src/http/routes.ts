@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
+import { registerAuthMiddleware } from "../platform/auth.middleware";
 import { healthRoutes } from "../modules/health/health.routes";
 import { authRoutes } from "../modules/auth";
 import { usersRoutes } from "../modules/users";
@@ -18,11 +19,12 @@ const ROUTE_PLUGINS: FastifyPluginAsync[] = [
 
 /**
  * Fastify plugin that registers every domain route module.
- * Routes live at the API root (e.g. `/health`, `/projects`); the web dev proxy
- * strips the `/api` prefix before forwarding to this server.
+ * All routes are mounted under the `/api` prefix (see `http/app.ts`).
  * @param app - The Fastify application instance.
  */
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
+  registerAuthMiddleware(app);
+
   for (const plugin of ROUTE_PLUGINS) {
     await app.register(plugin);
   }

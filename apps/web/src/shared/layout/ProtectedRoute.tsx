@@ -10,7 +10,7 @@ import { Spinner } from "@/shared/ui/spinner";
  * Usage: wrap protected `<Route>` elements with this component as the parent `element`.
  */
 export function ProtectedRoute(): JSX.Element {
-  const { token, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -20,7 +20,7 @@ export function ProtectedRoute(): JSX.Element {
     );
   }
 
-  if (!token) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 

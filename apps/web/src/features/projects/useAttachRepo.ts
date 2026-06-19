@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/features/auth";
 import { attachRepoRequest } from "./projectsClient";
 import { projectsQueryKey } from "./useProjects";
 import type { NodeApi } from "@codesage/shared-types";
@@ -18,11 +17,10 @@ export interface AttachRepoVars {
  * @returns React Query mutation result typed against {@link AttachRepoVars} and {@link AttachRepoResponse}.
  */
 export function useAttachRepo() {
-  const { token } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation<AttachRepoResponse, Error, AttachRepoVars>({
-    mutationFn: ({ projectId, body }) => attachRepoRequest(token!, projectId, body),
+    mutationFn: ({ projectId, body }) => attachRepoRequest(projectId, body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectsQueryKey });
     },

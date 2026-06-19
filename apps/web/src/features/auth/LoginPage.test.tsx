@@ -17,7 +17,6 @@ const loginMock = vi.fn();
 function renderLoginPage(authOverride: Partial<AuthContextValue> = {}): ReturnType<typeof render> {
   const value: AuthContextValue = {
     user: null,
-    token: null,
     isLoading: false,
     login: loginMock,
     logout: vi.fn(),

@@ -92,3 +92,31 @@ describe("requireAuth", () => {
     await app.close();
   });
 });
+
+describe("requireRoles", () => {
+  it("returns 403 when the role is not allowed", async () => {
+    const app = buildApp(TEST_CONFIG);
+    const { requireRoles } = await import("./auth.plugin");
+    const payload: JwtPayload = { sub: "u1", email: "u@test.com", role: "developer" };
+    app.addHook("onRequest", async (request) => {
+      request.user = payload;
+    });
+    app.get("/admin-only", { preHandler: requireRoles(["admin"]) }, async () => ({ ok: true }));
+    const res = await app.inject({ method: "GET", url: "/admin-only" });
+    expect(res.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it("allows a matching role", async () => {
+    const app = buildApp(TEST_CONFIG);
+    const { requireRoles } = await import("./auth.plugin");
+    const payload: JwtPayload = { sub: "u1", email: "a@test.com", role: "admin" };
+    app.addHook("onRequest", async (request) => {
+      request.user = payload;
+    });
+    app.get("/admin-only", { preHandler: requireRoles(["admin"]) }, async () => ({ ok: true }));
+    const res = await app.inject({ method: "GET", url: "/admin-only" });
+    expect(res.statusCode).toBe(200);
+    await app.close();
+  });
+});

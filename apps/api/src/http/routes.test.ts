@@ -29,15 +29,15 @@ afterEach(async () => {
 });
 
 describe("registerRoutes", () => {
-  it("registers core domain routes at the API root (no /api prefix)", async () => {
+  it("registers core domain routes under the /api prefix", async () => {
     app = buildApp(TEST_CONFIG);
     await app.ready();
 
     const routes = [
-      { method: "GET" as const, url: "/health" },
-      { method: "POST" as const, url: "/auth/login" },
-      { method: "GET" as const, url: "/projects" },
-      { method: "GET" as const, url: "/dashboard/stats" },
+      { method: "GET" as const, url: "/api/health" },
+      { method: "POST" as const, url: "/api/auth/login" },
+      { method: "GET" as const, url: "/api/projects" },
+      { method: "GET" as const, url: "/api/dashboard/stats" },
     ];
 
     for (const route of routes) {

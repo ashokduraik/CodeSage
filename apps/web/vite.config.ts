@@ -12,11 +12,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // Dev: forward /api/* to the Node API, stripping the /api prefix.
+      // Dev: forward /api/* to the Node API (paths include the /api prefix).
       "/api": {
         target: "http://localhost:3000",
         changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api/, ""),
       },
     },
   },

@@ -53,10 +53,16 @@ const SESSIONS: ChatSession[] = [
   },
 ];
 
-function setupAuth(token: string | null = "jwt") {
+const MOCK_USER = {
+  id: "u1",
+  email: "test@example.com",
+  role: "developer" as const,
+  createdAt: "2026-01-01T00:00:00.000Z",
+};
+
+function setupAuth(user: typeof MOCK_USER | null = MOCK_USER) {
   mockUseAuth.mockReturnValue({
-    user: null,
-    token,
+    user,
     isLoading: false,
     login: vi.fn(),
     logout: vi.fn(),
@@ -64,7 +70,7 @@ function setupAuth(token: string | null = "jwt") {
 }
 
 describe("useDashboardData", () => {
-  it("is disabled when there is no token", () => {
+  it("is disabled when the user is not authenticated", () => {
     setupAuth(null);
     const { result } = renderHook(() => useDashboardData(), { wrapper: HookWrapper });
     expect(result.current.isPending).toBe(true);
@@ -72,7 +78,7 @@ describe("useDashboardData", () => {
   });
 
   it("fetches projects, stats and sessions in parallel when authenticated", async () => {
-    setupAuth("jwt");
+    setupAuth();
     mockFetchProjects.mockResolvedValue(PROJECTS);
     mockFetchStats.mockResolvedValue(STATS);
     mockFetchSessions.mockResolvedValue(SESSIONS);
@@ -83,13 +89,13 @@ describe("useDashboardData", () => {
     expect(result.current.data?.projects).toEqual(PROJECTS);
     expect(result.current.data?.stats).toEqual(STATS);
     expect(result.current.data?.sessions).toEqual(SESSIONS);
-    expect(mockFetchProjects).toHaveBeenCalledWith("jwt");
-    expect(mockFetchStats).toHaveBeenCalledWith("jwt");
-    expect(mockFetchSessions).toHaveBeenCalledWith("jwt");
+    expect(mockFetchProjects).toHaveBeenCalledWith();
+    expect(mockFetchStats).toHaveBeenCalledWith();
+    expect(mockFetchSessions).toHaveBeenCalledWith();
   });
 
   it("exposes an error state when a fetch fails", async () => {
-    setupAuth("jwt");
+    setupAuth();
     mockFetchProjects.mockRejectedValue(new Error("network error"));
     mockFetchStats.mockResolvedValue(STATS);
     mockFetchSessions.mockResolvedValue(SESSIONS);

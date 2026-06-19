@@ -3,6 +3,11 @@ import { cleanup, render, screen, act, waitFor, fireEvent } from "@testing-libra
 import "@/i18n";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { ApiClientError } from "@/shared/lib/apiClient";
+import {
+  clearAuthToken,
+  getAuthToken,
+  setAuthToken,
+} from "@/shared/lib/authTokenStorage";
 
 vi.mock("@/shared/lib/apiClient", () => ({
   apiFetch: vi.fn(),
@@ -30,12 +35,12 @@ const MOCK_USER = {
 
 /** Minimal consumer that exposes context state via DOM. */
 function TestConsumer() {
-  const { user, token, isLoading, login, logout } = useAuth();
+  const { user, isLoading, login, logout } = useAuth();
   return (
     <div>
       <span data-testid="loading">{String(isLoading)}</span>
       <span data-testid="user">{user?.email ?? "null"}</span>
-      <span data-testid="token">{token ?? "null"}</span>
+      <span data-testid="token">{getAuthToken() ?? "null"}</span>
       <button onClick={() => void login("u@test.com", "pass123")}>login</button>
       <button onClick={logout}>logout</button>
     </div>
@@ -43,7 +48,7 @@ function TestConsumer() {
 }
 
 beforeEach(() => {
-  localStorage.clear();
+  clearAuthToken();
   vi.clearAllMocks();
 });
 
@@ -64,7 +69,7 @@ describe("AuthProvider — unauthenticated start", () => {
 
 describe("AuthProvider — session restore", () => {
   it("restores session from localStorage when token is valid", async () => {
-    localStorage.setItem("codesage_token", "stored-jwt");
+    setAuthToken("stored-jwt");
     mockFetch.mockResolvedValueOnce(MOCK_USER);
     render(
       <AuthProvider>
@@ -75,10 +80,11 @@ describe("AuthProvider — session restore", () => {
       expect(screen.getByTestId("user").textContent).toBe("user@example.com"),
     );
     expect(screen.getByTestId("token").textContent).toBe("stored-jwt");
+    expect(mockFetch).toHaveBeenCalledWith("/users/me");
   });
 
   it("clears the stored token when the session restore call fails (expired token)", async () => {
-    localStorage.setItem("codesage_token", "expired-jwt");
+    setAuthToken("expired-jwt");
     mockFetch.mockRejectedValueOnce(new ApiClientError(401, "UNAUTHORIZED", "Token expired."));
     render(
       <AuthProvider>
@@ -86,13 +92,13 @@ describe("AuthProvider — session restore", () => {
       </AuthProvider>,
     );
     await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
-    expect(localStorage.getItem("codesage_token")).toBeNull();
+    expect(getAuthToken()).toBeNull();
     expect(screen.getByTestId("user").textContent).toBe("null");
   });
 });
 
 describe("AuthProvider — login", () => {
-  it("sets the token and user in state and localStorage after a successful login", async () => {
+  it("stores the token in localStorage and sets the user after a successful login", async () => {
     render(
       <AuthProvider>
         <TestConsumer />
@@ -106,14 +112,18 @@ describe("AuthProvider — login", () => {
     await waitFor(() =>
       expect(screen.getByTestId("user").textContent).toBe("user@example.com"),
     );
-    expect(localStorage.getItem("codesage_token")).toBe("new-jwt");
-    expect(screen.getByTestId("token").textContent).toBe("new-jwt");
+    expect(getAuthToken()).toBe("new-jwt");
+    expect(mockFetch).toHaveBeenCalledWith("/auth/login", {
+      method: "POST",
+      body: { email: "u@test.com", password: "pass123" },
+      skipAuth: true,
+    });
   });
 });
 
 describe("AuthProvider — logout", () => {
-  it("clears the token and user from state and localStorage", async () => {
-    localStorage.setItem("codesage_token", "some-jwt");
+  it("clears the token from localStorage and user from state", async () => {
+    setAuthToken("some-jwt");
     mockFetch.mockResolvedValueOnce(MOCK_USER);
     render(
       <AuthProvider>
@@ -123,8 +133,7 @@ describe("AuthProvider — logout", () => {
     await waitFor(() => expect(screen.getByTestId("user").textContent).toBe("user@example.com"));
     fireEvent.click(screen.getByRole("button", { name: "logout" }));
     expect(screen.getByTestId("user").textContent).toBe("null");
-    expect(screen.getByTestId("token").textContent).toBe("null");
-    expect(localStorage.getItem("codesage_token")).toBeNull();
+    expect(getAuthToken()).toBeNull();
   });
 });
 

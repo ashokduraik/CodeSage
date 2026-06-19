@@ -1,5 +1,4 @@
 import type { FastifyInstance } from "fastify";
-import { requireAuth } from "../../platform/auth.plugin";
 import { getDashboardStats, listDashboardSessions } from "./dashboard.service";
 import type { NodeApi } from "@codesage/shared-types";
 
@@ -9,8 +8,9 @@ type ChatSession = NodeApi.components["schemas"]["ChatSession"];
 /**
  * Fastify plugin that registers dashboard aggregate routes.
  *
- * Both routes require a valid JWT. When {@link AppConfig.mockMode} is enabled
- * they return static mock data instead of querying the database.
+ * JWT authentication is enforced by the global auth middleware in `platform/auth.middleware.ts`.
+ * When {@link AppConfig.mockMode} is enabled they return static mock data instead of querying
+ * the database.
  *
  * Routes:
  * - `GET /dashboard/stats` — aggregate dashboard counters.
@@ -19,13 +19,11 @@ type ChatSession = NodeApi.components["schemas"]["ChatSession"];
  * @param app - The Fastify application instance.
  */
 export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
-  const auth = { preHandler: requireAuth() };
-
-  app.get<{ Reply: DashboardStats }>("/dashboard/stats", auth, async () => {
+  app.get<{ Reply: DashboardStats }>("/dashboard/stats", async () => {
     return getDashboardStats(app.db, app.config.mockMode);
   });
 
-  app.get<{ Reply: ChatSession[] }>("/dashboard/sessions", auth, async () => {
+  app.get<{ Reply: ChatSession[] }>("/dashboard/sessions", async () => {
     return listDashboardSessions(app.db, app.config.mockMode);
   });
 }

@@ -65,7 +65,7 @@ const SESSIONS: ChatSession[] = [
 describe("GET /dashboard/stats", () => {
   it("returns 401 when unauthenticated", async () => {
     const app = buildApp(TEST_CONFIG);
-    const res = await app.inject({ method: "GET", url: "/dashboard/stats" });
+    const res = await app.inject({ method: "GET", url: "/api/dashboard/stats" });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -76,7 +76,7 @@ describe("GET /dashboard/stats", () => {
     await app.ready();
     const res = await app.inject({
       method: "GET",
-      url: "/dashboard/stats",
+      url: "/api/dashboard/stats",
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(200);
@@ -91,7 +91,7 @@ describe("GET /dashboard/stats", () => {
     await app.ready();
     const res = await app.inject({
       method: "GET",
-      url: "/dashboard/stats",
+      url: "/api/dashboard/stats",
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(200);
@@ -103,7 +103,7 @@ describe("GET /dashboard/stats", () => {
 describe("GET /dashboard/sessions", () => {
   it("returns 401 when unauthenticated", async () => {
     const app = buildApp(TEST_CONFIG);
-    const res = await app.inject({ method: "GET", url: "/dashboard/sessions" });
+    const res = await app.inject({ method: "GET", url: "/api/dashboard/sessions" });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -114,7 +114,7 @@ describe("GET /dashboard/sessions", () => {
     await app.ready();
     const res = await app.inject({
       method: "GET",
-      url: "/dashboard/sessions",
+      url: "/api/dashboard/sessions",
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(200);
@@ -129,7 +129,7 @@ describe("GET /dashboard/sessions", () => {
     await app.ready();
     const res = await app.inject({
       method: "GET",
-      url: "/dashboard/sessions",
+      url: "/api/dashboard/sessions",
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(200);

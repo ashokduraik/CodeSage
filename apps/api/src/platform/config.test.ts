@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { loadConfig } from "./config";
+import { loadConfig, normalizeJwtTtl } from "./config";
 
 describe("loadConfig", () => {
   it("uses defaults when env is empty", () => {
@@ -31,7 +31,7 @@ describe("loadConfig", () => {
     expect(cfg.logger).toBe(true);
     expect(cfg.databaseUrl).toBe("postgresql://user:pass@db:5432/codesage");
     expect(cfg.jwtSecret).toBe("supersecret");
-    expect(cfg.jwtTtl).toBe("7200");
+    expect(cfg.jwtTtl).toBe("7200s");
     expect(cfg.encryptionKey).toBe("dGVzdC1rZXktMzItYnl0ZXMtbG9uZy1wYWQ=");
     expect(cfg.mockMode).toBe(false);
   });
@@ -56,5 +56,19 @@ describe("loadConfig", () => {
     expect(loadConfig({ MOCK_MODE: "false" }).mockMode).toBe(false);
     expect(loadConfig({ MOCK_MODE: "1" }).mockMode).toBe(false);
     expect(loadConfig({}).mockMode).toBe(false);
+  });
+});
+
+describe("normalizeJwtTtl", () => {
+  it("treats bare numeric strings as seconds", () => {
+    expect(normalizeJwtTtl("3600")).toBe("3600s");
+    expect(normalizeJwtTtl("7200")).toBe("7200s");
+  });
+
+  it("preserves time-span strings", () => {
+    expect(normalizeJwtTtl("1h")).toBe("1h");
+    expect(normalizeJwtTtl("30m")).toBe("30m");
+    expect(normalizeJwtTtl("3600s")).toBe("3600s");
+    expect(normalizeJwtTtl(" 1h ")).toBe("1h");
   });
 });

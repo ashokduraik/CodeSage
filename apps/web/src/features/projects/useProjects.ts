@@ -14,11 +14,11 @@ export const projectsQueryKey = ["projects"] as const;
  * @returns React Query result with `data` typed as {@link Project}[].
  */
 export function useProjects() {
-  const { token } = useAuth();
+  const { user } = useAuth();
 
   return useQuery<Project[]>({
     queryKey: projectsQueryKey,
-    queryFn: () => fetchProjects(token!),
-    enabled: Boolean(token),
+    queryFn: () => fetchProjects(),
+    enabled: Boolean(user),
   });
 }

@@ -52,7 +52,7 @@ function devToken(app: ReturnType<typeof buildApp>): string {
 describe("GET /projects/:projectId/repos", () => {
   it("returns 401 when unauthenticated", async () => {
     const app = buildApp(TEST_CONFIG);
-    const res = await app.inject({ method: "GET", url: "/projects/p1/repos" });
+    const res = await app.inject({ method: "GET", url: "/api/projects/p1/repos" });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -63,7 +63,7 @@ describe("GET /projects/:projectId/repos", () => {
     await app.ready();
     const res = await app.inject({
       method: "GET",
-      url: "/projects/p1/repos",
+      url: "/api/projects/p1/repos",
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(200);
@@ -77,7 +77,7 @@ describe("GET /projects/:projectId/repos", () => {
     await app.ready();
     const res = await app.inject({
       method: "GET",
-      url: "/projects/missing/repos",
+      url: "/api/projects/missing/repos",
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(404);
@@ -92,7 +92,7 @@ describe("POST /projects/:projectId/repos", () => {
     await app.ready();
     const res = await app.inject({
       method: "POST",
-      url: "/projects/p1/repos",
+      url: "/api/projects/p1/repos",
       headers: { authorization: `Bearer ${devToken(app)}` },
       payload: {
         repoUrl: "https://github.com/org/repo",
@@ -111,7 +111,7 @@ describe("POST /projects/:projectId/repos", () => {
     await app.ready();
     const res = await app.inject({
       method: "POST",
-      url: "/projects/p1/repos",
+      url: "/api/projects/p1/repos",
       headers: { authorization: `Bearer ${devToken(app)}` },
       payload: { repoUrl: "https://github.com/org/repo" },
     });
@@ -125,7 +125,7 @@ describe("POST /projects/:projectId/repos", () => {
     await app.ready();
     const res = await app.inject({
       method: "POST",
-      url: "/projects/missing/repos",
+      url: "/api/projects/missing/repos",
       headers: { authorization: `Bearer ${devToken(app)}` },
       payload: {
         repoUrl: "https://github.com/org/repo",
@@ -146,7 +146,7 @@ describe("DELETE /projects/:projectId/repos/:repoId", () => {
     await app.ready();
     const res = await app.inject({
       method: "DELETE",
-      url: "/projects/p1/repos/r1",
+      url: "/api/projects/p1/repos/r1",
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(204);
@@ -159,7 +159,7 @@ describe("DELETE /projects/:projectId/repos/:repoId", () => {
     await app.ready();
     const res = await app.inject({
       method: "DELETE",
-      url: "/projects/p1/repos/missing",
+      url: "/api/projects/p1/repos/missing",
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(404);

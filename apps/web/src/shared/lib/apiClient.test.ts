@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { apiFetch, ApiClientError } from "./apiClient";
+import { clearAuthToken, setAuthToken } from "./authTokenStorage";
 
 function mockFetch(status: number, body: unknown, ok?: boolean): void {
   const isOk = ok ?? (status >= 200 && status < 300);
@@ -13,6 +14,11 @@ function mockFetch(status: number, body: unknown, ok?: boolean): void {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  clearAuthToken();
+});
+
+beforeEach(() => {
+  clearAuthToken();
 });
 
 describe("apiFetch", () => {
@@ -31,7 +37,7 @@ describe("apiFetch", () => {
     );
   });
 
-  it("attaches Authorization header when token is provided", async () => {
+  it("attaches Authorization header when token is provided explicitly", async () => {
     mockFetch(200, {});
     await apiFetch("/projects", { token: "my-jwt" });
     expect(global.fetch).toHaveBeenCalledWith(
@@ -40,6 +46,26 @@ describe("apiFetch", () => {
         headers: expect.objectContaining({ Authorization: "Bearer my-jwt" }),
       }),
     );
+  });
+
+  it("attaches Authorization header from stored token by default", async () => {
+    mockFetch(200, {});
+    setAuthToken("stored-jwt");
+    await apiFetch("/projects");
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/projects",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer stored-jwt" }),
+      }),
+    );
+  });
+
+  it("does not attach Authorization when skipAuth is true", async () => {
+    mockFetch(200, {});
+    setAuthToken("stored-jwt");
+    await apiFetch("/auth/login", { method: "POST", body: { email: "a", password: "b" }, skipAuth: true });
+    const callArg = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
+    expect(callArg?.headers).not.toHaveProperty("Authorization");
   });
 
   it("serialises the body to JSON", async () => {

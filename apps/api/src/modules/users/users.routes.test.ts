@@ -46,7 +46,7 @@ afterEach(() => vi.clearAllMocks());
 describe("GET /users/me", () => {
   it("returns 401 when unauthenticated", async () => {
     const app = buildApp(TEST_CONFIG);
-    const res = await app.inject({ method: "GET", url: "/users/me" });
+    const res = await app.inject({ method: "GET", url: "/api/users/me" });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -58,7 +58,7 @@ describe("GET /users/me", () => {
     const token = makeToken(app, { sub: "u1", email: "user@example.com", role: "developer" });
     const res = await app.inject({
       method: "GET",
-      url: "/users/me",
+      url: "/api/users/me",
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.statusCode).toBe(200);
@@ -74,7 +74,7 @@ describe("POST /users", () => {
     const token = makeToken(app, { sub: "u1", email: "dev@example.com", role: "developer" });
     const res = await app.inject({
       method: "POST",
-      url: "/users",
+      url: "/api/users",
       headers: { authorization: `Bearer ${token}` },
       payload: { email: "new@example.com", password: "password123", role: "developer" },
     });
@@ -89,7 +89,7 @@ describe("POST /users", () => {
     const token = makeToken(app, { sub: "a1", email: "admin@example.com", role: "admin" });
     const res = await app.inject({
       method: "POST",
-      url: "/users",
+      url: "/api/users",
       headers: { authorization: `Bearer ${token}` },
       payload: { email: "new@example.com", password: "password123", role: "developer" },
     });
@@ -104,7 +104,7 @@ describe("POST /users", () => {
     const token = makeToken(app, { sub: "a1", email: "admin@example.com", role: "admin" });
     const res = await app.inject({
       method: "POST",
-      url: "/users",
+      url: "/api/users",
       headers: { authorization: `Bearer ${token}` },
       payload: { email: "new@example.com" },
     });
@@ -121,7 +121,7 @@ describe("POST /users", () => {
     const token = makeToken(app, { sub: "a1", email: "admin@example.com", role: "admin" });
     const res = await app.inject({
       method: "POST",
-      url: "/users",
+      url: "/api/users",
       headers: { authorization: `Bearer ${token}` },
       payload: { email: "taken@example.com", password: "password123", role: "developer" },
     });

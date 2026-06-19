@@ -36,19 +36,19 @@ const SESSIONS: ChatSession[] = [
 ];
 
 describe("fetchDashboardStats", () => {
-  it("calls GET /dashboard/stats with the token and returns stats", async () => {
+  it("calls GET /dashboard/stats and returns stats", async () => {
     mockFetch.mockResolvedValue(STATS);
-    const result = await fetchDashboardStats("my-token");
+    const result = await fetchDashboardStats();
     expect(result).toEqual(STATS);
-    expect(mockFetch).toHaveBeenCalledWith("/dashboard/stats", { token: "my-token" });
+    expect(mockFetch).toHaveBeenCalledWith("/dashboard/stats");
   });
 });
 
 describe("fetchDashboardSessions", () => {
-  it("calls GET /dashboard/sessions with the token and returns sessions", async () => {
+  it("calls GET /dashboard/sessions and returns sessions", async () => {
     mockFetch.mockResolvedValue(SESSIONS);
-    const result = await fetchDashboardSessions("my-token");
+    const result = await fetchDashboardSessions();
     expect(result).toEqual(SESSIONS);
-    expect(mockFetch).toHaveBeenCalledWith("/dashboard/sessions", { token: "my-token" });
+    expect(mockFetch).toHaveBeenCalledWith("/dashboard/sessions");
   });
 });

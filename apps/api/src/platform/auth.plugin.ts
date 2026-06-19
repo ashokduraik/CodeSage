@@ -20,14 +20,48 @@ export interface JwtPayload {
 }
 
 /**
+ * Verifies the JWT on the request and sends 401 when missing or invalid.
+ * @param request - Incoming Fastify request.
+ * @param reply - Fastify reply used to send error responses.
+ * @returns `true` when the token is valid; `false` when a 401 was sent.
+ */
+export async function verifyJwt(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  try {
+    await request.jwtVerify();
+    return true;
+  } catch {
+    void reply.status(401).send({
+      error: { code: "UNAUTHORIZED", message: "Invalid or missing token." },
+    });
+    return false;
+  }
+}
+
+/**
+ * Factory that returns a preHandler enforcing RBAC role allowlists.
+ * Expects JWT verification to have already run (via {@link registerAuthMiddleware} or {@link requireAuth}).
+ *
+ * @param allowedRoles - Users whose role is not in this list receive 403 FORBIDDEN.
+ * @returns An async Fastify preHandler function.
+ */
+export function requireRoles(allowedRoles: UserRole[]) {
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const payload = request.user as JwtPayload | undefined;
+    if (!payload || !allowedRoles.includes(payload.role)) {
+      void reply.status(403).send({
+        error: { code: "FORBIDDEN", message: "Insufficient permissions." },
+      });
+    }
+  };
+}
+
+/**
  * Factory that returns a Fastify preHandler hook enforcing JWT authentication
  * and, optionally, a set of allowed RBAC roles.
  *
- * Usage in a route:
- * ```ts
- * app.get('/users/me', { preHandler: requireAuth() }, handler);
- * app.post('/users', { preHandler: requireAuth(['admin']) }, handler);
- * ```
+ * Prefer {@link registerAuthMiddleware} for JWT checks on most routes and
+ * {@link requireRoles} for per-route RBAC. This factory remains useful for
+ * ad-hoc protected routes outside the global middleware scope.
  *
  * @param allowedRoles - When provided, only users whose role appears in this
  *   list may proceed; others receive 403 FORBIDDEN. An empty / absent list
@@ -36,12 +70,8 @@ export interface JwtPayload {
  */
 export function requireAuth(allowedRoles?: UserRole[]) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    try {
-      await request.jwtVerify();
-    } catch {
-      void reply.status(401).send({
-        error: { code: "UNAUTHORIZED", message: "Invalid or missing token." },
-      });
+    const verified = await verifyJwt(request, reply);
+    if (!verified) {
       return;
     }
     if (allowedRoles && allowedRoles.length > 0) {

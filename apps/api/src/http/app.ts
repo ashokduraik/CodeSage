@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import jwt from "@fastify/jwt";
 import cors from "@fastify/cors";
-import { loadConfig, type AppConfig } from "../platform/config";
+import { loadConfig, normalizeJwtTtl, type AppConfig } from "../platform/config";
 import { buildLoggerOptions } from "../platform/logger";
 import { registerErrorHandler } from "../platform/errors";
 import { createDbClient, type Sql } from "../platform/db";
@@ -29,25 +29,26 @@ declare module "fastify" {
  * @returns A configured, ready-to-listen Fastify instance.
  */
 export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
-  const app = Fastify({ logger: buildLoggerOptions(config) });
+  const resolvedConfig: AppConfig = { ...config, jwtTtl: normalizeJwtTtl(config.jwtTtl) };
+  const app = Fastify({ logger: buildLoggerOptions(resolvedConfig) });
 
-  app.decorate("config", config);
+  app.decorate("config", resolvedConfig);
 
-  const db = createDbClient(config.databaseUrl);
+  const db = createDbClient(resolvedConfig.databaseUrl);
   app.decorate("db", db);
   app.addHook("onClose", async () => {
     await db.end();
   });
 
   // CORS: allow all origins in non-production environments for local dev convenience.
-  if (config.nodeEnv !== "production") {
+  if (resolvedConfig.nodeEnv !== "production") {
     app.register(cors, { origin: true });
   }
 
   // JWT plugin: signs and verifies tokens; augments FastifyRequest with jwtVerify().
   app.register(jwt, {
-    secret: config.jwtSecret,
-    sign: { expiresIn: config.jwtTtl },
+    secret: resolvedConfig.jwtSecret,
+    sign: { expiresIn: resolvedConfig.jwtTtl },
   });
 
   registerErrorHandler(app);

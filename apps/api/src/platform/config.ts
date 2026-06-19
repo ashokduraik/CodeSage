@@ -35,6 +35,20 @@ export interface AppConfig {
 }
 
 /**
+ * Normalizes JWT TTL env values to a time-span string understood by `ms` / `@fastify/jwt`.
+ * Bare numeric strings are treated as seconds (e.g. `"3600"` → `"3600s"`).
+ * @param raw - Raw TTL from configuration or environment.
+ * @returns A time-span string such as `"1h"` or `"3600s"`.
+ */
+export function normalizeJwtTtl(raw: string): string {
+  const trimmed = raw.trim();
+  if (/^\d+$/.test(trimmed)) {
+    return `${trimmed}s`;
+  }
+  return trimmed;
+}
+
+/**
  * Builds an {@link AppConfig} by reading environment variables.
  * Returns safe defaults for any variable that is not set.
  * @param env - Environment variable map; defaults to `process.env`.
@@ -48,7 +62,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     logger: env.NODE_ENV !== "test",
     databaseUrl: env.DATABASE_URL ?? "",
     jwtSecret: env.JWT_SECRET ?? "dev-secret-change-me",
-    jwtTtl: env.AUTH_TOKEN_TTL ?? "1h",
+    jwtTtl: normalizeJwtTtl(env.AUTH_TOKEN_TTL ?? "1h"),
     encryptionKey: env.TOKEN_ENC_KEY ?? "",
     mockMode: env.MOCK_MODE === "true",
   };

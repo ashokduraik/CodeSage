@@ -3,18 +3,12 @@ import { renderHook, act, waitFor, cleanup } from "@testing-library/react";
 import { useAttachRepo } from "./useAttachRepo";
 import { HookWrapper } from "@/test/utils";
 
-vi.mock("@/features/auth", () => ({
-  useAuth: vi.fn(),
-}));
-
 vi.mock("./projectsClient", () => ({
   attachRepoRequest: vi.fn(),
 }));
 
-import { useAuth } from "@/features/auth";
 import { attachRepoRequest } from "./projectsClient";
 
-const mockUseAuth = vi.mocked(useAuth);
 const mockAttach = vi.mocked(attachRepoRequest);
 
 afterEach(() => {
@@ -37,10 +31,6 @@ const MOCK_RESPONSE = {
 
 describe("useAttachRepo", () => {
   it("calls attachRepoRequest and returns the response", async () => {
-    mockUseAuth.mockReturnValue({
-      user: null, token: "jwt", isLoading: false,
-      login: vi.fn(), logout: vi.fn(),
-    });
     mockAttach.mockResolvedValue(MOCK_RESPONSE);
     const { result } = renderHook(() => useAttachRepo(), { wrapper: HookWrapper });
     await act(async () => {
@@ -54,10 +44,6 @@ describe("useAttachRepo", () => {
   });
 
   it("exposes an error state when the mutation fails", async () => {
-    mockUseAuth.mockReturnValue({
-      user: null, token: "jwt", isLoading: false,
-      login: vi.fn(), logout: vi.fn(),
-    });
     mockAttach.mockRejectedValue(new Error("server error"));
     const { result } = renderHook(() => useAttachRepo(), { wrapper: HookWrapper });
     await act(async () => {

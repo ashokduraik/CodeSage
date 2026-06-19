@@ -6,18 +6,16 @@ type ChatSession = NodeApi.components["schemas"]["ChatSession"];
 
 /**
  * Fetches aggregate dashboard statistics from the Node API.
- * @param token - JWT for the Authorization header.
  * @returns Dashboard stat counters.
  */
-export async function fetchDashboardStats(token: string): Promise<DashboardStats> {
-  return apiFetch<DashboardStats>("/dashboard/stats", { token });
+export async function fetchDashboardStats(): Promise<DashboardStats> {
+  return apiFetch<DashboardStats>("/dashboard/stats");
 }
 
 /**
  * Fetches recent chat sessions for the dashboard overview panel.
- * @param token - JWT for the Authorization header.
  * @returns Array of recent chat sessions (may be empty when sessions are not yet implemented).
  */
-export async function fetchDashboardSessions(token: string): Promise<ChatSession[]> {
-  return apiFetch<ChatSession[]>("/dashboard/sessions", { token });
+export async function fetchDashboardSessions(): Promise<ChatSession[]> {
+  return apiFetch<ChatSession[]>("/dashboard/sessions");
 }

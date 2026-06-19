@@ -56,6 +56,13 @@ describe("loginUser", () => {
     expect(result.user.role).toBe("developer");
     expect(result.user.createdAt).toBe("2026-01-01T00:00:00.000Z");
 
+    const [, payloadSegment] = result.token.split(".");
+    expect(payloadSegment).toBeDefined();
+    const jwtPayload = JSON.parse(
+      Buffer.from(payloadSegment as string, "base64url").toString("utf8"),
+    ) as { exp: number; iat: number };
+    expect(jwtPayload.exp - jwtPayload.iat).toBe(3600);
+
     await app.close();
   });
 

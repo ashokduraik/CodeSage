@@ -41,7 +41,7 @@ afterEach(async () => {
 describe('buildApp', () => {
   it('serves GET /health', async () => {
     app = buildApp(TEST_CONFIG);
-    const res = await app.inject({ method: 'GET', url: '/health' });
+    const res = await app.inject({ method: 'GET', url: '/api/health' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ status: 'ok', service: 'api' });
   });
@@ -50,7 +50,7 @@ describe('buildApp', () => {
     // NODE_ENV is 'test' under vitest → default config disables the logger.
     app = buildApp();
     await app.ready();
-    expect(app.hasRoute({ method: 'GET', url: '/health' })).toBe(true);
+    expect(app.hasRoute({ method: 'GET', url: '/api/health' })).toBe(true);
   });
 
   it('decorates the Fastify instance with a db pool', async () => {
@@ -63,6 +63,12 @@ describe('buildApp', () => {
     app = buildApp(TEST_CONFIG);
     await app.ready();
     expect(app.config).toMatchObject({ jwtSecret: 'test-secret-32-chars-long-enough!' });
+  });
+
+  it('normalizes bare numeric jwtTtl to seconds when building the app', async () => {
+    app = buildApp({ ...TEST_CONFIG, jwtTtl: '3600' });
+    await app.ready();
+    expect(app.config.jwtTtl).toBe('3600s');
   });
 
   it('passes databaseUrl to the postgres factory', async () => {
@@ -84,7 +90,7 @@ describe('buildApp', () => {
     await app.ready();
     const res = await app.inject({
       method: 'OPTIONS',
-      url: '/health',
+      url: '/api/health',
       headers: {
         origin: 'http://localhost:5173',
         'access-control-request-method': 'GET',
@@ -98,7 +104,7 @@ describe('buildApp', () => {
     await app.ready();
     const res = await app.inject({
       method: 'GET',
-      url: '/health',
+      url: '/api/health',
       headers: { origin: 'http://evil.example.com' },
     });
     expect(res.headers['access-control-allow-origin']).toBeUndefined();

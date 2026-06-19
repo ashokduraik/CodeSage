@@ -8,6 +8,8 @@
  * In production, consider migrating to HttpOnly cookies to mitigate XSS exposure.
  */
 
+import { getAuthToken } from "./authTokenStorage";
+
 /* istanbul ignore next -- fallback only reachable when VITE_API_BASE_URL is unset (runtime safety net; test env always provides the value) */
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api";
 
@@ -43,7 +45,15 @@ export class ApiClientError extends Error {
 
 /** Options passed to {@link apiFetch}. */
 export interface ApiFetchOptions extends Omit<RequestInit, "body"> {
-  /** JWT token for the Authorization header. When absent, the request is unauthenticated. */
+  /**
+   * When true, do not attach the stored JWT (e.g. login).
+   * Defaults to false.
+   */
+  skipAuth?: boolean;
+  /**
+   * Explicit JWT override for the Authorization header.
+   * When omitted, {@link getAuthToken} is used. Mainly for tests.
+   */
   token?: string;
   /** Request body, serialised to JSON automatically. */
   body?: unknown;
@@ -53,7 +63,7 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body"> {
  * Sends a typed fetch request to the Node API.
  *
  * - Automatically sets `Content-Type: application/json`.
- * - Attaches `Authorization: Bearer <token>` when a token is provided.
+ * - Attaches `Authorization: Bearer <token>` from storage unless `skipAuth` is set.
  * - Throws {@link ApiClientError} for any non-2xx response.
  *
  * @param path - API path relative to `/api` (e.g. `/projects`).
@@ -62,14 +72,16 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body"> {
  * @throws {@link ApiClientError} on non-2xx responses.
  */
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
-  const { token, body, headers: extraHeaders, ...rest } = options;
+  const { token, skipAuth, body, headers: extraHeaders, ...rest } = options;
+
+  const authToken = skipAuth ? undefined : (token ?? getAuthToken());
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(extraHeaders as Record<string, string>),
   };
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
   }
 
   const response = await fetch(`${BASE_URL}${path}`, {
