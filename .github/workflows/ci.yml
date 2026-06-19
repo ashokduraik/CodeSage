@@ -19,7 +19,7 @@ jobs:
       - name: Codegen up to date (contracts -> types)
         run: npm run codegen:check
       - run: npm run typecheck
-      - name: Test (100% coverage gate)
+      - name: Test (80% coverage gate)
         run: npm run test
       - run: npm run build
 

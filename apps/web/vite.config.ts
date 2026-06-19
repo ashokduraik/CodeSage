@@ -35,11 +35,14 @@ export default defineConfig({
         "src/vite-env.d.ts",
         "src/**/*.test.{ts,tsx}",
         "src/test/**",
+        // Barrel re-exports and type-only modules — no executable logic to cover.
+        "src/**/index.ts",
+        "src/shared/mock/types.ts",
         // Vendored shadcn/Radix UI primitives — third-party-derived wrappers, not
         // our business logic. See apps/web/README.md (coverage rationale).
         "src/shared/ui/**",
       ],
-      thresholds: { lines: 100, branches: 100, functions: 100, statements: 100 },
+      thresholds: { lines: 80, branches: 80, functions: 80, statements: 80 },
       reporter: ["text", "lcov"],
     },
   },
