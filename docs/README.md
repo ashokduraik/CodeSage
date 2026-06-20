@@ -17,6 +17,7 @@ This folder is the single home for all project documentation. Start here.
 | [`architecture.md`](./architecture.md) | Consolidated architecture overview + component map + cross-service contracts. |
 | [`data-model.md`](./data-model.md) | PostgreSQL schema reference (tables, relationships, derived-knowledge trust model). |
 | [`development-workflow.md`](./development-workflow.md) | How we work: branching, contracts-first codegen, testing, review, Definition of Done. |
+| [`tech-learning-guide.md`](./tech-learning-guide.md) | **Onboarding:** each technology in the stack — what to learn and how CodeSage uses it. |
 | [`adr/`](./adr/README.md) | Architecture Decision Records — one file per locked decision, with context + consequences. |
 
 ## Per-component docs

@@ -4,9 +4,9 @@ The **business-logic heart** of CodeSage. This shared, non-deployable Python lib
 heavy/blocking logic. The deployables `services/rag` and `services/worker` stay **thin** and call
 into here, which keeps logic testable without a server or a queue.
 
-> **Status:** **Phase 0 skeleton implemented** — packaged with uv; the `config` module
-> (settings) exists with ≥ 80%-coverage tests. The remaining modules in the map below are added
-> in later phases.
+> **Status:** **Phase 1 started** — packaged with uv; `config` (settings) and `db` (SQLAlchemy
+> models, repositories, pgvector + graph query helpers) are implemented with 100%-coverage tests.
+> Remaining modules in the map below land in later Phase 1 steps.
 
 ## Why a shared core
 

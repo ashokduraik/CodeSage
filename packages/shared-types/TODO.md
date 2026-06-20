@@ -3,19 +3,19 @@
 Checklist. (Global sequencing: `docs/final-solution.md` §12 — this lands in Phase 0.)
 
 ## Setup
-- [ ] Choose OpenAPI/JSON-Schema → TS generator.
-- [ ] Add codegen script in `scripts/` + root one-liner (`make/just codegen`).
-- [ ] Define a clean public surface (`index.ts`).
+- [x] Choose OpenAPI/JSON-Schema → TS generator — **openapi-typescript** (`scripts/codegen.mjs`).
+- [x] Add codegen script in `scripts/` + root one-liner — `npm run codegen` / `npm run codegen:check`.
+- [x] Define a clean public surface (`index.ts`) — exports `NodeApi` and `RagApi` namespaces.
 
 ## Generation targets
-- [ ] Generate from `contracts/openapi.node.yaml` (public Node API).
-- [ ] Generate job payload types from `contracts/jobs.schema.json`.
-- [ ] Include RAG-facing types needed by the chat flow (from `openapi.rag.yaml`) if used in TS.
+- [x] Generate from `contracts/openapi.node.yaml` (public Node API) → `src/generated/node.ts`.
+- [ ] Generate job payload types from `contracts/jobs.schema.json` (TS side; Python Pydantic via py-core codegen).
+- [x] Include RAG-facing types from `openapi.rag.yaml` → `src/generated/rag.ts` (`RagApi`); wired into consumers when chat proxy lands (Phase 1).
 
 ## Guardrails
-- [ ] CI check: regenerate and fail on diff (no drift).
-- [ ] Document "edit contracts, not here" prominently (done in README/AGENTS).
+- [x] CI check: regenerate and fail on diff (no drift) — `npm run codegen:check` in `.github/workflows/ci.yml`.
+- [x] Document "edit contracts, not here" prominently — `README.md`, `AGENTS.md`, generated file headers.
 
 ## Consumers
-- [ ] `apps/web` imports from public surface only.
-- [ ] `apps/api` imports from public surface only.
+- [x] `apps/web` imports from public surface only — `@codesage/shared-types` (`NodeApi`).
+- [x] `apps/api` imports from public surface only — `@codesage/shared-types` (`NodeApi`).

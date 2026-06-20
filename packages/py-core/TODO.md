@@ -4,13 +4,14 @@ Checklist organized by module (the algorithmic heart of the system). (Global seq
 `docs/final-solution.md` §12.)
 
 ## config
-- [ ] Settings + env loading.
+- [x] Settings + env loading (`database_url`, `repo_clone_dir`, `embedding_dimension`).
 - [ ] Secret access + repo-token decryption (envelope encryption).
 
 ## db
-- [ ] SQLAlchemy models for all tables (see `docs/data-model.md`).
-- [ ] Repositories per table group (public surface only).
-- [ ] pgvector + recursive-CTE query helpers.
+- [x] SQLAlchemy models for migrated tables (identity, operations, indexing).
+- [x] Repositories per table group (public surface in `py_core.db`).
+- [x] pgvector similarity search + recursive-CTE graph expansion helpers.
+- [ ] Models/repos for derived-knowledge + expert + conversation tables (when migrations land).
 
 ## parsing
 - [ ] tree-sitter grammar registry (pluggable).

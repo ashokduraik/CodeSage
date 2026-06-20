@@ -15,11 +15,14 @@
 
 - [x] `20260613120000_init.sql` — extensions (`vector`, `pgcrypto`) + `users`, `projects`,
       `repos` (with `token_enc`, `last_indexed_sha`).
+- [x] `20260614000000_jobs_and_audit.sql` — `jobs` queue + `audit_log`.
+- [x] `20260619000000_project_status_enum.sql` — typed `project_status` enum on `projects`.
+- [x] `20260620100000_indexing_tables.sql` — `graph_nodes`, `graph_edges`, `code_chunks`
+      (pgvector `vector(1024)` + HNSW index; requires pgvector extension).
 
 ## Planned next (from `docs/data-model.md`)
 
-- [ ] `code_chunks` (pgvector `halfvec` + HNSW index), `graph_nodes`, `graph_edges`.
 - [ ] derived knowledge: `workflows`, `page_map`, `permission_rules`, `data_flows`
       (each with `confidence` + citation columns).
 - [ ] `expert_questions`, `expert_answers`.
-- [ ] `conversations`, `messages`, `audit_log` (the Procrastinate queue manages its own tables).
+- [ ] `conversations`, `messages`.
