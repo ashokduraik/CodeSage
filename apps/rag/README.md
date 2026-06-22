@@ -6,83 +6,12 @@ config, tests, and docs only.
 > **Status:** **Phase 1 started** — `config/`, `models/`, and `repositories/` implemented with
 > 100%-coverage tests; `api/` + `workers/` skeleton in place. Business modules land in `services/`.
 
-## Prerequisites
-
-| Tool | Version | Notes |
-|---|---|---|
-| **Python** | 3.12+ | Required for local dev and tests (`requires-python` in `pyproject.toml`). |
-| **[uv](https://docs.astral.sh/uv/)** | latest | Installs deps and runs commands in an isolated env. |
-| **Docker + Compose** | optional | Easiest way to run PostgreSQL + migrations + the full stack. Not required for unit tests. |
-
-Install **uv** (pick one):
-
-```powershell
-# Windows (PowerShell)
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-```bash
-# macOS / Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Verify:
-
-```bash
-uv --version
-python --version   # must be 3.12+
-```
-
-## Installation
-
-All commands below assume you are in **`apps/rag`**:
-
-```bash
-cd apps/rag
-```
-
-### 1. Environment file
-
-```powershell
-# Windows PowerShell
-Copy-Item .env.example .env
-```
-
-```bash
-# macOS / Linux / Git Bash
-cp .env.example .env
-```
-
-Edit `.env` if needed. Phase 0 `/health` does not require Postgres; repository tests use mocks — **pytest needs no running database**.
-
-### 2. Python dependencies (uv — recommended)
-
-Requires [uv](https://docs.astral.sh/uv/) installed (see Prerequisites).
-
-```bash
-uv lock          # creates/updates uv.lock — commit when it changes
-uv sync --dev    # creates .venv/ and installs runtime + dev deps
-```
-
-`pyproject.toml` sets `pythonpath = ["src"]` for pytest and maps `src/*` to import names (`api`, `config`, `models`, …). Use **`uv run …`** for all commands — no manual `pip install -e .`.
-
-### 2b. Python dependencies (venv — if uv is not installed)
-
-Verified on Windows with system Python 3.12+:
-
-```powershell
-cd apps\rag
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install fastapi "uvicorn[standard]" procrastinate "psycopg[binary]" pydantic pydantic-settings sqlalchemy pgvector pytest pytest-cov httpx
-$env:PYTHONPATH = "src"
-```
-
-Then use `pytest` and `uvicorn` from the activated venv (see Running / Testing). Prefer **uv** when available — it matches CI.
+Setup (deps, env, tests): root [`README.md`](../../README.md) — `npm run setup`, `npm run sync:python`,
+`npm run test:python`.
 
 ## Configuration
 
-Copy `.env.example` → `.env` (see Installation §1) and adjust values. Pydantic Settings reads from the environment (see `src/config/__init__.py`).
+Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from the environment (see `src/config/__init__.py`). Phase 0 `/health` does not require Postgres; repository tests use mocks — **pytest needs no running database**.
 
 | Variable | Default | Used today | Purpose |
 |---|---|---|---|
@@ -105,15 +34,16 @@ docker compose up -d db migrate
 
 ### Local dev server
 
+From the repo root:
+
 ```bash
-cd apps/rag
-uv run uvicorn api.main:app --host 127.0.0.1 --port 8001 --reload
+npm run dev:rag
 ```
 
-```powershell
-# venv fallback
-$env:PYTHONPATH = "src"
-uvicorn api.main:app --host 127.0.0.1 --port 8001 --reload
+Or from `apps/rag`:
+
+```bash
+uv run uvicorn api.main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
 - **`--reload`** — restart on file changes (dev only).
@@ -141,33 +71,18 @@ curl http://localhost:8001/health
 
 Compose sets `DATABASE_URL` to the `db` service and waits for migrations to finish.
 
-### Docker — full local stack
-
-From the repository root:
-
-```bash
-docker compose up -d --build
-# api -> http://localhost:3000/health
-# rag -> http://localhost:8001/health
-# web -> http://localhost:8080
-docker compose down    # stop
-```
-
-See the root [`README.md`](../../README.md) for JS workspace setup (`npm install`, codegen, etc.).
-
 ## Testing
 
-All tests live in `tests/` (outside `src/`). From `apps/rag`:
+All tests live in `tests/` (outside `src/`). From the repo root:
 
 ```bash
-# with uv (matches CI)
-uv run pytest
+npm run test:python
 ```
 
-```powershell
-# with venv fallback (PYTHONPATH must include src/)
-$env:PYTHONPATH = "src"
-pytest
+Or from `apps/rag`:
+
+```bash
+uv run pytest
 ```
 
 CI (`.github/workflows/ci.yml`): `uv lock && uv sync --dev && uv run pytest`.
@@ -186,17 +101,11 @@ Omitted from coverage until later phases:
 ### Useful pytest commands
 
 ```bash
-# with uv
 uv run pytest tests/test_health.py
 uv run pytest -k test_health_ok
 uv run pytest tests/db/
 uv run pytest -v -s
 uv run pytest --no-cov    # skip gate locally only
-```
-
-```powershell
-# with venv
-$env:PYTHONPATH = "src"; pytest tests/test_health.py
 ```
 
 ### Test layout
@@ -253,8 +162,8 @@ Only **`apps/api`** (Node) should call this service over HTTP — not the browse
 
 | Symptom | Fix |
 |---|---|
-| `ModuleNotFoundError: No module named 'api'` | Run from `apps/rag` via `uv run …`, or set `PYTHONPATH=src` (PowerShell: `$env:PYTHONPATH = "src"`). |
-| `uv: command not found` | Install uv (Prerequisites) **or** use the venv fallback in Installation §2b. |
+| `ModuleNotFoundError: No module named 'api'` | Run via `uv run …` from `apps/rag`, or set `PYTHONPATH=src`. |
+| `uv: command not found` | Install [uv](https://docs.astral.sh/uv/) — see root [`README.md`](../../README.md). |
 | Wrong Python version | `requires-python = ">=3.12"`. With uv: `uv python install 3.12 && uv sync --dev`. |
 | Port 8001 in use | `uvicorn … --port 8002` or stop the other process. |
 | Coverage failure | Run `uv run pytest` (no `--no-cov`); check `--cov-report=term-missing` output. Ensure `test_health.py` uses `with TestClient(…)` so lifespan is covered. |

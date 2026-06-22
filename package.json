@@ -19,9 +19,14 @@
     "build": "npm run build -w @codesage/shared-types && npm run build -w @codesage/api && npm run build -w @codesage/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "setup": "npm install && npm run sync:python",
+    "sync:python": "cd apps/rag && uv sync --dev",
+    "test:js": "npm run test --workspaces --if-present",
+    "test:python": "cd apps/rag && uv run pytest",
+    "test": "npm run test:js && npm run test:python",
     "dev:api": "npm run dev -w @codesage/api",
-    "dev:web": "npm run dev -w @codesage/web"
+    "dev:web": "npm run dev -w @codesage/web",
+    "dev:rag": "cd apps/rag && uv run uvicorn api.main:app --host 127.0.0.1 --port 8001 --reload"
   },
   "devDependencies": {
     "openapi-typescript": "^7.13.0",

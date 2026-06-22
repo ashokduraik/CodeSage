@@ -8,21 +8,51 @@
 
 **Status:** **Phase 0 (Foundation) implemented.** The monorepo builds, contracts codegen runs,
 PostgreSQL migrations apply, the Node `api` and Python `rag` services expose `/health`, the React
-`web` app builds, and CI is defined. All workspaces ship with tests at **≥ 80% coverage**. Real
-auth/CRUD and indexing land in later phases (see [`docs/final-solution.md`](./docs/final-solution.md) §12).
+`web` app builds, and CI is defined. JS workspaces ship tests at **≥ 80% coverage**; `apps/rag`
+ships at **100%** on implemented modules. Real auth/CRUD and indexing land in later phases (see
+[`docs/final-solution.md`](./docs/final-solution.md) §12).
 
 ## Quickstart
 
-Prerequisites: Node 20+ (24 recommended), Docker + Docker Compose. (Python tooling runs inside
-containers; local Python is not required.)
+### Prerequisites
+
+| Tool | Version | Required for |
+|---|---|---|
+| **Node.js** | 20+ (24 recommended) | JS workspaces (`web`, `api`, `shared-types`) |
+| **Python** | 3.12+ | Local `apps/rag` dev and tests |
+| **[uv](https://docs.astral.sh/uv/)** | latest | Python deps and test runner (matches CI) |
+| **Docker + Compose** | latest | Running the full stack locally |
+
+### Local setup — JS + Python
+
+From the **repository root**:
 
 ```bash
-npm install            # install JS workspace deps
+npm run setup          # npm install + uv sync --dev (apps/rag)
 npm run codegen        # generate types from contracts/
-npm run typecheck      # typecheck all workspaces
-npm test               # run all JS tests (≥ 80% coverage gate)
+npm run typecheck      # typecheck all JS workspaces
+npm test               # JS tests (≥ 80%) + Python tests (100% on implemented modules)
 npm run build          # build web + api + shared-types
+```
 
+Individual targets when you only need one stack:
+
+```bash
+npm install            # JS workspace deps only
+npm run sync:python    # Python deps only (apps/rag/.venv/)
+npm run test:js        # JS tests only
+npm run dev:api          # tsx watch — reloads on save (http://localhost:3000/health)
+npm run dev:web          # Vite dev server (http://localhost:5173)
+npm run dev:rag          # uvicorn --reload (http://localhost:8001/health)
+```
+
+Python-only details (env file, local server, pytest flags): [`apps/rag/README.md`](./apps/rag/README.md).
+
+### Run the stack (Docker)
+
+Docker is optional for unit tests but required to run services against a real database:
+
+```bash
 docker compose up -d --build   # start db + migrate + api + rag + web
 # api   -> http://localhost:3000/health
 # rag   -> http://localhost:8001/health
@@ -30,7 +60,8 @@ docker compose up -d --build   # start db + migrate + api + rag + web
 docker compose down            # stop the stack
 ```
 
-Python tests run via `uv` inside the `apps/rag` container; see [`apps/rag/README.md`](./apps/rag/README.md).
+Copy [`.env.example`](./.env.example) to `.env` and adjust values before running Compose. See
+[`apps/rag/README.md`](./apps/rag/README.md) for RAG-specific env vars.
 
 ## Documentation lives in [`docs/`](./docs/README.md)
 
@@ -44,7 +75,7 @@ Start there. The canonical specs:
 - [`docs/development-workflow.md`](./docs/development-workflow.md) — how we build it.
 - [`docs/adr/`](./docs/adr/README.md) — Architecture Decision Records.
 
-## Repository layout (current scaffolding)
+## Repository layout
 
 ```
 codesage/
@@ -63,10 +94,6 @@ codesage/
 ├─ scripts/                  # dev/ops scripts (codegen, backup, reindex-cli)
 └─ .env.example              # documented env vars (never commit a real .env)
 ```
-
-> All folders from [`docs/final-solution.md`](./docs/final-solution.md) §4 are now scaffolded
-> with documentation and **placeholder skeletons only** — there is still **no implementation
-> code**. Real contracts, migrations, compose files, and scripts are filled in during Phase 0.
 
 ## The one rule to remember
 
