@@ -11,7 +11,7 @@
 CodeSage is a **monorepo** with a strict boundary:
 
 ```
-React (apps/web) → Node API (apps/api) → Python (services/* + py-core) → PostgreSQL
+React (apps/web) → Node API (apps/api) → Python (apps/rag) → PostgreSQL
 ```
 
 Learn the layer you will touch first, then read upstream/downstream sections so you understand
@@ -122,7 +122,7 @@ component.
 WebSockets keep a persistent connection so the server can **stream** tokens (LLM answers) to the
 browser.
 
-**Why here:** QA answers are streamed from `services/rag` via the Node gateway — not a single
+**Why here:** QA answers are streamed from `apps/rag` via the Node gateway — not a single
 JSON response.
 
 **How used:** `apps/web` opens `WS /chat`; Node proxies to Python RAG; UI appends chunks and
@@ -218,7 +218,7 @@ Instead of Redis/RabbitMQ, CodeSage stores jobs as rows in PostgreSQL. Workers c
 **Why here:** Single datastore — no separate message broker.
 
 **How used:** `platform/queue.ts` inserts into `jobs`; Python workers consume via
-`JobRepository.claim_next()` in `py-core`.
+`JobRepository.claim_next()` in `repositories/`.
 
 **Learn:** Job payload design, idempotency, status transitions (pending → running → done/failed),
 and why Node only **enqueues**, never runs sync/parse/embed.
@@ -227,7 +227,7 @@ and why Node only **enqueues**, never runs sync/parse/embed.
 
 ### WebSocket gateway
 
-The browser talks only to Node; Node proxies streaming QA to `services/rag`.
+The browser talks only to Node; Node proxies streaming QA to `apps/rag`.
 
 **How used:** `modules/chat/` — WS upgrade, forward to Python internal API, stream citations
 back to the client.
@@ -236,7 +236,7 @@ back to the client.
 
 ---
 
-## 4. Python — `packages/py-core`, `services/rag`, `services/worker`
+## 4. Python — `apps/rag` (layered)
 
 ### Python 3.12+
 
@@ -246,8 +246,7 @@ retrieval.
 **Why here:** Ecosystem for ML, tree-sitter bindings, SQLAlchemy, and FastAPI — poor fit for
 Node’s single-threaded model for long jobs.
 
-**How used:** Business logic in `packages/py-core`; thin deployables in `services/rag` and
-`services/worker`.
+**How used:** Layered backend — `api/` + `workers/` (I/O), `services/` (logic), `repositories/` + `models/` (persistence).
 
 **Learn:** Type hints, `async` Python (for FastAPI), packaging (`pyproject.toml`), and virtual
 environments.
@@ -261,7 +260,7 @@ environment variables.
 
 **Why here:** Cross-service job payloads and RAG request bodies must be validated at boundaries.
 
-**How used:** `py_core/config/` (`Settings`, `load_settings`); generated models from contracts.
+**How used:** `config/` (`Settings`, `load_settings`); generated models from contracts.
 
 **Learn:** `BaseModel`, field validators, settings classes, and env var naming.
 
@@ -271,7 +270,7 @@ environment variables.
 
 SQLAlchemy is Python’s ORM/query builder for relational databases.
 
-**Why here:** All Python persistence goes through `py_core/db/` — models, repositories, vector
+**Why here:** All Python persistence goes through `repositories/` + `models/` — ORM, repos, vector
 and graph queries.
 
 **How used:** Models for `users`, `projects`, `repos`, `jobs`, `code_chunks`, `graph_nodes`,
@@ -289,7 +288,7 @@ FastAPI is a modern Python web framework with automatic OpenAPI docs and async s
 **Why here:** Internal `POST /rag/query` service — streaming responses, typed bodies from
 contracts.
 
-**How used:** `services/rag/` wires HTTP to `py_core` retrieval + LLM modules; **not** exposed
+**How used:** `apps/rag/api/` wires HTTP to `services/` retrieval + LLM modules; **not** exposed
 to the browser directly.
 
 **Learn:** Path operations, dependency injection, streaming responses (SSE), and mounting
@@ -303,7 +302,7 @@ Procrastinate is a PostgreSQL-backed task queue for Python (alternative to raw `
 
 **Why here:** Worker job dispatch with retries and concurrency control.
 
-**How used:** `services/worker` consumers for `sync`, `parse`, `embed`, `xrepo`, `distill` job
+**How used:** `apps/rag` background consumers for `sync`, `parse`, `embed`, `xrepo`, `distill` job
 types.
 
 **Learn:** Task definitions, retries, concurrency limits, and idempotent job handlers.
@@ -335,7 +334,7 @@ pgvector adds vector similarity search to PostgreSQL (embeddings for semantic co
 vector database.
 
 **How used:** `code_chunks.embedding vector(1024)` with HNSW index; `similarity_search()` in
-`py_core/db/vector.py`; cosine distance.
+`repositories/vector.py`; cosine distance.
 
 **Learn:** Embeddings concept, vector dimensions, HNSW indexes, cosine vs L2 distance.
 
@@ -361,7 +360,7 @@ The code graph (`graph_nodes`, `graph_edges`) lives in Postgres; multi-hop trave
 
 **Why here:** Cross-repo links (frontend → backend → IAM) without a dedicated graph database.
 
-**How used:** `expand_graph_neighbors()` in `py_core/db/graph_queries.py`; populated by worker
+**How used:** `expand_graph_neighbors()` in `repositories/graph_queries.py`; populated by worker
 `parse` jobs.
 
 **Learn:** Adjacency list model, recursive CTEs, and graph traversal for call/import edges.
@@ -377,7 +376,7 @@ tree-sitter parses source code into concrete syntax trees incrementally — fast
 **Why here:** Extract functions, classes, routes, imports from MEAN/MERN (JS/TS/TSX + templates)
 at scale.
 
-**How used:** `py_core/parsing/` — grammar registry, chunkers, entity extraction →
+**How used:** `services/parsing/` — grammar registry, chunkers, entity extraction →
 `graph_nodes` / `graph_edges` / `code_chunks`.
 
 **Learn:** AST vs CST, tree-sitter queries, language grammars, and chunking strategies
@@ -402,7 +401,7 @@ TEI serves open embedding models via HTTP — turns text chunks into vectors.
 
 **Why here:** Self-hosted embeddings; private code never leaves the network.
 
-**How used:** `py_core/embedding/` client → TEI → upsert vectors into pgvector.
+**How used:** `services/embedding/` client → TEI → upsert vectors into pgvector.
 
 **Learn:** Embedding model choice for code, batching, normalization, and matching
 `EMBEDDING_DIMENSION` (1024) to the DB column width.
@@ -415,7 +414,7 @@ vLLM serves large open-weight LLMs efficiently on GPU (production). Ollama simpl
 
 **Why here:** Grounded answers and distillation require an LLM; no commercial API.
 
-**How used:** `py_core/llm/` provider abstraction; RAG assembly and distillation call vLLM; dev
+**How used:** `services/llm/` provider abstraction; RAG assembly and distillation call vLLM; dev
 uses Ollama.
 
 **Learn:** OpenAI-compatible API shape, prompt templates, token limits, streaming completions,
@@ -430,7 +429,7 @@ hallucinations.
 
 **Why here:** Core product value: cited, codebase-grounded answers.
 
-**How used:** `py_core/retrieval/` + `services/rag` — vector search, optional rerank, context
+**How used:** `services/retrieval/` + `api/` — vector search, optional rerank, context
 assembly, citation attachment, abstain when unsupported.
 
 **Learn:** Chunking, retrieval metrics, context window budgeting, citation format, and abstain
@@ -443,7 +442,7 @@ assembly, citation attachment, abstain when unsupported.
 A classifier routes questions to code retrieval vs structured product knowledge (workflows,
 permissions, data flows).
 
-**How used:** `py_core/router/`; page-scoped context for end-user questions.
+**How used:** `services/router/`; page-scoped context for end-user questions.
 
 **Learn:** Intent classification, few-shot prompts, and separate retrieval paths.
 
@@ -454,7 +453,7 @@ permissions, data flows).
 LLM walks the graph from entrypoints to derive workflows, page maps, permission rules, and data
 flows — each with confidence + citations.
 
-**How used:** `py_core/distill/` + worker `distill` jobs.
+**How used:** `services/distill/` + worker `distill` jobs.
 
 **Learn:** Structured extraction prompts, confidence scoring, stale artifact recomputation.
 
@@ -464,7 +463,7 @@ flows — each with confidence + citations.
 
 Low-confidence facts become `expert_questions`; expert answers override LLM-inferred knowledge.
 
-**How used:** `py_core/experts/`, `apps/web` expert-queue feature, API questions module.
+**How used:** `services/experts/`, `apps/web` expert-queue feature, API questions module.
 
 **Learn:** Human-in-the-loop UX, authoritative overrides, and trust models.
 
@@ -528,7 +527,7 @@ linking and distillation.
 4. Job enqueue pattern  
 5. WebSocket proxy
 
-### Python / indexing contributor (`py-core`, `worker`, `rag`)
+### Python / indexing contributor (`apps/rag`)
 
 1. Python typing + Pydantic  
 2. SQLAlchemy + pgvector  

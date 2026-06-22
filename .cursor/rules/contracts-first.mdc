@@ -9,7 +9,7 @@ The single source of truth for every cross-service shape is `contracts/`:
 `openapi.node.yaml`, `openapi.rag.yaml`, `jobs.schema.json`.
 
 - To change any request/response/job shape: **edit `contracts/` → run codegen → use the generated
-  types.** TS types land in `packages/shared-types`; Pydantic models land in `packages/py-core`.
+  types.** TS types land in `packages/shared-types`; Pydantic models land in `apps/rag/` (when generated).
 - **Never hand-write or hand-edit generated types.** They will be overwritten.
 - **Never guess a shape** — read `contracts/` (or the generated types) instead.
 - If Node and Python disagree at runtime, fix the contract or codegen, not a local patch.

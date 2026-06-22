@@ -8,8 +8,7 @@ Runs the stateless app/worker/inference containers.
 
 - [ ] `compose.app.yml` with services:
   - [ ] `api` — Node non-blocking API (also serves the React bundle from `apps/web`).
-  - [ ] `rag` — Python RAG/QA service.
-  - [ ] `worker` — Python queue consumers (sync/parse/embed/xrepo/distill).
+  - [ ] `rag` — Python RAG/QA HTTP + background job consumers (sync/parse/embed/xrepo/distill).
   - [ ] `vllm` — LLM inference (GPU).
   - [ ] `tei` — embeddings (GPU).
 - [ ] GPU passthrough for `vllm` / `tei`.

@@ -28,13 +28,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        project: [packages/py-core, services/rag, services/worker]
+        project: [apps/rag]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - name: Sync deps
         working-directory: ${{ matrix.project }}
-        run: uv sync --dev
+        run: uv lock && uv sync --dev
       - name: Test (100% coverage gate)
         working-directory: ${{ matrix.project }}
         run: uv run pytest
@@ -47,5 +47,4 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -f apps/api/Dockerfile -t codesage-api .
       - run: docker build -f apps/web/Dockerfile -t codesage-web .
-      - run: docker build -f services/rag/Dockerfile -t codesage-rag .
-      - run: docker build -f services/worker/Dockerfile -t codesage-worker .
+      - run: docker build -f apps/rag/Dockerfile -t codesage-rag .

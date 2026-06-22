@@ -109,7 +109,7 @@ flowchart TB
 > **Node.js** owns the **non-blocking APIs**: serving the React bundle, user creation,
 > login/auth, project & repo CRUD, and WebSocket streaming. It **delegates all heavy/blocking
 > work** (repo sync, parsing, indexing, distillation, retrieval, QA) to **Python**
-> services/workers over the queue + an internal API.
+> `apps/rag` over the queue + an internal API.
 
 ---
 

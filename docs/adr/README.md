@@ -31,6 +31,7 @@ Consequences · Alternatives considered · Escape hatch**.
 | [0012](./0012-docker-compose-deployment.md) | Docker Compose on two machines (Kubernetes deferred) | Accepted |
 | [0013](./0013-launch-identity-compliance-scale.md) | Launch posture: identity (SSO), compliance, and user scale | Accepted |
 | [0014](./0014-phase0-implementation-tooling.md) | Phase 0 implementation tooling | Accepted |
+| [0015](./0015-single-python-deployable-mvp.md) | Single Python deployable for MVP (`apps/rag`) | Accepted |
 
 ## Adding a new ADR
 

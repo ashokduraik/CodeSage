@@ -5,7 +5,7 @@ info:
   title: CodeSage RAG API (internal)
   version: 0.0.0
   description: >-
-    Internal API exposed by services/rag. See docs/final-solution.md §8-§9.
+    Internal API exposed by apps/rag. See docs/final-solution.md §8-§9.
 paths:
   /health:
     get:

@@ -32,7 +32,7 @@ gives AI agents an unambiguous, machine-checked spec to code against.
 - Request/response types for the public Node API (`openapi.node.yaml`).
 - Types relevant to the browser↔Node↔RAG flow as needed.
 - Job payload types mirrored from `jobs.schema.json` (Python's Pydantic models are generated
-  separately into `py-core`).
+  separately into `apps/rag/`).
 
 ## Related docs
 

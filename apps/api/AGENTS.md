@@ -5,7 +5,7 @@ Local rules for the Node API. Root [`/AGENTS.md`](../../AGENTS.md) also applies.
 ## The golden rule
 
 **Node never blocks on heavy work.** If a handler would parse, embed, build a graph, distill, or
-run retrieval, that is wrong — **enqueue a job** (Postgres queue) or **proxy to `services/rag`**
+run retrieval, that is wrong — **enqueue a job** (Postgres queue) or **proxy to `apps/rag`**
 instead. Heavy/blocking work is Python's job.
 
 ## Do
@@ -42,7 +42,7 @@ Never edit an already-applied migration file; add a new one.
 
 ## Don't
 
-- Don't implement business logic that belongs in `py-core`.
+- Don't implement business logic that belongs in `apps/rag/src/services/`.
 - Don't hand-write API/job shapes — edit `contracts/` and run codegen.
 - Don't call the database with ad-hoc queries scattered across modules — go through the module's
   repository layer.

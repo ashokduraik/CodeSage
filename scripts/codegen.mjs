@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Contracts-first codegen: generates TypeScript types from contracts/ into
 // packages/shared-types/src/generated/*. Python Pydantic models are generated separately
-// via datamodel-code-generator (see packages/py-core/README.md), since that needs the
+// via datamodel-code-generator (see apps/rag/README.md), since that needs the
 // Python toolchain (uv). This script is the ONLY sanctioned way to update the TS types.
 //
 // Usage:

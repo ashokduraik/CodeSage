@@ -15,7 +15,7 @@ clarifying questions and folds the answers back as authoritative overrides.
 ## 2. The hard boundary (memorize this)
 
 ```
-React (apps/web)  →  Node non-blocking APIs (apps/api)  →  Python heavy work (services + py-core)
+React (apps/web)  →  Node non-blocking APIs (apps/api)  →  Python (`apps/rag` layers)
                                    │                                   │
                                    └────────── PostgreSQL (single datastore) ───────────┘
 ```
@@ -25,8 +25,8 @@ React (apps/web)  →  Node non-blocking APIs (apps/api)  →  Python heavy work
   service** and streams the result back.
 - **Python owns all heavy/blocking work:** repo sync, parsing, embedding, graph building,
   cross-repo linking, LLM distillation, retrieval, QA assembly.
-- **Business logic lives in `packages/py-core`.** `services/rag` and `services/worker` are
-  thin wiring around it.
+- **Business logic lives in `apps/rag/src/services/`.** `src/api/` (HTTP) and `src/workers/` (jobs) are thin
+  I/O layers only; `src/repositories/` + `src/models/` handle persistence.
 
 ## 3. Component map
 
@@ -34,10 +34,8 @@ React (apps/web)  →  Node non-blocking APIs (apps/api)  →  Python heavy work
 |---|---|---|---|
 | Web | `apps/web` | React + TS | Project setup, QA chat, expert queue, workflow/page explorer. |
 | API | `apps/api` | Node + TS | Auth/RBAC, user/project/repo CRUD, WS gateway, webhooks, job enqueue. |
-| RAG service | `services/rag` | Python | Question router, retrieval, grounded answer assembly (streams). |
-| Worker | `services/worker` | Python | Queue consumers: sync, parse, embed, xrepo, distill. |
+| Python backend | `apps/rag` | Python | `src/` layers: `api/`, `workers/`, `services/`, `repositories/`, `models/`, `config/`. |
 | Shared TS types | `packages/shared-types` | TS | Types **generated** from `contracts/`; shared by web + api. |
-| Python core | `packages/py-core` | Python | DB, parsing, graph, embedding, llm, distill, retrieval, router, experts, config. |
 | Datastore | (deploy) | PostgreSQL + pgvector | Metadata, KB, vectors, graph adjacency, job queue, encrypted tokens. |
 | Inference | (deploy) | vLLM + TEI | LLM generation + embeddings, self-hosted on GPU. |
 
@@ -51,7 +49,7 @@ drift. It is defined **once** in `contracts/` and **types are generated**, never
 - `contracts/jobs.schema.json` — job-queue payloads (Node enqueues → Python consumes).
 
 Flow: **edit `contracts/` → run codegen → TS types land in `packages/shared-types`, Pydantic
-models land in `py-core`.** See [`development-workflow.md`](./development-workflow.md).
+models land in `apps/rag/` (when generated).** See [`development-workflow.md`](./development-workflow.md).
 
 > `contracts/`, `db/`, `deploy/`, and `scripts/` are now scaffolded with READMEs and
 > **placeholder skeletons only** (no implementation code). See each folder's `README.md`; the
@@ -84,5 +82,5 @@ See [`final-solution.md`](./final-solution.md) §6–§8 for full detail and the
 ## 7. Deployment shape (MVP)
 
 Two on-prem machines, Docker Compose: **Machine 1** = PostgreSQL (+pgvector); **Machine 2** =
-Node API + Python RAG/worker + vLLM + TEI (1× 48 GB GPU). ~5 services, 1 datastore. Kubernetes
+Node API + Python RAG + vLLM + TEI (1× 48 GB GPU). ~4 app services, 1 datastore. Kubernetes
 is deferred until workers/inference need independent scaling.

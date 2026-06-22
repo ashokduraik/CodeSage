@@ -1,6 +1,6 @@
 ---
 description: Database schema source-of-truth and migration rules
-globs: db/**,packages/py-core/db/**,docs/data-model.md
+globs: db/**,apps/rag/src/repositories/**,apps/rag/src/models/**,docs/data-model.md
 alwaysApply: false
 ---
 

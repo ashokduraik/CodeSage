@@ -39,7 +39,7 @@ Checklist organized by module. (Global sequencing lives in `docs/final-solution.
 
 ## chat
 - [ ] WebSocket gateway.
-- [ ] Proxy/stream to `services/rag` with citations.
+- [ ] Proxy/stream to `apps/rag` with citations.
 - [ ] Pass audience + optional page context through.
 
 ## knowledge

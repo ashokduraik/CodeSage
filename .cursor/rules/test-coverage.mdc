@@ -15,7 +15,7 @@ branch.** No code is "done" until the threshold is met and CI is green.
 - **CI enforces the threshold.** Coverage gates are set to 80% (line + branch); a drop below
   80% fails the build. Do not lower the threshold to make a build pass.
 - Coverage tooling: **TypeScript** (`apps/web`, `apps/api`, `packages/shared-types`) and
-  **Python** (`services/*`, `packages/py-core`) both run coverage in CI.
+  **Python** (`apps/rag`) runs coverage in CI.
 - Test the module's **public surface** and its behavior, not implementation details.
 - If a line is genuinely impossible to cover, justify it with an explicit, reviewed ignore
   annotation (e.g. `/* istanbul ignore next */`, `# pragma: no cover`) — used **rarely** and only

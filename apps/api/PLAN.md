@@ -10,7 +10,7 @@ How we will build the Node API so it stays **easy to maintain** and **AI-friendl
   agent can rely on.
 - **Generated types from `contracts/`.** Request/response and job payloads are generated, never
   hand-written. Validate inputs at the edge.
-- **Never block.** Long work is enqueued (Postgres jobs) or proxied to `services/rag`. If a
+- **Never block.** Long work is enqueued (Postgres jobs) or proxied to `apps/rag`. If a
   handler would do CPU/GPU work, that is a design error — move it to Python.
 - **`platform/` holds cross-cutting concerns** (db client, queue enqueue, config, logging, error
   handling) so modules stay focused.
@@ -25,7 +25,7 @@ How we will build the Node API so it stays **easy to maintain** and **AI-friendl
 4. **projects** — project CRUD.
 5. **repos** — attach repo, **encrypt token at rest**, branch/role config; enqueue initial index.
 6. **webhooks** — provider push intake → enqueue incremental re-index job.
-7. **chat** — WebSocket gateway proxying to `services/rag`, streaming answers + citations.
+7. **chat** — WebSocket gateway proxying to `apps/rag`, streaming answers + citations.
 8. **knowledge** — read endpoints for workflows/pages/permissions/data-flows.
 9. **questions** — expert queue read + answer (writes authoritative overrides).
 

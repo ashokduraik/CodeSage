@@ -8,7 +8,7 @@ the process every contributor (human or agent) follows.
 1. **Contracts first.** Cross-service shapes are defined in `contracts/` and **generated**,
    never hand-written. Edit the contract, run codegen, then write code against the types.
 2. **One concern, one place.** DB schema → `db/migrations/`. API shapes → `contracts/`.
-   Prompts → `py-core/llm` + `py-core/distill`. Business logic → `py-core` (not `services/*`).
+   Prompts → `apps/rag/src/services/llm` + `apps/rag/src/services/distill`. Business logic → `apps/rag/src/services/` (not `api/` or `workers/`).
 3. **Respect the boundary.** Node never blocks on heavy work; Python owns heavy/blocking work.
 4. **Small, single-purpose files** with descriptive names over large grab-bag files.
 5. **No deep cross-module imports.** Modules expose a public surface (`index.ts` /
@@ -29,7 +29,7 @@ the process every contributor (human or agent) follows.
 ```
 1. Edit contracts/openapi.node.yaml | openapi.rag.yaml | jobs.schema.json
 2. Run codegen  (scripts/ codegen)
-3. TS types → packages/shared-types ;  Pydantic models → packages/py-core
+3. TS types → packages/shared-types ;  Pydantic models → apps/rag/ (when generated)
 4. Implement against generated types on both sides (Node + Python)
 5. Update docs/data-model.md if persistence changed; add/adjust db/migrations/
 ```
@@ -42,10 +42,10 @@ with local patches.
 | You are changing… | Edit here | Also update |
 |---|---|---|
 | A request/response shape | `contracts/` → codegen | `shared-types`, both call sites |
-| A job payload | `contracts/jobs.schema.json` → codegen | enqueuer (Node) + consumer (worker) |
+| A job payload | `contracts/jobs.schema.json` → codegen | enqueuer (Node) + consumer (`apps/rag`) |
 | DB schema | `db/migrations/` (new migration) | `docs/data-model.md` |
-| Business logic (parse/graph/embed/distill/retrieve/route) | `packages/py-core/<module>` | thin wiring in `services/*` |
-| A prompt | `py-core/llm` or `py-core/distill` | nothing else hand-edited |
+| Business logic (parse/graph/embed/distill/retrieve/route) | `apps/rag/src/services/<module>` | thin wiring in `src/api/`, `src/workers/` |
+| A prompt | `apps/rag/src/services/llm` or `apps/rag/src/services/distill` | nothing else hand-edited |
 | Frontend feature | `apps/web/src/features/<feature>` | `apps/web` API client (from contracts) |
 | A new architectural decision | `docs/adr/` (new ADR) | link it from affected READMEs |
 
@@ -73,7 +73,7 @@ with local patches.
 
 - [ ] Respects the Node/Python boundary.
 - [ ] Contracts updated + codegen run (if any cross-service shape changed).
-- [ ] Business logic lives in `py-core` (if Python); services stay thin.
+- [ ] Business logic lives in `apps/rag/src/services/` (if Python); `src/api/` and `src/workers/` stay thin.
 - [ ] Migration added + `docs/data-model.md` updated (if schema changed).
 - [ ] Tests colocated and passing; **≥ 80% coverage (line + branch)**; lint clean.
 - [ ] Relevant `README.md` / `TODO.md` / `PLAN.md` updated.

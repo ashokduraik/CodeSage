@@ -10,7 +10,7 @@ container-first so the same images later run under Kubernetes unchanged.
 | Path | Machine | Runs |
 |---|---|---|
 | `db/` | Machine 1 — Database | PostgreSQL + pgvector (the only stateful service). |
-| `app/` | Machine 2 — App + GPU | Node `api`, Python `rag` + `worker`, `vllm`, `tei`. |
+| `app/` | Machine 2 — App + GPU | Node `api`, Python `rag`, `vllm`, `tei`. |
 
 ## Hardware (see `docs/final-solution.md` §11)
 
@@ -21,6 +21,6 @@ container-first so the same images later run under Kubernetes unchanged.
 
 - **No secrets in compose files.** Configuration comes from environment / `.env` (see
   [`../.env.example`](../.env.example)); real `.env` files are never committed.
-- ~5 services, 1 datastore — keep it simple until scaling needs justify Kubernetes (ADR 0012).
-- Images are built from the deployables (`apps/api`, `services/rag`, `services/worker`) + upstream
+- ~4 app services, 1 datastore — keep it simple until scaling needs justify Kubernetes (ADR 0012).
+- Images are built from the deployables (`apps/api`, `apps/rag`) + upstream
   images for `postgres`, `vllm`, `tei`.

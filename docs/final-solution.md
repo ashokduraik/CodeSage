@@ -2,7 +2,7 @@
 
 > **Status:** v1.0 (finalized)
 > **Companions:** `requirement.md` (what & why), `intermediate-solution.md` (options & trade-offs)
-> **Last updated:** 2026-06-13
+> **Last updated:** 2026-06-22
 >
 > This document is the **finalized** technical solution. All technology decisions are locked.
 > It is the basis for implementation.
@@ -66,10 +66,10 @@ flowchart TB
         CRUD[User / project / repo CRUD]
     end
 
-    subgraph PY["Python — heavy/blocking services"]
-        RAGSVC[RAG / router / QA service]
+    subgraph PY["Python — apps/rag (heavy/blocking)"]
+        RAGSVC[RAG / router / QA HTTP]
         ORCH[Job enqueue + scheduler]
-        subgraph WORK["Workers"]
+        subgraph WORK["Background consumers"]
             SYNC[Multi-repo sync]
             PARSE[tree-sitter parse + chunk]
             XREPO[Cross-repo link resolver]
@@ -108,7 +108,8 @@ flowchart TB
 
 **Boundary rule:** Node never blocks on heavy work. It performs CRUD/auth synchronously,
 enqueues indexing/distillation jobs (rows in Postgres), and calls the Python RAG service for
-QA (streaming the answer back over WebSocket). Python workers pull jobs via `SKIP LOCKED`.
+QA (streaming the answer back over WebSocket). Background jobs run in the same `apps/rag`
+deployable (Procrastinate / `SKIP LOCKED`).
 
 ---
 
@@ -135,19 +136,16 @@ codesage/
 │  └─ README.md            #   "Edit here, then run codegen" — types are generated, not hand-written
 ├─ apps/                   # Deployable user-facing apps
 │  ├─ web/                 # React + TS frontend
-│  └─ api/                 # Node + TS — non-blocking APIs
-├─ services/               # Deployable Python backends
-│  ├─ rag/                 # Router + retrieval + QA assembly (HTTP, streams answers)
-│  └─ worker/              # Queue consumers: sync, parse, embed, xrepo, distill
-├─ packages/               # Shared, non-deployable libraries
-│  ├─ shared-types/        # TS types GENERATED from contracts/ (used by web + api)
-│  └─ py-core/             # Python shared lib (see 4.4)
+│  ├─ api/                 # Node + TS — non-blocking APIs
+│  └─ rag/                 # Python — RAG/QA HTTP + background job consumers
+├─ packages/               # Shared, non-deployable libraries (TS only for MVP)
+│  └─ shared-types/        # TS types GENERATED from contracts/ (used by web + api)
 ├─ db/
 │  ├─ migrations/          # Versioned SQL migrations (Postgres) — source of truth for schema
 │  └─ seed/                # Dev seed data & fixtures
 ├─ deploy/
 │  ├─ db/compose.yml       # Machine 1 (PostgreSQL + pgvector)
-│  └─ app/compose.yml      # Machine 2 (api, rag, worker, vllm, tei)
+│  └─ app/compose.yml      # Machine 2 (api, rag, vllm, tei)
 ├─ docs/                   # requirement.md, intermediate-solution.md, final-solution.md, ADRs
 │  └─ adr/                 # Architecture Decision Records (one file per decision)
 └─ scripts/                # Dev/ops scripts (codegen, backup, reindex-cli)
@@ -181,7 +179,7 @@ api/src/
 │  ├─ users/
 │  ├─ projects/
 │  ├─ repos/              # attach repo, token encryption, branch config
-│  ├─ chat/               # WS gateway → proxies to services/rag (streams)
+│  ├─ chat/               # WS gateway → proxies to apps/rag (streams)
 │  ├─ knowledge/          # read workflows / pages / permissions / data-flows
 │  ├─ questions/          # expert queue read + answer
 │  └─ webhooks/           # provider push → enqueue re-index job
@@ -189,34 +187,31 @@ api/src/
 └─ http/                  # server bootstrap, middleware, OpenAPI wiring
 ```
 
-### 4.4 Python shared core — `packages/py-core/` (the heart; clean module boundaries)
+### 4.4 Python backend — `apps/rag/` (layered)
 
 ```
-py_core/
-├─ db/                    # SQLAlchemy models + repositories (one module per table group)
-├─ parsing/               # tree-sitter: grammar registry, chunkers, entity extraction
-├─ graph/                 # build/query graph_nodes & graph_edges (incl. cross-repo)
-├─ embedding/             # TEI client, chunk → vector, pgvector upserts
-├─ llm/                   # provider abstraction (vLLM/Ollama), prompt templates, token budgeting
-├─ distill/               # workflows, page_map, permission_rules, data_flows extractors
-├─ retrieval/             # vector + graph retrieval, reranker, context assembly
-├─ router/                # code-vs-product question classifier
-├─ experts/               # confidence thresholds, question generation, override merge
-└─ config/                # settings, env, secrets access
+apps/rag/
+├── src/                  # All Python code
+│   ├── api/              # HTTP — FastAPI app, routes (thin)
+│   ├── workers/          # Background jobs — Procrastinate dispatch (thin)
+│   ├── services/         # Business logic — parsing, retrieval, LLM, distill, …
+│   ├── repositories/     # Data access — repos, session, pgvector/graph queries
+│   ├── models/           # SQLAlchemy ORM + enums
+│   └── config/           # Settings, env, secrets
+└── tests/                # pytest (outside src)
 ```
 
-`services/rag/` and `services/worker/` stay **thin** — they wire HTTP endpoints / queue
-consumers to `py_core` modules. Business logic lives in `py_core`, which keeps it testable and
-keeps the two deployables small.
+**Dependency rule:** `api/` and `workers/` call `services/`; `services/` call `repositories/`;
+`repositories/` use `models/`. No business logic in `api/` or `workers/`.
 
 ### 4.5 Conventions (enforced, so humans and agents stay consistent)
 
 - **`AGENTS.md` at root + key packages** — states the boundaries (e.g. "Node never does heavy
-  work", "edit `contracts/` then run codegen", "business logic goes in `py_core`, not in
-  `services/*`"), the test/lint commands, and naming rules.
+  work", "edit `contracts/` then run codegen", "business logic goes in `services/`, not in
+  `api/` or `workers/`"), the test/lint commands, and naming rules.
 - **Tests colocated** with code (`*.test.ts`, `test_*.py`) plus `tests/e2e/` for cross-service.
 - **One concern = one place:** DB schema only in `db/migrations/`; API shapes only in
-  `contracts/`; prompts only in `py_core/llm` + `py_core/distill`.
+  `contracts/`; prompts only in `apps/rag/src/services/llm` + `apps/rag/src/services/distill`.
 - **No deep cross-module imports** — modules expose a public surface (`index.ts` / `__init__.py`);
   internals stay private. This is what makes large-codebase edits safe for an AI agent.
 - **Small, single-purpose files** with descriptive names over large grab-bag files.
@@ -337,9 +332,9 @@ flowchart LR
 - `WS /chat` — QA streaming (proxied to the Python RAG service).
 - `POST /webhooks/:provider` — push events → enqueue re-index job.
 
-**Python (internal only):**
+**Python (internal only, `apps/rag`):**
 - `POST /rag/query` — router + retrieval + grounded answer (SSE/stream).
-- Queue consumers — `sync`, `parse`, `embed`, `xrepo`, `distill`.
+- Background queue consumers — `sync`, `parse`, `embed`, `xrepo`, `distill` (same deployable).
 
 ---
 
@@ -362,7 +357,7 @@ flowchart LR
 - **Machine 1 — Database:** 16 cores, 64–128 GB RAM, 1 TB NVMe SSD (RAID1), no GPU. Runs
   PostgreSQL + pgvector.
 - **Machine 2 — Application + GPU:** 16–32 cores, 64–128 GB RAM, 500 GB–1 TB NVMe,
-  **1× 48 GB GPU** (L40S/A6000). Runs Node API, Python RAG + workers, vLLM, TEI.
+  **1× 48 GB GPU** (L40S/A6000). Runs Node API, Python `apps/rag`, vLLM, TEI.
 
 > **GPU = 1× 48 GB** (finalized): runs a 14B fp16 / quantized-32B class model + the embedding
 > model — the MVP sweet spot for "understanding" quality. Scale out (more GPUs / Kubernetes)
@@ -373,10 +368,10 @@ flowchart LR
 
 ### 11.2 Deployment (Docker Compose)
 - **Machine 1:** `docker-compose.db.yml` → PostgreSQL (pgvector).
-- **Machine 2:** `docker-compose.app.yml` → `api` (Node), `rag` (Python), `worker` (Python),
+- **Machine 2:** `docker-compose.app.yml` → `api` (Node), `rag` (Python — HTTP + background jobs),
   `vllm`, `tei`.
-- **~5 services, 1 datastore.** Move to **Kubernetes** when workers/inference need independent
-  scaling.
+- **~4 app services, 1 datastore.** Split Python into separate worker/RAG deployables when
+  workers/inference need independent scaling (see ADR 0015).
 
 ---
 

@@ -28,10 +28,8 @@ Each deployable/package documents itself locally. Each folder carries four files
 
 - `apps/web/` — React + TypeScript frontend
 - `apps/api/` — Node + TypeScript non-blocking APIs
-- `services/rag/` — Python RAG / router / QA service
-- `services/worker/` — Python queue consumers (sync, parse, embed, xrepo, distill)
+- `apps/rag/` — Python RAG / QA + background job consumers (sync, parse, embed, xrepo, distill)
 - `packages/shared-types/` — TS types generated from `contracts/`
-- `packages/py-core/` — Python shared library (the business-logic heart)
 
 ## Reading order for a new contributor (human or AI)
 

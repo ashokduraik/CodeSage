@@ -19,7 +19,7 @@ the specs and are decided here.
 | Node API | **Fastify + TypeScript** | Fast, schema/JSON-first, strong OpenAPI fit (ADR 0001). |
 | Auth | **Custom JWT via `jose`** + argon2/bcrypt, RBAC middleware | Fits a Vite SPA + Fastify (supersedes "Auth.js" naming in ADR 0011 for the SPA architecture; Keycloak still the SSO path). |
 | Python pkg mgr | **uv** | Fast, reproducible; pins interpreter. |
-| Python web | **FastAPI + uvicorn** (`services/rag`) | Async, typed, streaming-friendly. |
+| Python web | **FastAPI + uvicorn** (`apps/rag`) | Async, typed, streaming-friendly; background job consumers in the same deployable (MVP). |
 | Python runtime | **3.12 pinned in Docker** | Local is 3.14 (too new for some ML wheels); containers pin 3.12. |
 | Job queue | **Procrastinate** | Postgres-only queue with retries (ADR 0006). |
 | Migrations | **dbmate** (plain SQL up/down) | Language-agnostic; SQL is the schema source of truth, runnable in CI/Docker. |

@@ -11,7 +11,7 @@ drift** (ADR 0001). It is defined **once** here and types are **generated**, nev
 | File | Defines | Generated into |
 |---|---|---|
 | `openapi.node.yaml` | Public Node REST/WS API (browser ↔ Node). | `packages/shared-types` (TS) |
-| `openapi.rag.yaml` | Internal Python RAG API (Node ↔ RAG service). | `packages/py-core` (Pydantic) + `shared-types` if used in TS |
+| `openapi.rag.yaml` | Internal Python RAG API (Node ↔ RAG service). | `apps/rag` (Pydantic) + `shared-types` if used in TS |
 | `jobs.schema.json` | Job-queue payloads (Node enqueues → Python consumes). | both TS + Pydantic |
 
 ## The workflow (mandatory)
@@ -19,7 +19,7 @@ drift** (ADR 0001). It is defined **once** here and types are **generated**, nev
 ```
 1. Edit the relevant file here.
 2. Run codegen  (scripts/codegen — added in Phase 0).
-3. TS types → packages/shared-types ; Pydantic models → packages/py-core.
+3. TS types → packages/shared-types ; Pydantic models → apps/rag/.
 4. Implement against the generated types on both sides.
 ```
 

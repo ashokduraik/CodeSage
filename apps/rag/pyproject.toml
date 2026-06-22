@@ -1,0 +1,52 @@
+[project]
+name = "codesage-rag"
+version = "0.0.0"
+description = "CodeSage Python backend — layered FastAPI app (api, services, models, repositories, workers)."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "procrastinate>=2.0",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0",
+    "pgvector>=0.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["src"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src/api" = "api"
+"src/config" = "config"
+"src/models" = "models"
+"src/repositories" = "repositories"
+"src/services" = "services"
+"src/workers" = "workers"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "--cov=api --cov=config --cov=models --cov=repositories --cov=workers --cov-report=term-missing --cov-fail-under=100"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+    "src/workers/queue.py",
+    "src/workers/worker.py",
+    "src/api/__init__.py",
+    "src/workers/__init__.py",
+    "src/services/__init__.py",
+]

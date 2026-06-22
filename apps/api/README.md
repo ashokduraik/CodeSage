@@ -12,7 +12,7 @@ Python RAG service.
 - **Auth & RBAC** — Auth.js / JWT; roles: admin, expert, developer, end_user (ADR 0011).
 - **CRUD** — users, projects, repos (attach repo, encrypt token, branch/role config).
 - **Static serving** — serve the React bundle from `apps/web`.
-- **WebSocket gateway** — stream QA answers (proxied from `services/rag`).
+- **WebSocket gateway** — stream QA answers (proxied from `apps/rag`).
 - **Webhooks** — receive provider push events → **enqueue** a re-index job.
 - **Job enqueue** — write job rows to Postgres for Python workers to consume.
 - **Read derived knowledge** — expose workflows / pages / permissions / questions to the UI.
@@ -20,7 +20,7 @@ Python RAG service.
 ## Boundaries (what this app does NOT do)
 
 - **No heavy/blocking work.** No parsing, embedding, graph building, distillation, or retrieval.
-  Those are Python (`services/*` + `packages/py-core`).
+  Those are Python (`apps/rag`, layered — logic in `services/`).
 - For QA, it **proxies** to the Python RAG service and streams the result; it does not run RAG.
 - API and job shapes come from `contracts/` (generated types via `packages/shared-types`).
 
@@ -38,7 +38,7 @@ api/src/
 │  ├─ users/
 │  ├─ projects/
 │  ├─ repos/         # attach repo, token encryption, branch config
-│  ├─ chat/          # WS gateway → proxies to services/rag (streams)
+│  ├─ chat/          # WS gateway → proxies to apps/rag (streams)
 │  ├─ knowledge/     # read workflows / pages / permissions / data-flows
 │  ├─ questions/     # expert queue read + answer
 │  └─ webhooks/      # provider push → enqueue re-index job

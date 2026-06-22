@@ -23,14 +23,14 @@ npm run typecheck      # typecheck all workspaces
 npm test               # run all JS tests (≥ 80% coverage gate)
 npm run build          # build web + api + shared-types
 
-docker compose up -d --build   # start db + migrate + api + rag + worker + web
+docker compose up -d --build   # start db + migrate + api + rag + web
 # api   -> http://localhost:3000/health
 # rag   -> http://localhost:8001/health
 # web   -> http://localhost:8080
 docker compose down            # stop the stack
 ```
 
-Python services/tests run via `uv` inside their containers; see each folder's `README.md`.
+Python tests run via `uv` inside the `apps/rag` container; see [`apps/rag/README.md`](./apps/rag/README.md).
 
 ## Documentation lives in [`docs/`](./docs/README.md)
 
@@ -53,13 +53,10 @@ codesage/
 ├─ docs/                     # all documentation (specs, architecture, ADRs, workflow)
 ├─ apps/
 │  ├─ web/                   # React + TypeScript frontend
-│  └─ api/                   # Node + TypeScript non-blocking APIs
-├─ services/
-│  ├─ rag/                   # Python RAG / router / QA service
-│  └─ worker/                # Python queue consumers (sync, parse, embed, xrepo, distill)
+│  ├─ api/                   # Node + TypeScript non-blocking APIs
+│  └─ rag/                   # Python RAG / QA + background job consumers
 ├─ packages/
-│  ├─ shared-types/          # TS types generated from contracts/
-│  └─ py-core/               # Python shared library (business-logic heart)
+│  └─ shared-types/          # TS types generated from contracts/
 ├─ contracts/                # SINGLE SOURCE OF TRUTH for cross-service APIs (generated types)
 ├─ db/                       # migrations/ (schema source of truth) + seed/
 ├─ deploy/                   # Docker Compose: db/ (Machine 1) + app/ (Machine 2)
