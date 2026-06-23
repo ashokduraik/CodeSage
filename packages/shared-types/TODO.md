@@ -9,7 +9,7 @@ Checklist. (Global sequencing: `docs/final-solution.md` §12 — this lands in P
 
 ## Generation targets
 - [x] Generate from `contracts/openapi.node.yaml` (public Node API) → `src/generated/node.ts`.
-- [ ] Generate job payload types from `contracts/jobs.schema.json` (TS side; Python Pydantic via py-core codegen).
+- [x] Generate job payload types from `contracts/jobs.schema.json` → `src/generated/jobs.ts` (+ Python in `apps/rag/src/generated/`).
 - [x] Include RAG-facing types from `openapi.rag.yaml` → `src/generated/rag.ts` (`RagApi`); wired into consumers when chat proxy lands (Phase 1).
 
 ## Guardrails

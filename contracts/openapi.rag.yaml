@@ -1,11 +1,12 @@
 # SINGLE SOURCE OF TRUTH for the Node API -> Python RAG service internal contract.
-# Called by apps/api (not the browser). Edit here, then run codegen -> Pydantic models in py-core.
+# Called by apps/api (not the browser). Edit here, then run codegen -> Pydantic models in apps/rag.
 openapi: 3.1.0
 info:
   title: CodeSage RAG API (internal)
-  version: 0.0.0
+  version: 0.1.0
   description: >-
-    Internal API exposed by apps/rag. See docs/final-solution.md §8-§9.
+    Internal API exposed by apps/rag. See docs/final-solution.md §8-§9 and
+    docs/plans/phase-1-mvp-code-qa.md.
 paths:
   /health:
     get:
@@ -19,8 +20,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
-  # TODO(Phase 1): POST /rag/query  (question + audience + optional page context -> streamed,
-  #                grounded answer with citations; abstain path returns "not certain").
+
+  /rag/query:
+    post:
+      operationId: ragQuery
+      summary: Stream a grounded code/product answer with citations
+      description: >-
+        Accepts a question and streams answer chunks via Server-Sent Events (SSE).
+        Each event is a JSON-encoded RagAnswerChunk. When retrieval confidence is
+        too low, emits an `abstain` chunk instead of hallucinating (NFR-7).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RagQueryRequest'
+      responses:
+        '200':
+          description: >-
+            SSE stream of RagAnswerChunk objects (`data: {json}\n\n`).
+            Terminal event uses type `done` or `abstain`.
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/RagAnswerChunk'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RagErrorResponse'
+        '404':
+          description: Project or repo not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RagErrorResponse'
+
 components:
   schemas:
     HealthResponse:
@@ -36,4 +72,109 @@ components:
         service:
           type: string
           description: Name of the reporting service.
-  # TODO(Phase 1): RagQueryRequest, RagAnswerChunk, Citation, ...
+
+    QueryAudience:
+      type: string
+      enum:
+        - developer
+        - end_user
+      description: >-
+        developer — code-level RAG over code_chunks (Phase 1).
+        end_user — product KB path (Phase 6; Phase 1 returns abstain).
+
+    RagQueryRequest:
+      type: object
+      required:
+        - question
+        - projectId
+        - audience
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 8000
+          description: Natural-language question from the user.
+        projectId:
+          type: string
+          format: uuid
+          description: Project scope for retrieval.
+        repoIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Optional repo filter; when omitted, all project repos are searched.
+        audience:
+          $ref: '#/components/schemas/QueryAudience'
+        pageContext:
+          type: string
+          maxLength: 500
+          description: Optional current UI route for page-scoped product questions (Phase 6).
+
+    CodeCitation:
+      type: object
+      required:
+        - kind
+        - filePath
+        - repoId
+      properties:
+        kind:
+          type: string
+          enum: [code]
+          description: Citation source type.
+        repoId:
+          type: string
+          format: uuid
+          description: Repo containing the cited file.
+        filePath:
+          type: string
+          description: Relative path within the repo.
+        span:
+          type: object
+          additionalProperties: true
+          description: Optional start/end line or character span metadata.
+        excerpt:
+          type: string
+          description: Short excerpt shown in the UI citation chip.
+
+    RagAnswerChunkType:
+      type: string
+      enum:
+        - token
+        - citation
+        - abstain
+        - done
+      description: >-
+        token — streamed answer text fragment.
+        citation — a grounding reference emitted before or during the answer.
+        abstain — model could not ground an answer; stream ends.
+        done — successful completion marker.
+
+    RagAnswerChunk:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          $ref: '#/components/schemas/RagAnswerChunkType'
+        content:
+          type: string
+          description: Text fragment when type is `token` or abstain reason when type is `abstain`.
+        citation:
+          $ref: '#/components/schemas/CodeCitation'
+
+    RagErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string

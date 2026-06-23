@@ -21,6 +21,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rag/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stream a grounded code/product answer with citations
+         * @description Accepts a question and streams answer chunks via Server-Sent Events (SSE). Each event is a JSON-encoded RagAnswerChunk. When retrieval confidence is too low, emits an `abstain` chunk instead of hallucinating (NFR-7).
+         */
+        post: operations["ragQuery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -33,6 +53,62 @@ export interface components {
             status: "ok";
             /** @description Name of the reporting service. */
             service: string;
+        };
+        /**
+         * @description developer — code-level RAG over code_chunks (Phase 1). end_user — product KB path (Phase 6; Phase 1 returns abstain).
+         * @enum {string}
+         */
+        QueryAudience: "developer" | "end_user";
+        RagQueryRequest: {
+            /** @description Natural-language question from the user. */
+            question: string;
+            /**
+             * Format: uuid
+             * @description Project scope for retrieval.
+             */
+            projectId: string;
+            /** @description Optional repo filter; when omitted, all project repos are searched. */
+            repoIds?: string[];
+            audience: components["schemas"]["QueryAudience"];
+            /** @description Optional current UI route for page-scoped product questions (Phase 6). */
+            pageContext?: string;
+        };
+        CodeCitation: {
+            /**
+             * @description Citation source type.
+             * @enum {string}
+             */
+            kind: "code";
+            /**
+             * Format: uuid
+             * @description Repo containing the cited file.
+             */
+            repoId: string;
+            /** @description Relative path within the repo. */
+            filePath: string;
+            /** @description Optional start/end line or character span metadata. */
+            span?: {
+                [key: string]: unknown;
+            };
+            /** @description Short excerpt shown in the UI citation chip. */
+            excerpt?: string;
+        };
+        /**
+         * @description token — streamed answer text fragment. citation — a grounding reference emitted before or during the answer. abstain — model could not ground an answer; stream ends. done — successful completion marker.
+         * @enum {string}
+         */
+        RagAnswerChunkType: "token" | "citation" | "abstain" | "done";
+        RagAnswerChunk: {
+            type: components["schemas"]["RagAnswerChunkType"];
+            /** @description Text fragment when type is `token` or abstain reason when type is `abstain`. */
+            content?: string;
+            citation?: components["schemas"]["CodeCitation"];
+        };
+        RagErrorResponse: {
+            error: {
+                code: string;
+                message: string;
+            };
         };
     };
     responses: never;
@@ -59,6 +135,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    ragQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RagQueryRequest"];
+            };
+        };
+        responses: {
+            /** @description SSE stream of RagAnswerChunk objects (`data: {json}\n\n`). Terminal event uses type `done` or `abstain`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["RagAnswerChunk"];
+                };
+            };
+            /** @description Validation error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RagErrorResponse"];
+                };
+            };
+            /** @description Project or repo not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RagErrorResponse"];
                 };
             };
         };

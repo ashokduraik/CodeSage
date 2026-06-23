@@ -15,7 +15,10 @@ def test_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@db:5432/test")
     monkeypatch.setenv("REPO_CLONE_DIR", "/tmp/repos")
     monkeypatch.setenv("EMBEDDING_DIMENSION", "512")
+    monkeypatch.setenv("TOKEN_ENC_KEY", "")
+    monkeypatch.setenv("TEI_BASE_URL", "http://tei")
     settings = load_settings()
     assert settings.database_url == "postgresql://user:pw@db:5432/test"
     assert settings.repo_clone_dir == "/tmp/repos"
     assert settings.embedding_dimension == 512
+    assert settings.tei_base_url == "http://tei"

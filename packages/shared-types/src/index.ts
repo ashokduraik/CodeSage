@@ -3,3 +3,4 @@
 // Do NOT hand-edit ./generated/* — run `npm run codegen` instead. See .cursor/rules/contracts-first.mdc
 export type * as NodeApi from "./generated/node";
 export type * as RagApi from "./generated/rag";
+export type * as Jobs from "./generated/jobs";

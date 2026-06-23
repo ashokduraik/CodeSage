@@ -1,0 +1,109 @@
+"""Git clone/fetch helpers for the sync job."""
+
+from __future__ import annotations
+
+import subprocess
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from urllib.parse import urlparse, urlunparse
+
+
+@dataclass(frozen=True)
+class GitSyncResult:
+    """Outcome of a git sync operation."""
+
+    head_sha: str
+    changed_files: list[str]
+
+
+def build_authenticated_url(repo_url: str, token: str | None) -> str:
+    """Inject a deploy token into an HTTPS clone URL when provided.
+
+    @param repo_url - Original HTTPS remote URL.
+    @param token - Optional plaintext token.
+    @returns URL suitable for non-interactive git clone.
+    """
+    if not token:
+        return repo_url
+    parsed = urlparse(repo_url)
+    if parsed.scheme not in {"http", "https"}:
+        return repo_url
+    netloc = f"{token}@{parsed.hostname}"
+    if parsed.port:
+        netloc = f"{token}@{parsed.hostname}:{parsed.port}"
+    authed = parsed._replace(netloc=netloc)
+    return urlunparse(authed)
+
+
+def _run_git(args: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """Run a git command and capture stdout/stderr.
+
+    @param args - git subcommand arguments (without the `git` prefix).
+    @param cwd - Optional working directory.
+    @returns CompletedProcess with text mode output.
+    @raises RuntimeError when git exits non-zero.
+    """
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise RuntimeError(f"git {' '.join(args)} failed: {detail}")
+    return completed
+
+
+def sync_repository(
+    *,
+    repo_url: str,
+    branch: str,
+    worktree: Path,
+    token: str | None,
+    since_sha: str | None,
+    list_files: Callable[[], list[str]],
+) -> GitSyncResult:
+    """Clone or update a repository and determine files to (re)parse.
+
+    @param repo_url - HTTPS clone URL.
+    @param branch - Branch to checkout.
+    @param worktree - Local clone directory.
+    @param token - Optional deploy token for private repos.
+    @param since_sha - Previous indexed SHA for incremental diff; `None` on first sync.
+    @param list_files - Callable returning indexable relative paths after sync.
+    @returns HEAD SHA and relative file paths requiring parse.
+    @raises RuntimeError when git commands fail.
+    """
+    authed_url = build_authenticated_url(repo_url, token)
+    if worktree.exists() and (worktree / ".git").exists():
+        _run_git(["fetch", "--depth", "1", "origin", branch], cwd=worktree)
+        _run_git(["checkout", branch], cwd=worktree)
+        _run_git(["reset", "--hard", f"origin/{branch}"], cwd=worktree)
+    else:
+        worktree.parent.mkdir(parents=True, exist_ok=True)
+        if worktree.exists():
+            raise RuntimeError(f"Worktree path exists but is not a git repo: {worktree}")
+        _run_git(
+            [
+                "clone",
+                "--depth",
+                "1",
+                "--branch",
+                branch,
+                authed_url,
+                str(worktree),
+            ],
+        )
+
+    head_sha = _run_git(["rev-parse", "HEAD"], cwd=worktree).stdout.strip()
+    if since_sha and since_sha != head_sha:
+        diff = _run_git(["diff", "--name-only", since_sha, head_sha], cwd=worktree)
+        changed = [line.strip() for line in diff.stdout.splitlines() if line.strip()]
+        all_indexable = set(list_files())
+        changed_files = sorted(path for path in changed if path in all_indexable)
+    else:
+        changed_files = list_files()
+    return GitSyncResult(head_sha=head_sha, changed_files=changed_files)
