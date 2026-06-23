@@ -42,13 +42,12 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
  */
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => getAuthToken() !== null);
 
-  // Restore session from localStorage on mount.
+  // Restore session from localStorage on mount when a token is present.
   useEffect(() => {
     const stored = getAuthToken();
     if (!stored) {
-      setIsLoading(false);
       return;
     }
     apiFetch<User>("/users/me")

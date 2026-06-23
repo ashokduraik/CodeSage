@@ -2,6 +2,7 @@
   "name": "codesage",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "description": "Self-hosted, codebase-aware QA platform (monorepo root).",
   "license": "SEE LICENSE IN LICENSE.md",
   "author": "Ashok Durai Kannan <ashokduraik@gmail.com>",
@@ -19,6 +20,9 @@
     "build": "npm run build -w @codesage/shared-types && npm run build -w @codesage/api && npm run build -w @codesage/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
+    "lint:fix": "npm run lint:fix --workspaces --if-present",
+    "lint:api": "npm run lint -w @codesage/api",
+    "lint:web": "npm run lint -w @codesage/web",
     "setup": "npm install && npm run sync:python",
     "sync:python": "cd apps/rag && uv sync --dev",
     "test:js": "npm run test --workspaces --if-present",
@@ -29,8 +33,14 @@
     "dev:rag": "cd apps/rag && uv run uvicorn api.main:app --host 127.0.0.1 --port 8001 --reload"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
     "openapi-typescript": "^7.13.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.0"
   },
   "overrides": {
     "esbuild": "^0.28.1"

@@ -4,16 +4,18 @@ vi.mock("./users.repository", () => ({
   findUserById: vi.fn(),
   emailExists: vi.fn(),
   createUser: vi.fn(),
+  updateUserRole: vi.fn(),
 }));
 
-const { getUserById, createNewUser } = await import("./users.service");
-import { findUserById, emailExists, createUser } from "./users.repository";
+const { getUserById, createNewUser, changeUserRole } = await import("./users.service");
+import { findUserById, emailExists, createUser, updateUserRole } from "./users.repository";
 import { ApiError } from "../../platform/errors";
 import type { Sql } from "../../platform/db";
 
 const mockFindUserById = vi.mocked(findUserById);
 const mockEmailExists = vi.mocked(emailExists);
 const mockCreateUser = vi.mocked(createUser);
+const mockUpdateUserRole = vi.mocked(updateUserRole);
 
 const MOCK_DB = {} as Sql;
 
@@ -59,5 +61,20 @@ describe("createNewUser", () => {
     await expect(
       createNewUser(MOCK_DB, "taken@example.com", "password123", "developer"),
     ).rejects.toMatchObject({ statusCode: 409, code: "EMAIL_IN_USE" });
+  });
+});
+
+describe("changeUserRole", () => {
+  it("returns the updated user profile when found", async () => {
+    mockUpdateUserRole.mockResolvedValue({ ...MOCK_ROW, role: "expert" });
+    const user = await changeUserRole(MOCK_DB, "u1", "expert");
+    expect(user.role).toBe("expert");
+  });
+
+  it("throws 404 when the user is not found", async () => {
+    mockUpdateUserRole.mockResolvedValue(undefined);
+    await expect(changeUserRole(MOCK_DB, "missing", "developer")).rejects.toMatchObject({
+      statusCode: 404,
+    });
   });
 });

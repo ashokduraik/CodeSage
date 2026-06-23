@@ -63,6 +63,7 @@ at ≥ 80% coverage. Phase 0 exposes `/health`.
 ```bash
 npm install                 # from repo root (workspaces)
 npm run dev -w @codesage/api    # tsx watch (http://localhost:3000/health)
+npm run lint -w @codesage/api   # ESLint (Node/TS rules)
 npm run build -w @codesage/api  # bundle -> apps/api/dist
 npm run test -w @codesage/api   # tests + coverage
 # or via Docker:

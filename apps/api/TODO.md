@@ -15,12 +15,12 @@ Checklist organized by module. (Global sequencing lives in `docs/final-solution.
 ## auth
 - [x] JWT login (`POST /auth/login`) — bcrypt verify + `app.jwt.sign`.
 - [x] RBAC middleware (`requireAuth` factory with `allowedRoles`).
-- [ ] Audit logging for sensitive actions (table exists, writes not wired yet).
+- [x] Audit logging for sensitive actions — `platform/audit.ts`; wired on user/project/repo mutations.
 - [ ] `POST /auth/logout` (token blacklist or client-side only for now).
 
 ## users
 - [x] User CRUD — `GET /users/me`, `POST /users` (admin-only).
-- [ ] Role assignment (`PATCH /users/:id/role`).
+- [x] Role assignment (`PATCH /users/:id/role`).
 
 ## projects
 - [x] Project CRUD — `GET /projects`, `POST /projects`, `GET /projects/:id`, `DELETE /projects/:id`.
@@ -51,4 +51,4 @@ Checklist organized by module. (Global sequencing lives in `docs/final-solution.
 
 ## Cross-cutting
 - [x] Colocated tests per module; 100% line + branch coverage enforced by Vitest.
-- [ ] Lint + typecheck clean in CI.
+- [x] Lint + typecheck clean in CI.

@@ -12,6 +12,14 @@ vi.mock("./projects.service", () => ({
   removeProject: vi.fn(),
 }));
 
+vi.mock("../../platform/audit", () => ({
+  appendAuditLog: vi.fn().mockResolvedValue("audit-1"),
+  AUDIT_ACTIONS: {
+    PROJECT_CREATE: "project.create",
+    PROJECT_DELETE: "project.delete",
+  },
+}));
+
 const { buildApp } = await import("../../http/app");
 import { listProjects, getProject, createProject, removeProject } from "./projects.service";
 import { ApiError } from "../../platform/errors";

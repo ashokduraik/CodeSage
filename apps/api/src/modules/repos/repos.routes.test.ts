@@ -11,6 +11,14 @@ vi.mock("./repos.service", () => ({
   detachRepo: vi.fn(),
 }));
 
+vi.mock("../../platform/audit", () => ({
+  appendAuditLog: vi.fn().mockResolvedValue("audit-1"),
+  AUDIT_ACTIONS: {
+    REPO_ATTACH: "repo.attach",
+    REPO_DETACH: "repo.detach",
+  },
+}));
+
 const { buildApp } = await import("../../http/app");
 import { listRepos, attachRepo, detachRepo } from "./repos.service";
 import { ApiError } from "../../platform/errors";

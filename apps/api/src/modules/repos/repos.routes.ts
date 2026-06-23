@@ -1,5 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { listRepos, attachRepo, detachRepo } from "./repos.service";
+import { appendAuditLog, AUDIT_ACTIONS } from "../../platform/audit";
+import type { JwtPayload } from "../../platform/auth.plugin";
 import type { NodeApi } from "@codesage/shared-types";
 
 /**
@@ -49,13 +51,18 @@ export async function reposRoutes(app: FastifyInstance): Promise<void> {
       token,
       app.config.encryptionKey,
     );
+    const { sub } = request.user as JwtPayload;
+    await appendAuditLog(app.db, sub, AUDIT_ACTIONS.REPO_ATTACH, result.repo.id);
     return reply.status(202).send(result);
   });
 
   app.delete<{ Params: { projectId: string; repoId: string } }>(
     "/projects/:projectId/repos/:repoId",
     async (request, reply) => {
-      await detachRepo(app.db, request.params.projectId, request.params.repoId);
+      const { projectId, repoId } = request.params;
+      await detachRepo(app.db, projectId, repoId);
+      const { sub } = request.user as JwtPayload;
+      await appendAuditLog(app.db, sub, AUDIT_ACTIONS.REPO_DETACH, repoId);
       return reply.status(204).send();
     },
   );

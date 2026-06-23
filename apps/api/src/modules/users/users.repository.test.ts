@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { findUserById, emailExists, createUser } from "./users.repository";
+import { findUserById, emailExists, createUser, updateUserRole } from "./users.repository";
 import type { Sql } from "../../platform/db";
 
 function makeMockSql(rows: unknown[]): Sql {
@@ -54,5 +54,20 @@ describe("createUser", () => {
     await expect(createUser(db, "x@b.com", "hash", "developer")).rejects.toThrow(
       "Unexpected empty result",
     );
+  });
+});
+
+describe("updateUserRole", () => {
+  it("returns the updated user row when found", async () => {
+    const row = { id: "u1", email: "a@b.com", role: "expert" as const, created_at: new Date() };
+    const db = makeMockSql([row]);
+    const result = await updateUserRole(db, "u1", "expert");
+    expect(result).toEqual(row);
+  });
+
+  it("returns undefined when the user is not found", async () => {
+    const db = makeMockSql([]);
+    const result = await updateUserRole(db, "missing", "developer");
+    expect(result).toBeUndefined();
   });
 });

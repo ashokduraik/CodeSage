@@ -63,3 +63,24 @@ export async function createUser(
   }
   return row;
 }
+
+/**
+ * Updates the RBAC role of an existing user.
+ * @param db - The postgres.js SQL client.
+ * @param id - The user's UUID.
+ * @param role - New RBAC role to assign.
+ * @returns The updated {@link UserRow}, or `undefined` when the user does not exist.
+ */
+export async function updateUserRole(
+  db: Sql,
+  id: string,
+  role: UserRole,
+): Promise<UserRow | undefined> {
+  const rows = await db<UserRow[]>`
+    UPDATE users
+    SET role = ${role}
+    WHERE id = ${id}
+    RETURNING id, email, role, created_at
+  `;
+  return rows[0];
+}

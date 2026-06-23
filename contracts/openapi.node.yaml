@@ -104,6 +104,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /users/{userId}:
+    patch:
+      operationId: updateUserRole
+      summary: Update a user's RBAC role (admin only).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID of the user whose role will be updated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRoleRequest'
+      responses:
+        '200':
+          description: Updated user profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /projects:
     get:
       operationId: listProjects
@@ -457,6 +503,14 @@ components:
           type: string
           minLength: 8
           description: Initial password (min 8 characters).
+        role:
+          $ref: '#/components/schemas/UserRole'
+
+    UpdateUserRoleRequest:
+      type: object
+      required:
+        - role
+      properties:
         role:
           $ref: '#/components/schemas/UserRole'
 

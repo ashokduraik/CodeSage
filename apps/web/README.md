@@ -66,6 +66,7 @@ Stack: **Vite + React + TypeScript**, tests with **Vitest** (jsdom) at ≥ 80% c
 ```bash
 npm install                 # from repo root (workspaces)
 npm run dev -w @codesage/web    # dev server (proxies /api -> http://localhost:3000)
+npm run lint -w @codesage/web   # ESLint (React + TS rules)
 npm run build -w @codesage/web  # production build -> apps/web/dist
 npm run test -w @codesage/web   # tests + coverage
 # or via Docker (nginx serving the build, proxying /api to the api service):

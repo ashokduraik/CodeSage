@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { listProjects, getProject, createProject, removeProject } from "./projects.service";
 import { MOCK_PROJECTS } from "../../platform/mock-data";
+import { appendAuditLog, AUDIT_ACTIONS } from "../../platform/audit";
+import type { JwtPayload } from "../../platform/auth.plugin";
 import type { NodeApi } from "@codesage/shared-types";
 
 type Project = NodeApi.components["schemas"]["Project"];
@@ -38,6 +40,8 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
         } as never);
       }
       const project = await createProject(app.db, name);
+      const { sub } = request.user as JwtPayload;
+      await appendAuditLog(app.db, sub, AUDIT_ACTIONS.PROJECT_CREATE, project.id);
       return reply.status(201).send(project);
     },
   );
@@ -50,7 +54,10 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
   app.delete<{ Params: { projectId: string } }>(
     "/projects/:projectId",
     async (request, reply) => {
-      await removeProject(app.db, request.params.projectId);
+      const { projectId } = request.params;
+      await removeProject(app.db, projectId);
+      const { sub } = request.user as JwtPayload;
+      await appendAuditLog(app.db, sub, AUDIT_ACTIONS.PROJECT_DELETE, projectId);
       return reply.status(204).send();
     },
   );

@@ -8,15 +8,25 @@ vi.mock("postgres", () => {
 vi.mock("./users.service", () => ({
   getUserById: vi.fn(),
   createNewUser: vi.fn(),
+  changeUserRole: vi.fn(),
+}));
+
+vi.mock("../../platform/audit", () => ({
+  appendAuditLog: vi.fn().mockResolvedValue("audit-1"),
+  AUDIT_ACTIONS: {
+    USER_CREATE: "user.create",
+    USER_ROLE_CHANGE: "user.role_change",
+  },
 }));
 
 const { buildApp } = await import("../../http/app");
-import { getUserById, createNewUser } from "./users.service";
+import { getUserById, createNewUser, changeUserRole } from "./users.service";
 import { ApiError } from "../../platform/errors";
 import type { JwtPayload } from "../../platform/auth.plugin";
 
 const mockGetUser = vi.mocked(getUserById);
 const mockCreateUser = vi.mocked(createNewUser);
+const mockChangeRole = vi.mocked(changeUserRole);
 
 const TEST_CONFIG = {
   host: "127.0.0.1",
@@ -126,6 +136,67 @@ describe("POST /users", () => {
       payload: { email: "taken@example.com", password: "password123", role: "developer" },
     });
     expect(res.statusCode).toBe(409);
+    await app.close();
+  });
+});
+
+describe("PATCH /users/:userId", () => {
+  it("returns 403 when caller is not an admin", async () => {
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const token = makeToken(app, { sub: "u1", email: "dev@example.com", role: "developer" });
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/users/u2",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { role: "expert" },
+    });
+    expect(res.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it("returns 200 and the updated user when called by admin", async () => {
+    mockChangeRole.mockResolvedValue({ ...MOCK_USER, role: "expert" });
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const token = makeToken(app, { sub: "a1", email: "admin@example.com", role: "admin" });
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/users/u1",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { role: "expert" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ id: "u1", role: "expert" });
+    await app.close();
+  });
+
+  it("returns 400 when role is missing", async () => {
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const token = makeToken(app, { sub: "a1", email: "admin@example.com", role: "admin" });
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/users/u1",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("propagates 404 from service when user is not found", async () => {
+    mockChangeRole.mockRejectedValue(new ApiError(404, "NOT_FOUND", "User not found."));
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const token = makeToken(app, { sub: "a1", email: "admin@example.com", role: "admin" });
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/users/missing",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { role: "developer" },
+    });
+    expect(res.statusCode).toBe(404);
     await app.close();
   });
 });

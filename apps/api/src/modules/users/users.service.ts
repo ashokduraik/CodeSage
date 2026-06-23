@@ -2,7 +2,7 @@ import { hash } from "bcryptjs";
 import type { Sql } from "../../platform/db";
 import { ApiError } from "../../platform/errors";
 import type { UserRole } from "../../platform/auth.plugin";
-import { emailExists, createUser, findUserById } from "./users.repository";
+import { emailExists, createUser, findUserById, updateUserRole } from "./users.repository";
 import type { NodeApi } from "@codesage/shared-types";
 
 /** bcrypt cost factor — 12 is the OWASP-recommended minimum for 2025+. */
@@ -65,5 +65,25 @@ export async function createNewUser(
   }
   const passwordHash = await hash(password, BCRYPT_ROUNDS);
   const row = await createUser(db, email, passwordHash, role);
+  return toUserResponse(row);
+}
+
+/**
+ * Updates the RBAC role of an existing user (admin-only operation).
+ * @param db - The postgres.js SQL client.
+ * @param id - UUID of the user to update.
+ * @param role - New RBAC role to assign.
+ * @returns The updated public user profile.
+ * @throws {@link ApiError} 404 when the user does not exist.
+ */
+export async function changeUserRole(
+  db: Sql,
+  id: string,
+  role: UserRole,
+): Promise<NodeApi.components["schemas"]["User"]> {
+  const row = await updateUserRole(db, id, role);
+  if (!row) {
+    throw new ApiError(404, "NOT_FOUND", "User not found.");
+  }
   return toUserResponse(row);
 }

@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { requireRoles } from "../../platform/auth.plugin";
 import type { JwtPayload } from "../../platform/auth.plugin";
-import { getUserById, createNewUser } from "./users.service";
+import { appendAuditLog, AUDIT_ACTIONS } from "../../platform/audit";
+import { getUserById, createNewUser, changeUserRole } from "./users.service";
 import type { NodeApi } from "@codesage/shared-types";
 
 /**
@@ -12,6 +13,7 @@ import type { NodeApi } from "@codesage/shared-types";
  * Routes:
  * - `GET /users/me` — returns the authenticated user's profile.
  * - `POST /users` — creates a new user (admin role required).
+ * - `PATCH /users/:userId` — updates a user's RBAC role (admin role required).
  *
  * @param app - The Fastify application instance.
  */
@@ -34,6 +36,32 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const user = await createNewUser(app.db, email, password, role);
+    const { sub } = request.user as JwtPayload;
+    await appendAuditLog(app.db, sub, AUDIT_ACTIONS.USER_CREATE, user.id);
     return reply.status(201).send(user);
+  });
+
+  app.patch<{
+    Params: { userId: string };
+    Body: NodeApi.components["schemas"]["UpdateUserRoleRequest"];
+    Reply: NodeApi.components["schemas"]["User"];
+  }>("/users/:userId", { preHandler: requireRoles(["admin"]) }, async (request, reply) => {
+    const { role } = request.body;
+
+    if (!role) {
+      return reply.status(400).send({
+        error: { code: "VALIDATION_ERROR", message: "role is required." },
+      } as never);
+    }
+
+    const user = await changeUserRole(app.db, request.params.userId, role);
+    const { sub } = request.user as JwtPayload;
+    await appendAuditLog(
+      app.db,
+      sub,
+      AUDIT_ACTIONS.USER_ROLE_CHANGE,
+      `${request.params.userId}:${role}`,
+    );
+    return reply.send(user);
   });
 }
