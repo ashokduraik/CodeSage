@@ -21,7 +21,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - name: Test (80% coverage gate)
-        run: npm run test
+        run: npm run test:js
       - run: npm run build
 
   python:
