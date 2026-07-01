@@ -1,6 +1,7 @@
 export * from "./types";
 export {
   CONFIDENCE_THRESHOLD,
+  appendMessagePair,
   createSession,
   generateMockAnswer,
   getDashboardStats,

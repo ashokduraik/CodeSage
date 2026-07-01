@@ -4,6 +4,18 @@ import { renderWithRouter } from "@/test/utils";
 import { resetMockStore, type ChatSession } from "@/shared/mock";
 import { NewChatDialog } from "./NewChatDialog";
 
+vi.mock("@/features/projects/projectsClient", () => ({
+  fetchProjects: vi.fn().mockResolvedValue([
+    {
+      id: "p1",
+      name: "acme/storefront",
+      status: "indexed",
+      repoCount: 3,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    },
+  ]),
+}));
+
 beforeEach(() => resetMockStore());
 afterEach(cleanup);
 

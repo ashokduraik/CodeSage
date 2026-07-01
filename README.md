@@ -167,7 +167,7 @@ cp .env.example .env          # adjust values (never commit real secrets)
 npm run setup                 # npm install + uv sync --dev (apps/rag)
 npm run codegen               # generate types from contracts/
 npm run typecheck             # typecheck all JS workspaces
-npm test                      # JS (≥ 80%) + Python (100% on implemented modules)
+npm test                      # JS (≥ 80%) + Python (≥ 80%)
 npm run build                 # build web + api + shared-types
 ```
 

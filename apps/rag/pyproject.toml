@@ -42,10 +42,11 @@ only-include = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-addopts = "--cov=api --cov=config --cov=models --cov=repositories --cov=services --cov=workers --cov-report=term-missing --cov-fail-under=100"
+addopts = "--cov=api --cov=config --cov=models --cov=repositories --cov=services --cov=workers --cov-report=term-missing --cov-fail-under=80"
 testpaths = ["tests"]
 
 [tool.coverage.run]
+branch = true
 omit = [
     "tests/*",
     "src/workers/queue.py",

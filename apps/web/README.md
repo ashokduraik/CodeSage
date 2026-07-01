@@ -39,7 +39,7 @@ expert question queue, and the workflow/page explorer.
 
 `src/shared/ui/**` and `src/test/**` are excluded from the coverage gate (see `vite.config.ts`):
 the UI primitives are third-party-derived wrappers, not our business logic. **All of our own code**
-(features, hooks, layout, lib, mock layer) is held to the workspace 100% line+branch threshold.
+(features, hooks, layout, lib, mock layer) is held to the workspace **≥ 80%** line+branch threshold.
 
 ## Structure (per `docs/final-solution.md` §4.2)
 

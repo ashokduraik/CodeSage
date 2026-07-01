@@ -153,3 +153,30 @@ export async function sendMessage(sessionId: string, text: string): Promise<Send
 
   return { userMessage, assistantMessage, session: { ...session } };
 }
+
+/**
+ * Appends a user/assistant message pair to an existing session without generating a mock answer.
+ * @param sessionId - Target session id.
+ * @param userMessage - Stored user message.
+ * @param assistantMessage - Stored assistant message.
+ * @returns The created pair and updated session metadata.
+ * @throws {Error} When the session does not exist.
+ */
+export function appendMessagePair(
+  sessionId: string,
+  userMessage: ChatMessage,
+  assistantMessage: ChatMessage,
+): SendMessageResult {
+  const session = sessions.find((s) => s.id === sessionId);
+  if (!session) {
+    throw new Error(`unknown session: ${sessionId}`);
+  }
+  messagesBySession[sessionId] = [
+    ...(messagesBySession[sessionId] ?? []),
+    userMessage,
+    assistantMessage,
+  ];
+  session.messageCount += 2;
+  session.lastMessageAt = new Date().toISOString();
+  return { userMessage, assistantMessage, session: { ...session } };
+}

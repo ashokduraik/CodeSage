@@ -177,6 +177,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chat/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stream a grounded code answer with citations (proxied to RAG service)
+         * @description Accepts a developer question scoped to a project and streams answer chunks via Server-Sent Events. Each event is a JSON-encoded ChatAnswerChunk. Proxies to apps/rag POST /rag/query without blocking the Node event loop.
+         */
+        post: operations["chatQuery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/repos/{repoId}": {
         parameters: {
             query?: never;
@@ -383,6 +403,36 @@ export interface components {
              * @description ID of the enqueued sync job.
              */
             jobId: string;
+        };
+        ChatQueryRequest: {
+            /** @description Natural-language question from the user. */
+            question: string;
+            /**
+             * Format: uuid
+             * @description Project scope for retrieval.
+             */
+            projectId: string;
+            audience: components["schemas"]["ChatMode"];
+            /** @description Optional repo filter within the project. */
+            repoIds?: string[];
+        };
+        CodeCitation: {
+            /** @enum {string} */
+            kind: "code";
+            /** Format: uuid */
+            repoId: string;
+            filePath: string;
+            span?: {
+                [key: string]: unknown;
+            };
+            excerpt?: string;
+        };
+        /** @enum {string} */
+        ChatAnswerChunkType: "token" | "citation" | "abstain" | "done";
+        ChatAnswerChunk: {
+            type: components["schemas"]["ChatAnswerChunkType"];
+            content?: string;
+            citation?: components["schemas"]["CodeCitation"];
         };
     };
     responses: never;
@@ -835,6 +885,57 @@ export interface operations {
             };
             /** @description Missing or invalid token. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    chatQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatQueryRequest"];
+            };
+        };
+        responses: {
+            /** @description SSE stream of ChatAnswerChunk objects. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["ChatAnswerChunk"];
+                };
+            };
+            /** @description Validation error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description RAG service unavailable. */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

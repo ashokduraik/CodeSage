@@ -32,6 +32,8 @@ export interface AppConfig {
    * Activate by setting MOCK_MODE=true in the environment.
    */
   mockMode: boolean;
+  /** Base URL of the internal Python RAG service (e.g. http://127.0.0.1:8001). */
+  ragBaseUrl: string;
 }
 
 /**
@@ -65,5 +67,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     jwtTtl: normalizeJwtTtl(env.AUTH_TOKEN_TTL ?? "1h"),
     encryptionKey: env.TOKEN_ENC_KEY ?? "",
     mockMode: env.MOCK_MODE === "true",
+    ragBaseUrl: env.RAG_BASE_URL ?? "http://127.0.0.1:8001",
   };
 }

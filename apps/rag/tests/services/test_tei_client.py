@@ -27,16 +27,22 @@ def test_embed_texts_empty() -> None:
 
 
 def test_embed_via_tei(monkeypatch: pytest.MonkeyPatch) -> None:
-    settings = Settings(tei_base_url="http://tei", embedding_dimension=4)
+    settings = Settings(tei_base_url="http://tei", tei_embed_model="code-model", embedding_dimension=4)
     client = EmbeddingClient(settings)
+    captured: dict = {}
 
-    response = MagicMock()
-    response.status_code = 200
-    response.json.return_value = {"data": [{"embedding": [0.1, 0.2, 0.3, 0.4]}]}
-    monkeypatch.setattr("services.embedding.tei_client.httpx.post", lambda *a, **k: response)
+    def fake_post(url: str, json: dict, timeout: float) -> MagicMock:
+        captured["json"] = json
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {"data": [{"embedding": [0.1, 0.2, 0.3, 0.4]}]}
+        return response
+
+    monkeypatch.setattr("services.embedding.tei_client.httpx.post", fake_post)
 
     vector = client.embed_texts(["code"])[0]
     assert vector == [0.1, 0.2, 0.3, 0.4]
+    assert captured["json"]["model"] == "code-model"
 
 
 def test_embed_via_tei_error(monkeypatch: pytest.MonkeyPatch) -> None:

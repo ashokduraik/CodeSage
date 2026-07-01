@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { listProjects, type Project } from "@/shared/mock";
+import { fetchProjects } from "@/features/projects/projectsClient";
 import { chatKeys } from "./chatKeys";
 
 /**
- * Lists connected projects, used to scope a new conversation.
- * @returns The TanStack Query result for the project list.
+ * Lists projects for chat session scoping (real API).
+ * @returns TanStack query result with project list.
  */
 export function useProjects() {
-  return useQuery<Project[], Error>({
+  return useQuery({
     queryKey: chatKeys.projects,
-    queryFn: () => listProjects(),
+    queryFn: fetchProjects,
   });
 }

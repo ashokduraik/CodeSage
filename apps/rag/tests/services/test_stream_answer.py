@@ -57,6 +57,10 @@ def test_stream_grounded_answer(monkeypatch) -> None:
         "services.qa.stream_answer.is_confident_match",
         lambda settings, matches: True,
     )
+    monkeypatch.setattr(
+        "services.qa.stream_answer.stream_vllm_answer",
+        lambda settings, question, context_blocks: iter(["answer text"]),
+    )
     events = list(
         stream_rag_answer(
             Settings(),

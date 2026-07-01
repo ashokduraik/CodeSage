@@ -4,7 +4,7 @@ Single Python deployable for MVP. **All application code lives under `src/`**; p
 config, tests, and docs only.
 
 > **Status:** **Phase 1 started** — `config/`, `models/`, and `repositories/` implemented with
-> 100%-coverage tests; `api/` + `workers/` skeleton in place. Business modules land in `services/`.
+> ≥ 80%-coverage tests; `api/` + `workers/` skeleton in place. Business modules land in `services/`.
 
 Setup (deps, env, tests): root [`README.md`](../../README.md) — `npm run setup`, `npm run sync:python`,
 `npm run test:python`.
@@ -89,9 +89,7 @@ CI (`.github/workflows/ci.yml`): `uv lock && uv sync --dev && uv run pytest`.
 
 ### Coverage gate
 
-**100% line coverage** on: `api`, `config`, `models`, `repositories`, `workers`.
-
-`services/` is **not** measured yet (placeholder only — add `--cov=services` in `pyproject.toml` when modules land).
+**≥ 80% line + branch coverage** on: `api`, `config`, `models`, `repositories`, `services`, `workers`.
 
 Omitted from coverage until later phases:
 

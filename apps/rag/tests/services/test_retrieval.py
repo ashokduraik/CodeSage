@@ -34,3 +34,29 @@ def test_retrieve_code_chunks_missing_project(monkeypatch: pytest.MonkeyPatch) -
             project_id=uuid.uuid4(),
             question="q",
         )
+
+
+def test_retrieve_code_chunks_returns_matches(monkeypatch: pytest.MonkeyPatch) -> None:
+    project = MagicMock()
+    project_repo = MagicMock()
+    project_repo.get_by_id.return_value = project
+    chunk = MagicMock()
+    monkeypatch.setattr(
+        "services.retrieval.search.ProjectRepository",
+        lambda session: project_repo,
+    )
+    monkeypatch.setattr(
+        "services.retrieval.search.EmbeddingClient",
+        lambda settings: MagicMock(embed_texts=lambda texts: [[0.1]]),
+    )
+    monkeypatch.setattr(
+        "services.retrieval.search.similarity_search",
+        lambda *a, **k: [(chunk, 0.2)],
+    )
+    matches = retrieve_code_chunks(
+        MagicMock(),
+        Settings(),
+        project_id=uuid.uuid4(),
+        question="where?",
+    )
+    assert matches == [(chunk, 0.2)]

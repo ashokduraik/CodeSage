@@ -358,6 +358,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /chat/query:
+    post:
+      operationId: chatQuery
+      summary: Stream a grounded code answer with citations (proxied to RAG service)
+      description: >-
+        Accepts a developer question scoped to a project and streams answer chunks via
+        Server-Sent Events. Each event is a JSON-encoded ChatAnswerChunk. Proxies to
+        apps/rag POST /rag/query without blocking the Node event loop.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatQueryRequest'
+      responses:
+        '200':
+          description: SSE stream of ChatAnswerChunk objects.
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/ChatAnswerChunk'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: RAG service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /projects/{projectId}/repos/{repoId}:
     delete:
       operationId: deleteRepo
@@ -724,3 +766,69 @@ components:
           type: string
           format: uuid
           description: ID of the enqueued sync job.
+
+    ChatQueryRequest:
+      type: object
+      required:
+        - question
+        - projectId
+        - audience
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 8000
+          description: Natural-language question from the user.
+        projectId:
+          type: string
+          format: uuid
+          description: Project scope for retrieval.
+        audience:
+          $ref: '#/components/schemas/ChatMode'
+        repoIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Optional repo filter within the project.
+
+    CodeCitation:
+      type: object
+      required:
+        - kind
+        - filePath
+        - repoId
+      properties:
+        kind:
+          type: string
+          enum: [code]
+        repoId:
+          type: string
+          format: uuid
+        filePath:
+          type: string
+        span:
+          type: object
+          additionalProperties: true
+        excerpt:
+          type: string
+
+    ChatAnswerChunkType:
+      type: string
+      enum:
+        - token
+        - citation
+        - abstain
+        - done
+
+    ChatAnswerChunk:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          $ref: '#/components/schemas/ChatAnswerChunkType'
+        content:
+          type: string
+        citation:
+          $ref: '#/components/schemas/CodeCitation'

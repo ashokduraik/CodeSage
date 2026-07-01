@@ -11,7 +11,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from config import Settings
 from models import CodeChunk
+from services.llm.vllm_client import stream_vllm_answer
 from services.retrieval.search import is_confident_match, retrieve_code_chunks
+from services.router.classify import is_code_audience
 
 
 def _chunk_event(event_type: str, **fields: Any) -> str:
@@ -40,25 +42,33 @@ def _citation_from_chunk(chunk: CodeChunk) -> dict[str, Any]:
     }
 
 
-def _stream_grounded_answer(question: str, matches: list[tuple[CodeChunk, float]]) -> Iterator[str]:
+def _context_block(chunk: CodeChunk) -> str:
+    """Format one chunk as LLM context text.
+
+    @param chunk - Retrieved code chunk.
+    """
+    return f"File: {chunk.file_path}\n```\n{chunk.content.strip()}\n```"
+
+
+def _stream_grounded_answer(
+    settings: Settings,
+    question: str,
+    matches: list[tuple[CodeChunk, float]],
+) -> Iterator[str]:
     """Yield SSE chunks with citations followed by a synthesized answer.
 
-    Phase 1 uses chunk excerpts when vLLM is not configured.
-
+    @param settings - Application settings.
     @param question - Original user question.
     @param matches - Retrieval results.
     @yields SSE event strings.
     """
-    for chunk, _distance in matches[:3]:
+    top = matches[:3]
+    for chunk, _distance in top:
         yield _chunk_event("citation", citation=_citation_from_chunk(chunk))
 
-    intro = "Based on the indexed code, here is what I found:\n\n"
-    yield _chunk_event("token", content=intro)
-    for chunk, _distance in matches[:3]:
-        snippet = chunk.content.strip().splitlines()
-        preview = "\n".join(snippet[:8])
-        line = f"**{chunk.file_path}** — {preview}\n\n"
-        yield _chunk_event("token", content=line)
+    context_blocks = [_context_block(chunk) for chunk, _ in top]
+    for token in stream_vllm_answer(settings, question=question, context_blocks=context_blocks):
+        yield _chunk_event("token", content=token)
     yield _chunk_event("done")
 
 
@@ -81,7 +91,7 @@ def stream_rag_answer(
     @param repo_ids - Optional repo filter.
     @yields SSE event strings.
     """
-    if audience != "developer":
+    if not is_code_audience(audience):
         yield _chunk_event(
             "abstain",
             content="End-user product QA is not available in Phase 1.",
@@ -107,4 +117,4 @@ def stream_rag_answer(
         )
         return
 
-    yield from _stream_grounded_answer(question, matches)
+    yield from _stream_grounded_answer(settings, question, matches)

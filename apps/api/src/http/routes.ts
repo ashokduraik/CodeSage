@@ -6,6 +6,7 @@ import { usersRoutes } from "../modules/users";
 import { projectsRoutes } from "../modules/projects";
 import { reposRoutes } from "../modules/repos";
 import { dashboardRoutes } from "../modules/dashboard";
+import { chatRoutes } from "../modules/chat";
 
 /** Domain route plugins registered in dependency order (health first for liveness). */
 const ROUTE_PLUGINS: FastifyPluginAsync[] = [
@@ -15,6 +16,7 @@ const ROUTE_PLUGINS: FastifyPluginAsync[] = [
   projectsRoutes,
   reposRoutes,
   dashboardRoutes,
+  chatRoutes,
 ];
 
 /**

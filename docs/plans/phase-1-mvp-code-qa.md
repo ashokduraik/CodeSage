@@ -107,7 +107,7 @@ flowchart LR
 5. **Chat WebSocket** — Node proxy.
 6. **Web wiring** — replace mocks.
 
-Each milestone should ship with colocated tests (≥ 80% JS, 100% on touched Python modules per project gates).
+Each milestone should ship with colocated tests (≥ 80% line + branch on all workspaces).
 
 ---
 
@@ -127,7 +127,7 @@ For local development without GPU:
 - [ ] All shapes from `contracts/`; codegen drift check passes.
 - [ ] Node never blocks on heavy work (sync/parse/embed/query stay in Python).
 - [ ] Answers include citations; abstain path works (NFR-7).
-- [ ] Tests ≥ 80% (JS) / 100% on implemented Python modules; lint + typecheck clean in CI.
+- [ ] Tests ≥ 80% (line + branch) on all workspaces; lint + typecheck clean in CI.
 - [ ] `TODO.md` / `PLAN.md` updated in each touched component.
 - [ ] `.env.example` documents new variables.
 

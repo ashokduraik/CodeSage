@@ -14,6 +14,7 @@ function cfg(nodeEnv: string, logger: boolean): AppConfig {
     jwtTtl: "1h",
     encryptionKey: "",
     mockMode: false,
+    ragBaseUrl: "http://127.0.0.1:8001",
   };
 }
 

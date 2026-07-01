@@ -50,5 +50,5 @@ Checklist organized by module. (Global sequencing lives in `docs/final-solution.
 - [ ] Submit answer → store authoritative override.
 
 ## Cross-cutting
-- [x] Colocated tests per module; 100% line + branch coverage enforced by Vitest.
+- [x] Colocated tests per module; ≥ 80% line + branch coverage enforced by Vitest.
 - [x] Lint + typecheck clean in CI.

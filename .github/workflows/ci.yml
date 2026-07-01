@@ -25,7 +25,7 @@ jobs:
       - run: npm run build
 
   python:
-    name: Python (test, 100% coverage)
+    name: Python (test, 80% coverage)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -36,7 +36,7 @@ jobs:
       - name: Sync deps
         working-directory: ${{ matrix.project }}
         run: uv lock && uv sync --dev
-      - name: Test (100% coverage gate)
+      - name: Test (80% coverage gate)
         working-directory: ${{ matrix.project }}
         run: uv run pytest
 

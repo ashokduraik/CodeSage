@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { HookWrapper } from "@/test/utils";
 import { resetMockStore } from "@/shared/mock";
@@ -8,6 +8,29 @@ import { useChatMessages } from "./useChatMessages";
 import { useProjects } from "./useProjects";
 import { useCreateSession } from "./useCreateSession";
 import { useSendMessage } from "./useSendMessage";
+
+vi.mock("@/features/projects/projectsClient", () => ({
+  fetchProjects: vi.fn().mockResolvedValue([
+    {
+      id: "p1",
+      name: "acme/storefront",
+      status: "indexed",
+      repoCount: 1,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    },
+  ]),
+}));
+
+vi.mock("./chatClient", () => ({
+  streamChatQuery: vi.fn().mockResolvedValue({
+    content: "Mock answer",
+    sources: ["src/auth.ts"],
+    needsReview: false,
+    confidence: 0.9,
+  }),
+  parseChatSseLine: vi.fn(),
+  formatCitationSource: vi.fn((c: { filePath: string }) => c.filePath),
+}));
 
 beforeEach(() => resetMockStore());
 

@@ -24,6 +24,7 @@ const TEST_CONFIG = {
   jwtTtl: "3600",
   encryptionKey: "",
   mockMode: false,
+  ragBaseUrl: "http://127.0.0.1:8001",
 } as const;
 
 const MOCK_RESPONSE = {
