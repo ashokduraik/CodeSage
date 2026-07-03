@@ -3,6 +3,12 @@ import { render, screen } from "@testing-library/react";
 import { ProjectRepoList } from "./ProjectRepoList";
 
 vi.mock("./useProjectRepos", () => ({ useProjectRepos: vi.fn() }));
+vi.mock("./RepoCard", () => ({
+  RepoCard: ({ repo }: { repo: { connectionStatus: string; lastError?: string | null } }) =>
+    repo.connectionStatus === "error" && repo.lastError ? (
+      <span>{repo.lastError}</span>
+    ) : null,
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -34,6 +40,6 @@ describe("ProjectRepoList", () => {
     } as unknown as ReturnType<typeof useProjectRepos>);
 
     render(<ProjectRepoList projectId="p1" />);
-    expect(screen.getByText("projects.repoList.connectionError")).toBeTruthy();
+    expect(screen.getByText("git clone failed")).toBeTruthy();
   });
 });

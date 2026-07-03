@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import "@/i18n";
 import { ProjectsPage } from "./ProjectsPage";
 
 vi.mock("./useProjects", () => ({ useProjects: vi.fn() }));
 vi.mock("./useProjectRepos", () => ({ useProjectRepos: vi.fn() }));
+vi.mock("./useDeleteProject", () => ({ useDeleteProject: vi.fn() }));
 vi.mock("./CreateProjectDialog", () => ({
   CreateProjectDialog: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
     open ? <div role="dialog" data-testid="create-dialog"><button onClick={onClose}>close-create</button></div> : null,
@@ -17,8 +18,12 @@ vi.mock("./AttachRepoDialog", () => ({
 
 import { useProjects } from "./useProjects";
 import { useProjectRepos } from "./useProjectRepos";
+import { useDeleteProject } from "./useDeleteProject";
 const mockUseProjects = vi.mocked(useProjects);
 const mockUseProjectRepos = vi.mocked(useProjectRepos);
+const mockUseDeleteProject = vi.mocked(useDeleteProject);
+
+const mockDeleteProjectAsync = vi.fn();
 
 const PROJECTS = [
   { id: "p1", name: "Acme Frontend", status: "active" as const, repoCount: 0, createdAt: "2026-01-01T00:00:00.000Z" },
@@ -35,6 +40,10 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUseDeleteProject.mockReturnValue({
+    mutateAsync: mockDeleteProjectAsync,
+    isPending: false,
+  } as unknown as ReturnType<typeof useDeleteProject>);
   mockUseProjectRepos.mockReturnValue({
     isPending: false,
     isError: false,
@@ -97,5 +106,37 @@ describe("ProjectsPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /attach repo/i })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "close-attach" }));
     expect(screen.queryByTestId("attach-dialog")).toBeNull();
+  });
+
+  it("opens delete confirmation when delete project is clicked", () => {
+    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: PROJECTS } as unknown as ReturnType<typeof useProjects>);
+    renderPage();
+    fireEvent.click(screen.getAllByRole("button", { name: /delete project/i })[0]!);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/Remove Acme Frontend and detach all its repositories/i)).toBeTruthy();
+  });
+
+  it("soft-deletes the project when delete is confirmed", async () => {
+    mockDeleteProjectAsync.mockResolvedValue(undefined);
+    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: PROJECTS } as unknown as ReturnType<typeof useProjects>);
+    renderPage();
+    fireEvent.click(screen.getAllByRole("button", { name: /delete project/i })[0]!);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /delete project/i }));
+    await waitFor(() => {
+      expect(mockDeleteProjectAsync).toHaveBeenCalledWith("p1");
+    });
+  });
+
+  it("shows an error when project soft delete fails", async () => {
+    mockDeleteProjectAsync.mockRejectedValue(new Error("API error"));
+    mockUseProjects.mockReturnValue({ isPending: false, isError: false, data: PROJECTS } as unknown as ReturnType<typeof useProjects>);
+    renderPage();
+    fireEvent.click(screen.getAllByRole("button", { name: /delete project/i })[0]!);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /delete project/i }));
+    await waitFor(() => {
+      expect(within(dialog).getByText(/Could not delete project/i)).toBeTruthy();
+    });
   });
 });

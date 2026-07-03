@@ -5,6 +5,8 @@ import {
   fetchRepos,
   attachRepoRequest,
   probeRepoRequest,
+  deleteProjectRequest,
+  deleteRepoRequest,
 } from "./projectsClient";
 
 vi.mock("@/shared/lib/apiClient", () => ({
@@ -89,5 +91,21 @@ describe("createProjectRequest", () => {
       method: "POST",
       body: { name: "New" },
     });
+  });
+});
+
+describe("deleteProjectRequest", () => {
+  it("calls DELETE /projects/:id for soft delete", async () => {
+    mockFetch.mockResolvedValue(undefined);
+    await deleteProjectRequest("p1");
+    expect(mockFetch).toHaveBeenCalledWith("/projects/p1", { method: "DELETE" });
+  });
+});
+
+describe("deleteRepoRequest", () => {
+  it("calls DELETE /projects/:projectId/repos/:repoId for soft detach", async () => {
+    mockFetch.mockResolvedValue(undefined);
+    await deleteRepoRequest("p1", "r1");
+    expect(mockFetch).toHaveBeenCalledWith("/projects/p1/repos/r1", { method: "DELETE" });
   });
 });
