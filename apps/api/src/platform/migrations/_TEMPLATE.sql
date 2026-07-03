@@ -10,7 +10,7 @@
 -- CREATE TABLE example (
 --     id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
 --     name       text        NOT NULL,
---     status     text        NOT NULL DEFAULT 'active',
+--     status     char(1)     NOT NULL DEFAULT 'A' CHECK (status IN ('A', 'D')),
 --     created_at timestamptz NOT NULL DEFAULT now()
 -- );
 
@@ -20,7 +20,7 @@
 
 -- ── ADD INDEX ───────────────────────────────────────────────────────────────────
 -- CREATE INDEX idx_example_name ON example (name);
--- CREATE INDEX idx_example_status ON example (status) WHERE status = 'active';
+-- CREATE INDEX idx_example_active ON example (name) WHERE status = 'A';
 
 -- ── ADD FOREIGN KEY (with index) ────────────────────────────────────────────────
 -- ALTER TABLE example

@@ -3,7 +3,7 @@ import {
   findAllProjects,
   findProjectById,
   insertProject,
-  deleteProject,
+  softDeleteProject,
 } from "./projects.repository";
 import type { Sql } from "../../platform/db";
 
@@ -14,7 +14,7 @@ function makeMockSql(rows: unknown[]): Sql {
   }) as unknown as Sql;
 }
 
-const MOCK_ROW = { id: "p1", name: "My Project", status: "active", created_at: new Date() };
+const MOCK_ROW = { id: "p1", name: "My Project", status: "active", created_at: new Date(), repo_count: 0 };
 
 describe("findAllProjects", () => {
   it("returns an array of project rows", async () => {
@@ -44,8 +44,8 @@ describe("findProjectById", () => {
 
 describe("insertProject", () => {
   it("returns the created row", async () => {
-    const db = makeMockSql([MOCK_ROW]);
-    expect(await insertProject(db, "My Project")).toEqual(MOCK_ROW);
+    const db = makeMockSql([{ ...MOCK_ROW, repo_count: 0 }]);
+    expect(await insertProject(db, "My Project")).toMatchObject({ id: "p1", name: "My Project" });
   });
 
   it("throws when INSERT returns no rows", async () => {
@@ -54,14 +54,14 @@ describe("insertProject", () => {
   });
 });
 
-describe("deleteProject", () => {
-  it("returns true when a row was deleted", async () => {
+describe("softDeleteProject", () => {
+  it("returns true when a row was soft-deleted", async () => {
     const db = makeMockSql([{ id: "p1" }]);
-    expect(await deleteProject(db, "p1")).toBe(true);
+    expect(await softDeleteProject(db, "p1")).toBe(true);
   });
 
-  it("returns false when no row matched", async () => {
+  it("returns false when no active row matched", async () => {
     const db = makeMockSql([]);
-    expect(await deleteProject(db, "missing")).toBe(false);
+    expect(await softDeleteProject(db, "missing")).toBe(false);
   });
 });

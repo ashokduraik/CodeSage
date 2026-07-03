@@ -5,6 +5,7 @@ import "@/i18n";
 import { ProjectsPage } from "./ProjectsPage";
 
 vi.mock("./useProjects", () => ({ useProjects: vi.fn() }));
+vi.mock("./useProjectRepos", () => ({ useProjectRepos: vi.fn() }));
 vi.mock("./CreateProjectDialog", () => ({
   CreateProjectDialog: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
     open ? <div role="dialog" data-testid="create-dialog"><button onClick={onClose}>close-create</button></div> : null,
@@ -15,7 +16,9 @@ vi.mock("./AttachRepoDialog", () => ({
 }));
 
 import { useProjects } from "./useProjects";
+import { useProjectRepos } from "./useProjectRepos";
 const mockUseProjects = vi.mocked(useProjects);
+const mockUseProjectRepos = vi.mocked(useProjectRepos);
 
 const PROJECTS = [
   { id: "p1", name: "Acme Frontend", status: "active" as const, repoCount: 0, createdAt: "2026-01-01T00:00:00.000Z" },
@@ -30,7 +33,14 @@ function renderPage() {
   );
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockUseProjectRepos.mockReturnValue({
+    isPending: false,
+    isError: false,
+    data: [],
+  } as unknown as ReturnType<typeof useProjectRepos>);
+});
 afterEach(cleanup);
 
 describe("ProjectsPage", () => {

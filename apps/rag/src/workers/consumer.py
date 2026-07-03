@@ -37,11 +37,11 @@ def process_next_job(session_factory: sessionmaker[Session], settings: Settings)
             JobRepository(work_session).mark_done(job.id)
             work_session.commit()
         except UnsupportedJobError:
-            JobRepository(work_session).mark_failed(job.id)
+            JobRepository(work_session).mark_failed(job.id, error_message="Unsupported job type")
             work_session.commit()
             logger.warning("Unsupported job %s type=%s", job.id, job.type)
-        except Exception:
-            JobRepository(work_session).mark_failed(job.id)
+        except Exception as exc:
+            JobRepository(work_session).mark_failed(job.id, error_message=str(exc)[:2000])
             work_session.commit()
             logger.exception("Job %s failed", job.id)
         finally:

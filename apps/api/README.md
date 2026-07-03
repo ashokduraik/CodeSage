@@ -10,7 +10,7 @@ Python RAG service.
 ## Responsibilities
 
 - **Auth & RBAC** — Auth.js / JWT; roles: admin, expert, developer, end_user (ADR 0011).
-- **CRUD** — users, projects, repos (attach repo, encrypt token, branch/role config).
+- **CRUD** — users, projects, repos (smart connect flow, AES-256-GCM token encryption, webhook registration).
 - **Static serving** — serve the React bundle from `apps/web`.
 - **WebSocket gateway** — stream QA answers (proxied from `apps/rag`).
 - **Webhooks** — receive provider push events → **enqueue** a re-index job.
@@ -49,7 +49,7 @@ api/src/
 ## API surface (high level, see `docs/final-solution.md` §9)
 
 - `POST /auth/login`, `POST /users`
-- `POST /projects`, `POST /projects/:id/repos`
+- `POST /projects`, `POST /projects/:id/repos`, `POST /repos/probe`
 - `GET /projects/:id/workflows | pages | questions`
 - `POST /projects/:id/questions/:qid/answer`
 - `WS /chat` (proxied to Python RAG)

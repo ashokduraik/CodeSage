@@ -29,7 +29,7 @@ class JobRepository:
         @param payload - JSON-serializable payload matching `contracts/jobs.schema.json`.
         @returns The persisted job (flushed, not committed).
         """
-        job = Job(type=job_type, payload=payload, status=JobStatus.PENDING)
+        job = Job(type=job_type, payload=payload, job_status=JobStatus.PENDING)
         self._session.add(job)
         self._session.flush()
         return job
@@ -42,13 +42,14 @@ class JobRepository:
         stmt = text(
             """
             UPDATE jobs
-            SET status = 'running',
+            SET job_status = 'running',
                 locked_at = now(),
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id
                 FROM jobs
-                WHERE status = 'pending'
+                WHERE job_status = 'pending'
+                  AND status = 'A'
                 ORDER BY created_at
                 FOR UPDATE SKIP LOCKED
                 LIMIT 1
@@ -71,22 +72,25 @@ class JobRepository:
         job = self._session.get(Job, job_id)
         if job is None:
             return None
-        job.status = JobStatus.DONE
+        job.job_status = JobStatus.DONE
         job.locked_at = None
         self._session.flush()
         return job
 
-    def mark_failed(self, job_id: uuid.UUID) -> Job | None:
+    def mark_failed(self, job_id: uuid.UUID, error_message: str | None = None) -> Job | None:
         """Mark a job as failed.
 
         @param job_id - Job UUID.
+        @param error_message - Optional failure reason for debugging/UI.
         @returns Updated job or `None` if not found.
         """
         job = self._session.get(Job, job_id)
         if job is None:
             return None
-        job.status = JobStatus.FAILED
+        job.job_status = JobStatus.FAILED
         job.locked_at = None
+        if error_message is not None:
+            job.error_message = error_message[:2000]
         self._session.flush()
         return job
 

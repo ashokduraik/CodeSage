@@ -18,7 +18,7 @@ type Project = NodeApi.components["schemas"]["Project"];
  * - `GET /projects` — list all projects.
  * - `POST /projects` — create a new project.
  * - `GET /projects/:projectId` — get a project by ID.
- * - `DELETE /projects/:projectId` — delete a project.
+ * - `DELETE /projects/:projectId` — soft-delete a project and detach its repos.
  *
  * @param app - The Fastify application instance.
  */
@@ -55,7 +55,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId",
     async (request, reply) => {
       const { projectId } = request.params;
-      await removeProject(app.db, projectId);
+      await removeProject(app.db, projectId, app.config.encryptionKey);
       const { sub } = request.user as JwtPayload;
       await appendAuditLog(app.db, sub, AUDIT_ACTIONS.PROJECT_DELETE, projectId);
       return reply.status(204).send();

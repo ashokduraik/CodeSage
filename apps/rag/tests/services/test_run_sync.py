@@ -65,6 +65,7 @@ def test_handle_sync_job_enqueues_parse(monkeypatch) -> None:
 
     handle_sync_job(session, Settings(repo_clone_dir="/tmp"), {"repoId": str(repo_id)})
     mock_repos.update_last_indexed_sha.assert_called_once_with(repo_id, "abc")
+    mock_repos.update_connection_status.assert_called_once()
     mock_jobs.enqueue.assert_called_once()
     assert mock_jobs.enqueue.call_args[0][0] == "parse"
 
@@ -87,6 +88,26 @@ def test_handle_sync_job_skips_parse_when_no_changes(monkeypatch) -> None:
 
     handle_sync_job(session, Settings(), {"repoId": str(repo_id)})
     mock_jobs.enqueue.assert_not_called()
+
+
+def test_handle_sync_job_sets_error_status_on_failure(monkeypatch) -> None:
+    session = MagicMock()
+    repo_id = uuid.uuid4()
+    repo = _repo(repo_id, uuid.uuid4())
+    mock_repos = MagicMock()
+    mock_repos.get_by_id.return_value = repo
+
+    monkeypatch.setattr("services.sync.run_sync.RepoRepository", lambda s: mock_repos)
+    monkeypatch.setattr("services.sync.run_sync.ProjectRepository", lambda s: MagicMock())
+    monkeypatch.setattr("services.sync.run_sync.JobRepository", lambda s: MagicMock())
+    monkeypatch.setattr(
+        "services.sync.run_sync.sync_repository",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("git failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="git failed"):
+        handle_sync_job(session, Settings(), {"repoId": str(repo_id)})
+    mock_repos.update_connection_status.assert_called_once()
 
 
 def test_create_sync_handler_commits_and_rolls_back(monkeypatch) -> None:

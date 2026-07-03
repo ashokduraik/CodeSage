@@ -21,6 +21,7 @@ const TEST_CONFIG = {
   encryptionKey: "",
   mockMode: false,
   ragBaseUrl: "http://127.0.0.1:8001",
+  webhookBaseUrl: "",
 } as const;
 
 afterEach(() => vi.clearAllMocks());
@@ -34,6 +35,11 @@ describe("isPublicRoute", () => {
     expect(isPublicRoute(mockRequest("GET", "/api/health"))).toBe(true);
     expect(isPublicRoute(mockRequest("GET", "/api/health?probe=1"))).toBe(true);
     expect(isPublicRoute(mockRequest("POST", "/api/auth/login"))).toBe(true);
+    expect(isPublicRoute(mockRequest("POST", "/api/webhooks/github"))).toBe(true);
+  });
+
+  it("returns true for OPTIONS preflight on any path", () => {
+    expect(isPublicRoute(mockRequest("OPTIONS", "/api/projects/p1/repos/r1"))).toBe(true);
   });
 
   it("returns false for non-public paths", () => {

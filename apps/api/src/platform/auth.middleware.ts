@@ -13,6 +13,7 @@ interface PublicRoute {
 const PUBLIC_ROUTES: readonly PublicRoute[] = [
   { method: "GET", paths: ["/api/health"] },
   { method: "POST", paths: ["/api/auth/login"] },
+  { method: "POST", paths: ["/api/webhooks/github", "/api/webhooks/gitlab"] },
 ];
 
 /**
@@ -23,6 +24,15 @@ export function isPublicRoute(request: FastifyRequest): boolean {
   const qIndex = request.url.indexOf("?");
   const pathname = qIndex === -1 ? request.url : request.url.slice(0, qIndex);
   const method = request.method.toUpperCase();
+
+  // Browsers send OPTIONS preflight before cross-origin DELETE/POST with custom headers.
+  if (method === "OPTIONS") {
+    return true;
+  }
+
+  if (method === "POST" && pathname.startsWith("/api/webhooks/")) {
+    return true;
+  }
 
   return PUBLIC_ROUTES.some(
     (route) => route.method === method && route.paths.includes(pathname),
@@ -43,7 +53,7 @@ export function registerAuthMiddleware(app: FastifyInstance): void {
     try {
       await request.jwtVerify();
     } catch (error) {
-      void reply.status(401).send({
+      return reply.status(401).send({
         error: { code: "UNAUTHORIZED", message: error instanceof Error ? error.message : "Invalid or missing token." },
       });
     }

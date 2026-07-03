@@ -12,8 +12,9 @@ expert question queue, and the workflow/page explorer.
 
 ## Responsibilities
 
-- **Project & repo setup** — create a project, attach one or more repositories (URL + token),
-  configure branches/roles (`frontend`/`backend`/`iam`).
+- **Project & repo setup** — create a project; connect repositories via a multi-step wizard
+  (URL probe → optional token → branch + README description). Provider and branches are
+  auto-detected; webhooks register on connect when configured.
 - **QA chat** (dev + end-user) — stream answers over WebSocket, render **citations**, pass the
   user's current page/route as context for page-scoped product questions.
 - **Expert question queue** — list clarifying questions and submit authoritative answers.

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { listRepos, attachRepo, detachRepo } from "./repos.service";
+import { listRepos, attachRepo, detachRepo, probeRepoUrl, syncRepo } from "./repos.service";
 import { appendAuditLog, AUDIT_ACTIONS } from "../../platform/audit";
 import type { JwtPayload } from "../../platform/auth.plugin";
 import type { NodeApi } from "@codesage/shared-types";
@@ -10,13 +10,28 @@ import type { NodeApi } from "@codesage/shared-types";
  * JWT authentication is enforced by the global auth middleware in `platform/auth.middleware.ts`.
  *
  * Routes:
+ * - `POST /repos/probe` — probe URL before attach.
  * - `GET /projects/:projectId/repos` — list repos for a project.
  * - `POST /projects/:projectId/repos` — attach a repo + enqueue sync (returns 202).
- * - `DELETE /projects/:projectId/repos/:repoId` — detach a repo.
+ * - `DELETE /projects/:projectId/repos/:repoId` — soft-detach a repo.
+ * - `POST /projects/:projectId/repos/:repoId/sync` — enqueue manual sync (returns 202).
  *
  * @param app - The Fastify application instance.
  */
 export async function reposRoutes(app: FastifyInstance): Promise<void> {
+  app.post<{
+    Body: NodeApi.components["schemas"]["ProbeRepoRequest"];
+    Reply: NodeApi.components["schemas"]["ProbeRepoResponse"];
+  }>("/repos/probe", async (request, reply) => {
+    const { repoUrl, token } = request.body;
+    if (!repoUrl?.trim()) {
+      return reply.status(400).send({
+        error: { code: "VALIDATION_ERROR", message: "repoUrl is required." },
+      } as never);
+    }
+    return probeRepoUrl(repoUrl.trim(), token);
+  });
+
   app.get<{
     Params: { projectId: string };
     Reply: NodeApi.components["schemas"]["Repo"][];
@@ -30,13 +45,13 @@ export async function reposRoutes(app: FastifyInstance): Promise<void> {
     Reply: NodeApi.components["schemas"]["AttachRepoResponse"];
   }>("/projects/:projectId/repos", async (request, reply) => {
     const { projectId } = request.params;
-    const { repoUrl, provider, branch, role, token } = request.body;
+    const body = request.body;
 
-    if (!repoUrl || !provider || !branch || !role) {
+    if (!body.repoUrl?.trim() || !body.branch?.trim()) {
       return reply.status(400).send({
         error: {
           code: "VALIDATION_ERROR",
-          message: "repoUrl, provider, branch, and role are required.",
+          message: "repoUrl and branch are required.",
         },
       } as never);
     }
@@ -44,12 +59,9 @@ export async function reposRoutes(app: FastifyInstance): Promise<void> {
     const result = await attachRepo(
       app.db,
       projectId,
-      repoUrl,
-      provider,
-      branch,
-      role,
-      token,
+      body,
       app.config.encryptionKey,
+      app.config.webhookBaseUrl,
     );
     const { sub } = request.user as JwtPayload;
     await appendAuditLog(app.db, sub, AUDIT_ACTIONS.REPO_ATTACH, result.repo.id);
@@ -60,10 +72,21 @@ export async function reposRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId/repos/:repoId",
     async (request, reply) => {
       const { projectId, repoId } = request.params;
-      await detachRepo(app.db, projectId, repoId);
+      await detachRepo(app.db, projectId, repoId, app.config.encryptionKey);
       const { sub } = request.user as JwtPayload;
       await appendAuditLog(app.db, sub, AUDIT_ACTIONS.REPO_DETACH, repoId);
       return reply.status(204).send();
     },
   );
+
+  app.post<{
+    Params: { projectId: string; repoId: string };
+    Reply: NodeApi.components["schemas"]["SyncRepoResponse"];
+  }>("/projects/:projectId/repos/:repoId/sync", async (request, reply) => {
+    const { projectId, repoId } = request.params;
+    const result = await syncRepo(app.db, projectId, repoId);
+    const { sub } = request.user as JwtPayload;
+    await appendAuditLog(app.db, sub, AUDIT_ACTIONS.REPO_SYNC, repoId);
+    return reply.status(202).send(result);
+  });
 }

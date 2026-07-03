@@ -15,5 +15,9 @@ alwaysApply: false
   must keep **`confidence` + source-citation** columns — trust is a product feature (NFR-7).
 - Expert answers are **authoritative overrides** that survive re-indexing.
 - Prefer explicit columns over giant JSON blobs except for genuinely flexible KB artifacts.
+- **Every table** has row `status char(1) DEFAULT 'A'` (`A` = Active, `D` = Deleted) — see
+  `row-status.mdc`. Domain lifecycle uses a differently named column (e.g. `lifecycle_status`).
+- **Soft delete** domain entities via `status = 'D'` (see `soft-delete.mdc`); never hard-delete
+  user-facing resources without an ADR.
 
 See `docs/data-model.md` and ADRs 0003–0006.

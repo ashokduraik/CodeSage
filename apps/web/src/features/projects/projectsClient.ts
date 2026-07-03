@@ -6,6 +6,9 @@ type Repo = NodeApi.components["schemas"]["Repo"];
 type AttachRepoResponse = NodeApi.components["schemas"]["AttachRepoResponse"];
 type CreateProjectRequest = NodeApi.components["schemas"]["CreateProjectRequest"];
 type CreateRepoRequest = NodeApi.components["schemas"]["CreateRepoRequest"];
+type ProbeRepoRequest = NodeApi.components["schemas"]["ProbeRepoRequest"];
+type ProbeRepoResponse = NodeApi.components["schemas"]["ProbeRepoResponse"];
+type SyncRepoResponse = NodeApi.components["schemas"]["SyncRepoResponse"];
 
 /**
  * Fetches the list of projects from the Node API.
@@ -34,6 +37,15 @@ export async function fetchRepos(projectId: string): Promise<Repo[]> {
 }
 
 /**
+ * Probes a repository URL before attach (branches, README, auth check).
+ * @param body - Probe request with URL and optional token.
+ * @returns Probe metadata for the connect wizard.
+ */
+export async function probeRepoRequest(body: ProbeRepoRequest): Promise<ProbeRepoResponse> {
+  return apiFetch<ProbeRepoResponse>("/repos/probe", { method: "POST", body });
+}
+
+/**
  * Attaches a new repository to a project.
  * @param projectId - Parent project UUID.
  * @param body - Repo attachment request body.
@@ -47,4 +59,41 @@ export async function attachRepoRequest(
     method: "POST",
     body,
   });
+}
+
+/**
+ * Enqueues a manual sync job for a repository.
+ * @param projectId - Parent project UUID.
+ * @param repoId - Repo UUID.
+ * @returns The enqueued sync job ID.
+ */
+export async function syncRepoRequest(
+  projectId: string,
+  repoId: string,
+): Promise<SyncRepoResponse> {
+  return apiFetch<SyncRepoResponse>(`/projects/${projectId}/repos/${repoId}/sync`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Soft-detaches a repository from a project.
+ * @param projectId - Parent project UUID.
+ * @param repoId - Repo UUID.
+ */
+export async function deleteRepoRequest(projectId: string, repoId: string): Promise<void> {
+  await apiFetch<void>(`/projects/${projectId}/repos/${repoId}`, { method: "DELETE" });
+}
+
+/**
+ * Soft-deletes a project and detaches all of its repositories.
+ * @param projectId - Project UUID.
+ */
+export async function deleteProjectRequest(projectId: string): Promise<void> {
+  await apiFetch<void>(`/projects/${projectId}`, { method: "DELETE" });
+}
+
+/** React Query key for repos belonging to a project. */
+export function reposQueryKey(projectId: string): readonly ["projects", string, "repos"] {
+  return ["projects", projectId, "repos"];
 }

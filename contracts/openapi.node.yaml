@@ -230,7 +230,10 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteProject
-      summary: Delete a project and all associated data.
+      summary: Soft-delete a project and detach its repositories.
+      description: >-
+        Sets row status to Deleted on the project and soft-detaches each active repo
+        (webhook unregister). Indexed data remains until a future purge operation.
       security:
         - bearerAuth: []
       parameters:
@@ -245,6 +248,64 @@ paths:
           description: Project deleted.
         '404':
           description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /repos/probe:
+    post:
+      operationId: probeRepo
+      summary: Probe a repository URL before attach (branches, README, auth check).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProbeRepoRequest'
+      responses:
+        '200':
+          description: Probe result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProbeRepoResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhooks/{provider}:
+    post:
+      operationId: receiveWebhook
+      summary: Receive a push webhook from GitHub or GitLab (public route).
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/RepoProvider'
+      responses:
+        '204':
+          description: Webhook accepted.
+        '401':
+          description: Invalid webhook signature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Repository not registered.
           content:
             application/json:
               schema:
@@ -403,7 +464,10 @@ paths:
   /projects/{projectId}/repos/{repoId}:
     delete:
       operationId: deleteRepo
-      summary: Detach a repository from a project.
+      summary: Soft-detach a repository from a project.
+      description: >-
+        Sets row status to Deleted on the repo and unregisters the provider webhook.
+        Indexed chunks and graph data remain until a future purge operation.
       security:
         - bearerAuth: []
       parameters:
@@ -421,7 +485,40 @@ paths:
             format: uuid
       responses:
         '204':
-          description: Repo detached.
+          description: Repo soft-detached.
+        '404':
+          description: Repo or project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{projectId}/repos/{repoId}/sync:
+    post:
+      operationId: syncRepo
+      summary: Manually enqueue a sync job for a repository.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: repoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Sync job enqueued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncRepoResponse'
         '404':
           description: Repo or project not found.
           content:
@@ -684,38 +781,96 @@ components:
         - gitlab
       description: Git hosting provider.
 
-    RepoRole:
+    RepoConnectionStatus:
       type: string
       enum:
-        - frontend
-        - backend
-        - iam
-        - other
-      description: Role this repo plays within the project.
+        - connecting
+        - connected
+        - error
+      description: Git connection / sync health for this repo.
+
+    ProbeRepoRequest:
+      type: object
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          type: string
+          description: HTTPS clone URL to probe.
+        token:
+          type: string
+          description: >-
+            Optional access token for private repos. Used only for this request;
+            never stored or logged.
+
+    ProbeRepoResponse:
+      type: object
+      required:
+        - provider
+        - fullName
+        - defaultBranch
+        - branches
+        - description
+        - isPrivate
+        - authRequired
+        - notFound
+      properties:
+        provider:
+          $ref: '#/components/schemas/RepoProvider'
+        fullName:
+          type: string
+          description: e.g. org/repo
+        baseUrl:
+          type: string
+          description: Git host origin (differs for self-hosted GitLab).
+        defaultBranch:
+          type: string
+        branches:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+          description: Up to five branch names from the provider API.
+        description:
+          type: string
+          description: README excerpt or repo metadata description.
+        isPrivate:
+          type: boolean
+        authRequired:
+          type: boolean
+          description: True when probe hit 401/403 without a valid token.
+        notFound:
+          type: boolean
+        primaryLanguage:
+          type: string
+          description: Primary programming language from the provider API (e.g. Python).
 
     CreateRepoRequest:
       type: object
       required:
         - repoUrl
-        - provider
         - branch
-        - role
       properties:
         repoUrl:
           type: string
           description: HTTPS clone URL of the repository.
-        provider:
-          $ref: '#/components/schemas/RepoProvider'
         branch:
           type: string
-          description: Branch to index (defaults to main).
-        role:
-          $ref: '#/components/schemas/RepoRole'
+          description: Branch to index.
+        description:
+          type: string
+          description: User-editable repo description (from README by default).
+        baseUrl:
+          type: string
+          description: Self-hosted GitLab origin when hostname is not gitlab.com.
         token:
           type: string
           description: >-
             Read-only deploy token for private repos. Encrypted at rest; never
             returned in responses.
+        primaryLanguage:
+          type: string
+          description: Primary language from probe (stored on attach).
 
     Repo:
       type: object
@@ -725,7 +880,10 @@ components:
         - repoUrl
         - provider
         - branch
-        - role
+        - fullName
+        - isPrivate
+        - connectionStatus
+        - webhookEnabled
         - createdAt
       properties:
         id:
@@ -744,11 +902,45 @@ components:
         branch:
           type: string
           description: Indexed branch.
-        role:
-          $ref: '#/components/schemas/RepoRole'
+        fullName:
+          type: string
+          description: e.g. org/repo
+        description:
+          type: string
+          description: User-editable description.
+        baseUrl:
+          type: string
+          description: Self-hosted GitLab origin when applicable.
+        isPrivate:
+          type: boolean
+        connectionStatus:
+          $ref: '#/components/schemas/RepoConnectionStatus'
+        lastError:
+          type: string
+          description: Last connection/sync error when connectionStatus is error.
+        lastErrorAt:
+          type: string
+          format: date-time
+          description: UTC timestamp of lastError.
+        webhookEnabled:
+          type: boolean
+          description: Whether a push webhook is registered for auto-sync.
         lastIndexedSha:
           type: string
-          description: Git SHA of the last successfully indexed commit.
+          description: Git SHA of the last successfully synced commit.
+        lastIndexedAt:
+          type: string
+          format: date-time
+          description: >-
+            UTC timestamp when last_indexed_sha was last updated (git sync
+            completion, not full embed pipeline).
+        primaryLanguage:
+          type: string
+          description: Primary programming language (from provider at attach).
+        indexedFileCount:
+          type: integer
+          minimum: 0
+          description: Distinct indexed file paths in code_chunks for this repo.
         createdAt:
           type: string
           format: date-time
@@ -762,6 +954,16 @@ components:
       properties:
         repo:
           $ref: '#/components/schemas/Repo'
+        jobId:
+          type: string
+          format: uuid
+          description: ID of the enqueued sync job.
+
+    SyncRepoResponse:
+      type: object
+      required:
+        - jobId
+      properties:
         jobId:
           type: string
           format: uuid

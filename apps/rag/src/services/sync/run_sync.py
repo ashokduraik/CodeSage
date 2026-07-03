@@ -8,8 +8,9 @@ from typing import Any
 from sqlalchemy.orm import Session, sessionmaker
 
 from config import Settings
-from models.enums import ProjectStatus
+from models.enums import ProjectStatus, RepoConnectionStatus
 from repositories import JobRepository, ProjectRepository, RepoRepository
+from repositories.projects import sanitize_sync_error
 from services.encryption import decrypt_token, parse_encryption_key, token_bytes_to_ciphertext
 from services.sync.git_ops import sync_repository
 from services.sync.paths import list_indexable_files, repo_worktree_path
@@ -52,15 +53,25 @@ def handle_sync_job(session: Session, settings: Settings, payload: dict[str, Any
     def list_files() -> list[str]:
         return list_indexable_files(worktree, settings.sync_max_file_bytes)
 
-    result = sync_repository(
-        repo_url=repo.repo_url,
-        branch=repo.branch,
-        worktree=worktree,
-        token=token,
-        since_sha=since_sha or repo.last_indexed_sha,
-        list_files=list_files,
-    )
+    try:
+        result = sync_repository(
+            repo_url=repo.repo_url,
+            branch=repo.branch,
+            worktree=worktree,
+            token=token,
+            since_sha=since_sha or repo.last_indexed_sha,
+            list_files=list_files,
+        )
+    except Exception as exc:
+        repos.update_connection_status(
+            repo_id,
+            RepoConnectionStatus.ERROR,
+            sanitize_sync_error(str(exc)),
+        )
+        raise
+
     repos.update_last_indexed_sha(repo_id, result.head_sha)
+    repos.update_connection_status(repo_id, RepoConnectionStatus.CONNECTED)
 
     if result.changed_files:
         jobs.enqueue(

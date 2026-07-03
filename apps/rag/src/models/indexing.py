@@ -7,12 +7,13 @@ from datetime import datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from config import DEFAULT_EMBEDDING_DIMENSION
 from models.base import Base
+from models.enums import RowStatus
 
 
 class GraphNode(Base):
@@ -35,6 +36,12 @@ class GraphNode(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     span: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    status: Mapped[RowStatus] = mapped_column(
+        String(1),
+        nullable=False,
+        default=RowStatus.ACTIVE,
+        server_default="A",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -64,6 +71,12 @@ class GraphEdge(Base):
         nullable=False,
     )
     kind: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[RowStatus] = mapped_column(
+        String(1),
+        nullable=False,
+        default=RowStatus.ACTIVE,
+        server_default="A",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -95,6 +108,12 @@ class CodeChunk(Base):
         nullable=True,
     )
     symbol_refs: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, insert_default=list)
+    status: Mapped[RowStatus] = mapped_column(
+        String(1),
+        nullable=False,
+        default=RowStatus.ACTIVE,
+        server_default="A",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -5,6 +5,7 @@ import { authRoutes } from "../modules/auth";
 import { usersRoutes } from "../modules/users";
 import { projectsRoutes } from "../modules/projects";
 import { reposRoutes } from "../modules/repos";
+import { webhooksRoutes } from "../modules/webhooks";
 import { dashboardRoutes } from "../modules/dashboard";
 import { chatRoutes } from "../modules/chat";
 
@@ -15,6 +16,7 @@ const ROUTE_PLUGINS: FastifyPluginAsync[] = [
   usersRoutes,
   projectsRoutes,
   reposRoutes,
+  webhooksRoutes,
   dashboardRoutes,
   chatRoutes,
 ];

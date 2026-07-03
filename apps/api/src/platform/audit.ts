@@ -8,6 +8,7 @@ export const AUDIT_ACTIONS = {
   PROJECT_DELETE: "project.delete",
   REPO_ATTACH: "repo.attach",
   REPO_DETACH: "repo.detach",
+  REPO_SYNC: "repo.sync",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

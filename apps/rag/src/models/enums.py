@@ -22,15 +22,6 @@ REPO_PROVIDER = ENUM(
     create_type=False,
 )
 
-REPO_ROLE = ENUM(
-    "frontend",
-    "backend",
-    "iam",
-    "other",
-    name="repo_role",
-    create_type=False,
-)
-
 PROJECT_STATUS = ENUM(
     "active",
     "indexed",
@@ -68,13 +59,12 @@ class RepoProvider(str, enum.Enum):
     GITLAB = "gitlab"
 
 
-class RepoRole(str, enum.Enum):
-    """Logical role of a repo within a microservice project."""
+class RepoConnectionStatus(str, enum.Enum):
+    """Git connection / sync health for a connected repository."""
 
-    FRONTEND = "frontend"
-    BACKEND = "backend"
-    IAM = "iam"
-    OTHER = "other"
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    ERROR = "error"
 
 
 class ProjectStatus(str, enum.Enum):
@@ -95,3 +85,10 @@ class JobStatus(str, enum.Enum):
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
+
+
+class RowStatus(str, enum.Enum):
+    """Row visibility status on every table (`A` = Active, `D` = Deleted)."""
+
+    ACTIVE = "A"
+    DELETED = "D"

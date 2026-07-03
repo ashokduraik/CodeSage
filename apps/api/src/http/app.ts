@@ -42,7 +42,11 @@ export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
 
   // CORS: allow all origins in non-production environments for local dev convenience.
   if (resolvedConfig.nodeEnv !== "production") {
-    app.register(cors, { origin: true });
+    app.register(cors, {
+      origin: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Authorization", "Content-Type"],
+    });
   }
 
   // JWT plugin: signs and verifies tokens; augments FastifyRequest with jwtVerify().

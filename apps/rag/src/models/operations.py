@@ -6,12 +6,12 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
-from models.enums import JOB_STATUS, JobStatus
+from models.enums import JOB_STATUS, JobStatus, RowStatus
 
 
 class Job(Base):
@@ -22,9 +22,20 @@ class Job(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     type: Mapped[str] = mapped_column(Text, nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    status: Mapped[JobStatus] = mapped_column(JOB_STATUS, nullable=False, default=JobStatus.PENDING)
+    job_status: Mapped[JobStatus] = mapped_column(
+        JOB_STATUS,
+        nullable=False,
+        default=JobStatus.PENDING,
+    )
+    status: Mapped[RowStatus] = mapped_column(
+        String(1),
+        nullable=False,
+        default=RowStatus.ACTIVE,
+        server_default="A",
+    )
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -45,6 +56,12 @@ class AuditLog(Base):
     )
     action: Mapped[str] = mapped_column(Text, nullable=False)
     target: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[RowStatus] = mapped_column(
+        String(1),
+        nullable=False,
+        default=RowStatus.ACTIVE,
+        server_default="A",
+    )
     ts: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

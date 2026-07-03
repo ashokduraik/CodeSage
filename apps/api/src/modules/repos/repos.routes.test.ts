@@ -9,6 +9,8 @@ vi.mock("./repos.service", () => ({
   listRepos: vi.fn(),
   attachRepo: vi.fn(),
   detachRepo: vi.fn(),
+  probeRepoUrl: vi.fn(),
+  syncRepo: vi.fn(),
 }));
 
 vi.mock("../../platform/audit", () => ({
@@ -16,17 +18,20 @@ vi.mock("../../platform/audit", () => ({
   AUDIT_ACTIONS: {
     REPO_ATTACH: "repo.attach",
     REPO_DETACH: "repo.detach",
+    REPO_SYNC: "repo.sync",
   },
 }));
 
 const { buildApp } = await import("../../http/app");
-import { listRepos, attachRepo, detachRepo } from "./repos.service";
+import { listRepos, attachRepo, detachRepo, probeRepoUrl, syncRepo } from "./repos.service";
 import { ApiError } from "../../platform/errors";
 import type { JwtPayload } from "../../platform/auth.plugin";
 
 const mockList = vi.mocked(listRepos);
 const mockAttach = vi.mocked(attachRepo);
 const mockDetach = vi.mocked(detachRepo);
+const mockProbe = vi.mocked(probeRepoUrl);
+const mockSync = vi.mocked(syncRepo);
 
 const TEST_CONFIG = {
   host: "127.0.0.1",
@@ -39,6 +44,7 @@ const TEST_CONFIG = {
   encryptionKey: "",
   mockMode: false,
   ragBaseUrl: "http://127.0.0.1:8001",
+  webhookBaseUrl: "",
 } as const;
 
 const MOCK_REPO = {
@@ -47,7 +53,10 @@ const MOCK_REPO = {
   repoUrl: "https://github.com/org/repo",
   provider: "github" as const,
   branch: "main",
-  role: "backend" as const,
+  fullName: "org/repo",
+  isPrivate: false,
+  connectionStatus: "connecting" as const,
+  webhookEnabled: false,
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
@@ -58,38 +67,39 @@ function devToken(app: ReturnType<typeof buildApp>): string {
   return app.jwt.sign(p);
 }
 
-describe("GET /projects/:projectId/repos", () => {
+describe("POST /repos/probe", () => {
   it("returns 401 when unauthenticated", async () => {
     const app = buildApp(TEST_CONFIG);
-    const res = await app.inject({ method: "GET", url: "/api/projects/p1/repos" });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/repos/probe",
+      payload: { repoUrl: "https://github.com/org/repo" },
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
 
-  it("returns the repo list", async () => {
-    mockList.mockResolvedValue([MOCK_REPO]);
+  it("returns probe result when authenticated", async () => {
+    mockProbe.mockResolvedValue({
+      provider: "github",
+      fullName: "org/repo",
+      defaultBranch: "main",
+      branches: ["main"],
+      description: "desc",
+      isPrivate: false,
+      authRequired: false,
+      notFound: false,
+    });
     const app = buildApp(TEST_CONFIG);
     await app.ready();
     const res = await app.inject({
-      method: "GET",
-      url: "/api/projects/p1/repos",
+      method: "POST",
+      url: "/api/repos/probe",
       headers: { authorization: `Bearer ${devToken(app)}` },
+      payload: { repoUrl: "https://github.com/org/repo" },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual([MOCK_REPO]);
-    await app.close();
-  });
-
-  it("returns 404 when project does not exist", async () => {
-    mockList.mockRejectedValue(new ApiError(404, "NOT_FOUND", "Project not found."));
-    const app = buildApp(TEST_CONFIG);
-    await app.ready();
-    const res = await app.inject({
-      method: "GET",
-      url: "/api/projects/missing/repos",
-      headers: { authorization: `Bearer ${devToken(app)}` },
-    });
-    expect(res.statusCode).toBe(404);
+    expect(res.json().fullName).toBe("org/repo");
     await app.close();
   });
 });
@@ -103,12 +113,7 @@ describe("POST /projects/:projectId/repos", () => {
       method: "POST",
       url: "/api/projects/p1/repos",
       headers: { authorization: `Bearer ${devToken(app)}` },
-      payload: {
-        repoUrl: "https://github.com/org/repo",
-        provider: "github",
-        branch: "main",
-        role: "backend",
-      },
+      payload: { repoUrl: "https://github.com/org/repo", branch: "main" },
     });
     expect(res.statusCode).toBe(202);
     expect(res.json()).toMatchObject({ repo: { id: "r1" }, jobId: "job-1" });
@@ -125,25 +130,6 @@ describe("POST /projects/:projectId/repos", () => {
       payload: { repoUrl: "https://github.com/org/repo" },
     });
     expect(res.statusCode).toBe(400);
-    await app.close();
-  });
-
-  it("returns 404 when project is not found", async () => {
-    mockAttach.mockRejectedValue(new ApiError(404, "NOT_FOUND", "Project not found."));
-    const app = buildApp(TEST_CONFIG);
-    await app.ready();
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/projects/missing/repos",
-      headers: { authorization: `Bearer ${devToken(app)}` },
-      payload: {
-        repoUrl: "https://github.com/org/repo",
-        provider: "github",
-        branch: "main",
-        role: "backend",
-      },
-    });
-    expect(res.statusCode).toBe(404);
     await app.close();
   });
 });
@@ -172,6 +158,22 @@ describe("DELETE /projects/:projectId/repos/:repoId", () => {
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(404);
+    await app.close();
+  });
+});
+
+describe("POST /projects/:projectId/repos/:repoId/sync", () => {
+  it("returns 202 with jobId on success", async () => {
+    mockSync.mockResolvedValue({ jobId: "job-sync" });
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/projects/p1/repos/r1/sync",
+      headers: { authorization: `Bearer ${devToken(app)}` },
+    });
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toEqual({ jobId: "job-sync" });
     await app.close();
   });
 });

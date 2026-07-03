@@ -34,6 +34,11 @@ export interface AppConfig {
   mockMode: boolean;
   /** Base URL of the internal Python RAG service (e.g. http://127.0.0.1:8001). */
   ragBaseUrl: string;
+  /**
+   * Public base URL of this CodeSage instance for webhook callbacks
+   * (WEBHOOK_BASE_URL). When unset, webhook registration is skipped.
+   */
+  webhookBaseUrl: string;
 }
 
 /**
@@ -68,5 +73,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     encryptionKey: env.TOKEN_ENC_KEY ?? "",
     mockMode: env.MOCK_MODE === "true",
     ragBaseUrl: env.RAG_BASE_URL ?? "http://127.0.0.1:8001",
+    webhookBaseUrl: env.WEBHOOK_BASE_URL ?? "",
   };
 }

@@ -1,4 +1,5 @@
 import type { Sql } from "../../platform/db";
+import { ROW_STATUS } from "../../platform/rowStatus";
 
 /** Aggregate counts computed from the projects table. */
 export interface ProjectCounts {
@@ -20,8 +21,9 @@ export async function getProjectCounts(db: Sql): Promise<ProjectCounts> {
   const rows = await db<{ total: number; indexed: number }[]>`
     SELECT
       COUNT(*)::int                                            AS total,
-      COUNT(*) FILTER (WHERE status = 'indexed')::int         AS indexed
+      COUNT(*) FILTER (WHERE lifecycle_status = 'indexed')::int AS indexed
     FROM projects
+    WHERE status = ${ROW_STATUS.ACTIVE}
   `;
   const row = rows[0];
   return {

@@ -118,8 +118,45 @@ export interface paths {
         get: operations["getProject"];
         put?: never;
         post?: never;
-        /** Delete a project and all associated data. */
+        /**
+         * Soft-delete a project and detach its repositories.
+         * @description Sets row status to Deleted on the project and soft-detaches each active repo (webhook unregister). Indexed data remains until a future purge operation.
+         */
         delete: operations["deleteProject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repos/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Probe a repository URL before attach (branches, README, auth check). */
+        post: operations["probeRepo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive a push webhook from GitHub or GitLab (public route). */
+        post: operations["receiveWebhook"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -207,8 +244,28 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Detach a repository from a project. */
+        /**
+         * Soft-detach a repository from a project.
+         * @description Sets row status to Deleted on the repo and unregisters the provider webhook. Indexed chunks and graph data remain until a future purge operation.
+         */
         delete: operations["deleteRepo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/repos/{repoId}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manually enqueue a sync job for a repository. */
+        post: operations["syncRepo"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -357,19 +414,47 @@ export interface components {
          */
         RepoProvider: "github" | "gitlab";
         /**
-         * @description Role this repo plays within the project.
+         * @description Git connection / sync health for this repo.
          * @enum {string}
          */
-        RepoRole: "frontend" | "backend" | "iam" | "other";
+        RepoConnectionStatus: "connecting" | "connected" | "error";
+        ProbeRepoRequest: {
+            /** @description HTTPS clone URL to probe. */
+            repoUrl: string;
+            /** @description Optional access token for private repos. Used only for this request; never stored or logged. */
+            token?: string;
+        };
+        ProbeRepoResponse: {
+            provider: components["schemas"]["RepoProvider"];
+            /** @description e.g. org/repo */
+            fullName: string;
+            /** @description Git host origin (differs for self-hosted GitLab). */
+            baseUrl?: string;
+            defaultBranch: string;
+            /** @description Up to five branch names from the provider API. */
+            branches: string[];
+            /** @description README excerpt or repo metadata description. */
+            description: string;
+            isPrivate: boolean;
+            /** @description True when probe hit 401/403 without a valid token. */
+            authRequired: boolean;
+            notFound: boolean;
+            /** @description Primary programming language from the provider API (e.g. Python). */
+            primaryLanguage?: string;
+        };
         CreateRepoRequest: {
             /** @description HTTPS clone URL of the repository. */
             repoUrl: string;
-            provider: components["schemas"]["RepoProvider"];
-            /** @description Branch to index (defaults to main). */
+            /** @description Branch to index. */
             branch: string;
-            role: components["schemas"]["RepoRole"];
+            /** @description User-editable repo description (from README by default). */
+            description?: string;
+            /** @description Self-hosted GitLab origin when hostname is not gitlab.com. */
+            baseUrl?: string;
             /** @description Read-only deploy token for private repos. Encrypted at rest; never returned in responses. */
             token?: string;
+            /** @description Primary language from probe (stored on attach). */
+            primaryLanguage?: string;
         };
         Repo: {
             /**
@@ -387,9 +472,34 @@ export interface components {
             provider: components["schemas"]["RepoProvider"];
             /** @description Indexed branch. */
             branch: string;
-            role: components["schemas"]["RepoRole"];
-            /** @description Git SHA of the last successfully indexed commit. */
+            /** @description e.g. org/repo */
+            fullName: string;
+            /** @description User-editable description. */
+            description?: string;
+            /** @description Self-hosted GitLab origin when applicable. */
+            baseUrl?: string;
+            isPrivate: boolean;
+            connectionStatus: components["schemas"]["RepoConnectionStatus"];
+            /** @description Last connection/sync error when connectionStatus is error. */
+            lastError?: string;
+            /**
+             * Format: date-time
+             * @description UTC timestamp of lastError.
+             */
+            lastErrorAt?: string;
+            /** @description Whether a push webhook is registered for auto-sync. */
+            webhookEnabled: boolean;
+            /** @description Git SHA of the last successfully synced commit. */
             lastIndexedSha?: string;
+            /**
+             * Format: date-time
+             * @description UTC timestamp when last_indexed_sha was last updated (git sync completion, not full embed pipeline).
+             */
+            lastIndexedAt?: string;
+            /** @description Primary programming language (from provider at attach). */
+            primaryLanguage?: string;
+            /** @description Distinct indexed file paths in code_chunks for this repo. */
+            indexedFileCount?: number;
             /**
              * Format: date-time
              * @description UTC timestamp when the repo was attached.
@@ -398,6 +508,13 @@ export interface components {
         };
         AttachRepoResponse: {
             repo: components["schemas"]["Repo"];
+            /**
+             * Format: uuid
+             * @description ID of the enqueued sync job.
+             */
+            jobId: string;
+        };
+        SyncRepoResponse: {
             /**
              * Format: uuid
              * @description ID of the enqueued sync job.
@@ -761,6 +878,86 @@ export interface operations {
             };
         };
     };
+    probeRepo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProbeRepoRequest"];
+            };
+        };
+        responses: {
+            /** @description Probe result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeRepoResponse"];
+                };
+            };
+            /** @description Validation error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    receiveWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: components["schemas"]["RepoProvider"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Webhook accepted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid webhook signature. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Repository not registered. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     listRepos: {
         parameters: {
             query?: never;
@@ -957,12 +1154,44 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Repo detached. */
+            /** @description Repo soft-detached. */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Repo or project not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    syncRepo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                repoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync job enqueued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncRepoResponse"];
+                };
             };
             /** @description Repo or project not found. */
             404: {

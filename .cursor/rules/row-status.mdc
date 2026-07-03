@@ -1,0 +1,56 @@
+---
+description: Row visibility status column — every table has status A (Active) or D (Deleted)
+alwaysApply: true
+---
+
+# Row status column
+
+Every PostgreSQL table **must** have a `status` column for row visibility:
+
+| Value | Meaning   | When set                          |
+|-------|-----------|-----------------------------------|
+| `A`   | Active    | Default on `INSERT`               |
+| `D`   | Deleted   | User-facing delete / detach (soft delete) |
+
+## Rules
+
+- **Schema:** `status char(1) NOT NULL DEFAULT 'A' CHECK (status IN ('A', 'D'))`.
+- **New tables:** include `status` in the `CREATE TABLE` (see `platform/migrations/_TEMPLATE.sql`).
+- **List and detail queries** filter active rows: `WHERE status = 'A'` (never return `D` by default).
+- **Soft delete:** `UPDATE … SET status = 'D' WHERE … AND status = 'A'` — never hard `DELETE` user-facing
+  resources unless an ADR documents purge/retention (see `soft-delete.mdc`).
+- **Partial indexes** on hot list paths should include `WHERE status = 'A'`.
+- **Domain-specific state** (project lifecycle, job queue state, repo connection health) uses a **different
+  column name** — never overload row `status`:
+  - `projects.lifecycle_status` — indexing pipeline (`active`, `indexed`, …)
+  - `jobs.job_status` — queue state (`pending`, `running`, …)
+  - `repos.connection_status` — Git sync health
+
+## Examples
+
+```ts
+// ❌ BAD: filter by deleted_at (legacy)
+WHERE deleted_at IS NULL
+
+// ✅ GOOD: filter active rows
+WHERE status = 'A'
+
+// ✅ GOOD: soft delete
+UPDATE repos SET status = 'D', webhook_enabled = false
+WHERE id = ${repoId} AND status = 'A'
+```
+
+```sql
+-- ❌ BAD: new table without row status
+CREATE TABLE widgets (id uuid PRIMARY KEY, name text NOT NULL);
+
+-- ✅ GOOD
+CREATE TABLE widgets (
+    id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name   text NOT NULL,
+    status char(1) NOT NULL DEFAULT 'A' CHECK (status IN ('A', 'D')),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+See also `soft-delete.mdc`, `data-model.mdc`, and `database-standards.mdc`.

@@ -28,12 +28,21 @@ describe("apiFetch", () => {
     expect(result).toEqual({ id: "p1", name: "Acme" });
   });
 
-  it("sends GET to the correct URL", async () => {
+  it("omits Content-Type on bodyless GET requests", async () => {
     mockFetch(200, {});
     await apiFetch("/health");
+    const callArg = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
+    expect(callArg?.headers).not.toHaveProperty("Content-Type");
+  });
+
+  it("sets Content-Type when a JSON body is sent", async () => {
+    mockFetch(201, { id: "p1" });
+    await apiFetch("/projects", { method: "POST", body: { name: "Acme" } });
     expect(global.fetch).toHaveBeenCalledWith(
-      "/api/health",
-      expect.objectContaining({ headers: expect.objectContaining({ "Content-Type": "application/json" }) }),
+      "/api/projects",
+      expect.objectContaining({
+        headers: expect.objectContaining({ "Content-Type": "application/json" }),
+      }),
     );
   });
 

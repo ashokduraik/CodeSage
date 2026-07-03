@@ -16,7 +16,7 @@ def test_job_enqueue() -> None:
     job = repo.enqueue("sync", {"repoId": "x"})
     assert job.type == "sync"
     assert job.payload == {"repoId": "x"}
-    assert job.status == JobStatus.PENDING
+    assert job.job_status == JobStatus.PENDING
     session.add.assert_called_once()
     session.flush.assert_called_once()
 
@@ -48,12 +48,12 @@ def test_job_mark_done_and_failed() -> None:
 
     repo = JobRepository(session)
     assert repo.mark_done(job.id) is job
-    assert job.status == JobStatus.DONE
+    assert job.job_status == JobStatus.DONE
     assert job.locked_at is None
 
-    job.status = JobStatus.RUNNING
+    job.job_status = JobStatus.RUNNING
     assert repo.mark_failed(job.id) is job
-    assert job.status == JobStatus.FAILED
+    assert job.job_status == JobStatus.FAILED
 
 
 def test_job_mark_missing() -> None:

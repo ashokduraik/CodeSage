@@ -8,8 +8,8 @@ from models.base import Base
 from models.enums import (
     JobStatus,
     ProjectStatus,
+    RepoConnectionStatus,
     RepoProvider,
-    RepoRole,
     UserRole,
 )
 from models import (
@@ -51,9 +51,9 @@ __all__ = [
     "ProjectRepository",
     "ProjectStatus",
     "Repo",
+    "RepoConnectionStatus",
     "RepoProvider",
     "RepoRepository",
-    "RepoRole",
     "User",
     "UserRepository",
     "UserRole",

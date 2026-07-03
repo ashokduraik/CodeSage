@@ -22,3 +22,8 @@ Node module's repository layer) — no ad-hoc queries scattered around.
 - **Parameterized queries only** — never string-concatenate SQL (prevents injection).
 - Enforce **access controls** (RBAC) at the data boundary; scope queries by project/tenant.
 - Plan for **regular security audits** of queries and access paths.
+
+## Soft delete
+
+User-facing deletes set row **`status = 'D'`** (default `'A'`) — see `row-status.mdc` and
+`soft-delete.mdc`. List queries must filter `status = 'A'`; hard `DELETE` requires an ADR.

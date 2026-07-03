@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { ApiError } from "./errors";
 
 /**
  * AES-256-GCM constants.
@@ -17,12 +18,19 @@ const TAG_BYTES = 16; // 128-bit auth tag
  */
 export function parseEncryptionKey(base64: string): Buffer {
   if (!base64) {
-    throw new Error("TOKEN_ENC_KEY is not set; cannot encrypt or decrypt repo tokens.");
+    throw new ApiError(
+      400,
+      "ENCRYPTION_NOT_CONFIGURED",
+      "TOKEN_ENC_KEY is not set; cannot encrypt or decrypt repo tokens.",
+    );
   }
   const key = Buffer.from(base64, "base64");
   if (key.byteLength !== 32) {
-    throw new Error(
-      `TOKEN_ENC_KEY must decode to exactly 32 bytes for AES-256 (got ${key.byteLength}).`,
+    throw new ApiError(
+      400,
+      "ENCRYPTION_KEY_INVALID",
+      `TOKEN_ENC_KEY must decode to exactly 32 bytes for AES-256 (got ${key.byteLength}). ` +
+        'Generate one: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))"',
     );
   }
   return key;

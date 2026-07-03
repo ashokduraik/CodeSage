@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { ApiError } from "./errors";
 import { parseEncryptionKey, encryptToken, decryptToken } from "./encryption";
 
 /** A valid 32-byte key expressed as base64 for test use. */
@@ -12,13 +13,25 @@ describe("parseEncryptionKey", () => {
     expect(key.byteLength).toBe(32);
   });
 
-  it("throws when the input is an empty string", () => {
-    expect(() => parseEncryptionKey("")).toThrow("TOKEN_ENC_KEY is not set");
+  it("throws ApiError when the input is an empty string", () => {
+    expect(() => parseEncryptionKey("")).toThrow(ApiError);
+    expect(() => parseEncryptionKey("")).toThrow(
+      expect.objectContaining({ code: "ENCRYPTION_NOT_CONFIGURED", statusCode: 400 }),
+    );
   });
 
-  it("throws when the decoded key is not 32 bytes", () => {
+  it("throws ApiError when the decoded key is not 32 bytes", () => {
     const short = Buffer.alloc(16).toString("base64");
-    expect(() => parseEncryptionKey(short)).toThrow("must decode to exactly 32 bytes");
+    expect(() => parseEncryptionKey(short)).toThrow(ApiError);
+    expect(() => parseEncryptionKey(short)).toThrow(
+      expect.objectContaining({ code: "ENCRYPTION_KEY_INVALID", statusCode: 400 }),
+    );
+  });
+
+  it("rejects placeholder values like change-me", () => {
+    expect(() => parseEncryptionKey("change-me")).toThrow(
+      expect.objectContaining({ code: "ENCRYPTION_KEY_INVALID" }),
+    );
   });
 });
 

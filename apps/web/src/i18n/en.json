@@ -39,22 +39,96 @@
       "creating": "Creating\u2026",
       "error": "Failed to create project. Please try again."
     },
+    "deleteProject": {
+      "action": "Delete project",
+      "confirmTitle": "Delete project?",
+      "confirmBody": "Remove {{name}} and detach all its repositories? Indexed data stays in the database but nothing will sync.",
+      "error": "Could not delete project. Please try again."
+    },
     "attachDialog": {
-      "title": "Attach Repository",
-      "urlLabel": "Clone URL",
-      "providerLabel": "Provider",
-      "roleLabel": "Role",
-      "roleFrontend": "Frontend",
-      "roleBackend": "Backend",
-      "roleIam": "IAM / Auth",
-      "roleOther": "Other",
+      "title": "Connect Repository",
+      "urlLabel": "Repository URL",
+      "urlHint": "Supports GitHub and GitLab, including self-hosted GitLab instances.",
       "branchLabel": "Branch",
-      "tokenLabel": "Deploy Token",
-      "tokenOptional": "optional",
-      "tokenPlaceholder": "ghp_\u2026 or glpat-\u2026",
-      "submit": "Attach",
-      "attaching": "Attaching\u2026",
-      "error": "Failed to attach repository. Please try again."
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "No README description found — add one yourself.",
+      "tokenLabel": "Access Token",
+      "connect": "Connect",
+      "connecting": "Connecting\u2026",
+      "verifying": "Verifying\u2026",
+      "continue": "Continue",
+      "back": "Back",
+      "submit": "Connect",
+      "attaching": "Connecting\u2026",
+      "error": "Failed to connect repository. Please try again.",
+      "privateHint": "{{name}} looks private or requires authentication.",
+      "webhookWithToken": "Auto-sync via webhook will be set up when you connect (requires repo admin access).",
+      "webhookWithoutToken": "Webhooks require a token. You can re-index manually or reconnect with a token.",
+      "errors": {
+        "notFound": "Repository not found. Check the URL or your access token.",
+        "probeFailed": "Could not reach the repository. Check the URL and try again.",
+        "tokenRequired": "Enter an access token to continue."
+      }
+    },
+    "repoTokenHelp": {
+      "title": "Get a {{provider}} access token",
+      "openTokenPage": "Open token page",
+      "github": {
+        "label": "GitHub",
+        "steps": [
+          "Open GitHub \u2192 Settings \u2192 Developer settings \u2192 Personal access tokens.",
+          "Click \"Generate new token\" (classic) and give it a name.",
+          "Select the \"repo\" scope to read private repositories and manage webhooks.",
+          "Generate the token and paste it below \u2014 it is only used to connect this repository."
+        ]
+      },
+      "gitlab": {
+        "label": "GitLab",
+        "steps": [
+          "Open GitLab \u2192 your avatar \u2192 Edit profile \u2192 Access Tokens.",
+          "Give the token a name and select the \"api\" scope.",
+          "Create the token and paste it below \u2014 it is only used to connect this repository."
+        ]
+      },
+      "gitlabSelfHosted": {
+        "label": "GitLab (self-hosted)",
+        "steps": [
+          "Open your GitLab instance \u2192 your avatar \u2192 Edit profile \u2192 Access Tokens.",
+          "Give the token a name and select the \"api\" scope.",
+          "Create the token and paste it below \u2014 it is only used to connect this repository."
+        ]
+      }
+    },
+    "repoList": {
+      "webhookOn": "Auto-sync on",
+      "webhookOff": "Manual only",
+      "connectionError": "Connection error log",
+      "status": {
+        "connecting": "Connecting",
+        "connected": "Connected",
+        "error": "Error"
+      }
+    },
+    "repoCard": {
+      "providers": {
+        "github": "GitHub",
+        "gitlab": "GitLab"
+      },
+      "fileCount": "{{count}} files",
+      "lastIndexed": "Last indexed {{time}}",
+      "reindex": "Re-index",
+      "openRepo": "Open repository",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete repository?",
+      "deleteConfirmBody": "Remove {{name}} from this project? Indexed data stays in the database but the repo will no longer sync.",
+      "reindexError": "Could not start re-index. Please try again.",
+      "deleteError": "Could not delete repository. Please try again.",
+      "status": {
+        "indexing": "Indexing",
+        "indexed": "Indexed",
+        "connected": "Connected",
+        "error": "Error"
+      }
     }
   },
   "status": {

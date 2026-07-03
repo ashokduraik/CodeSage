@@ -62,7 +62,7 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body"> {
 /**
  * Sends a typed fetch request to the Node API.
  *
- * - Automatically sets `Content-Type: application/json`.
+ * - Sets `Content-Type: application/json` only when a JSON body is sent.
  * - Attaches `Authorization: Bearer <token>` from storage unless `skipAuth` is set.
  * - Throws {@link ApiClientError} for any non-2xx response.
  *
@@ -77,9 +77,11 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   const authToken = skipAuth ? undefined : (token ?? getAuthToken());
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(extraHeaders as Record<string, string>),
   };
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
   if (authToken) {
     headers["Authorization"] = `Bearer ${authToken}`;
   }

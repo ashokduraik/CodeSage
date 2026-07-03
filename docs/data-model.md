@@ -21,17 +21,17 @@ Postgres covers everything the MVP needs, eliminating extra services:
 
 | Table | Purpose | Key columns / notes |
 |---|---|---|
-| `users` | Accounts and roles | roles: `admin`, `expert`, `developer`, `end_user` |
-| `projects` | A logical system (one per microservice system) | `name`, `status` |
-| `repos` | Repos belonging to a project (**many per project**) | `project_id`, `repo_url`, `provider`, `branch`, `role` (`frontend`/`backend`/`iam`/…), `token_enc` (encrypted), `last_indexed_sha` |
+| `users` | Accounts and roles | `status` (`A`/`D`), roles: `admin`, `expert`, `developer`, `end_user` |
+| `projects` | A logical system (one per microservice system) | `name`, `lifecycle_status` (indexing pipeline), `status` (`A`/`D` row visibility) |
+| `repos` | Repos belonging to a project (**many per project**) | `project_id`, `repo_url`, `provider`, `branch`, `full_name`, `description`, `base_url` (self-hosted GitLab), `is_private`, `connection_status` (`connecting`/`connected`/`error`), `last_error`, `last_error_at`, `webhook_id`, `webhook_secret_enc` (encrypted), `webhook_enabled`, `token_enc` (encrypted), `last_indexed_sha`, `last_indexed_at` (UTC; set when git sync succeeds), `primary_language` (from provider at attach), `status` (`A`/`D` row visibility) |
 
 ### 2.2 Code knowledge (developer layer)
 
 | Table | Purpose | Key columns / notes |
 |---|---|---|
-| `code_chunks` | RAG retrieval units + vectors | `embedding halfvec(N)` (HNSW index), `file_path`, `span`, `repo_id`, `project_id`, `symbol_refs` |
-| `graph_nodes` | Files / classes / functions / routes | `kind`, `name`, `repo_id`, `file_path`, `span` |
-| `graph_edges` | Calls / imports / callers | `src_id`, `dst_id`, `kind`; **may be cross-repo** (scoped per project) |
+| `code_chunks` | RAG retrieval units + vectors | `status` (`A`/`D`), `embedding halfvec(N)` (HNSW index), `file_path`, `span`, `repo_id`, `project_id`, `symbol_refs` |
+| `graph_nodes` | Files / classes / functions / routes | `status` (`A`/`D`), `kind`, `name`, `repo_id`, `file_path`, `span` |
+| `graph_edges` | Calls / imports / callers | `status` (`A`/`D`), `src_id`, `dst_id`, `kind`; **may be cross-repo** (scoped per project) |
 
 ### 2.3 Derived product knowledge (end-user layer)
 
@@ -57,8 +57,8 @@ Postgres covers everything the MVP needs, eliminating extra services:
 | Table | Purpose | Key columns / notes |
 |---|---|---|
 | `conversations` / `messages` | QA history | `audience` (`dev` \| `end_user`), `citations[]` |
-| `jobs` | Postgres-backed job queue (ADR 0006) | `type` (sync/parse/embed/xrepo/distill), `payload` (JSONB, see `contracts/jobs.schema.json`), `status` (`pending`/`running`/`done`/`failed`), `attempts`, `locked_at`; partial index on `status = 'pending'` for fast worker scans |
-| `audit_log` | Security/audit trail | `actor_id` (FK to users), `action`, `target`, `ts`; indexed on `actor_id` and `ts` |
+| `jobs` | Postgres-backed job queue (ADR 0006) | `type` (sync/parse/embed/xrepo/distill), `payload` (JSONB, see `contracts/jobs.schema.json`), `job_status` (`pending`/`running`/`done`/`failed`), `status` (`A`/`D`), `attempts`, `locked_at`, `error_message`; partial index on `job_status = 'pending' AND status = 'A'` for fast worker scans |
+| `audit_log` | Security/audit trail | `actor_id` (FK to users), `action`, `target`, `status` (`A`/`D`), `ts`; indexed on `actor_id` and `ts` |
 
 ## 3. Relationships (high level)
 
@@ -85,5 +85,7 @@ Keep the HNSW index + hot data in RAM (Machine 1 has 64–128 GB). See `final-so
 - **One concern = one place:** schema changes go **only** through `db/migrations/`.
 - Keep this reference doc updated in the **same PR** as any migration.
 - Prefer explicit columns over giant JSON blobs except for genuinely flexible KB artifacts.
+- **Every table** has row `status char(1) DEFAULT 'A'` (`A` = Active, `D` = Deleted) — see
+  `.cursor/rules/row-status.mdc`. Domain lifecycle uses a differently named column.
 - Every derived-knowledge table **must** keep `confidence` + citation columns — trust is a
   first-class product feature (NFR-7).
