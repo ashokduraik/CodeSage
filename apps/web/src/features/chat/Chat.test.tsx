@@ -3,7 +3,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@/i18n";
-import { resetMockStore } from "@/shared/mock";
+import {
+  appendMessagePair,
+  createSession,
+  resetChatStore,
+} from "./chatStore";
 import { Chat } from "./Chat";
 
 vi.mock("@/features/projects/projectsClient", () => ({
@@ -24,21 +28,43 @@ vi.mock("./chatClient", () => ({
     sources: ["src/auth/logout.ts"],
     needsReview: false,
     confidence: 0.9,
+    title: "Logout handler",
   }),
   parseChatSseLine: vi.fn(),
   formatCitationSource: vi.fn((c: { filePath: string }) => c.filePath),
 }));
 
 beforeAll(() => {
-  // jsdom does not implement scrollIntoView; the page calls it on new messages.
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
     value: vi.fn(),
     writable: true,
   });
 });
 
-beforeEach(() => resetMockStore());
+beforeEach(() => resetChatStore());
 afterEach(cleanup);
+
+async function seedSessionWithMessages(): Promise<string> {
+  const session = await createSession({
+    mode: "developer",
+    projectId: "p1",
+    projectName: "acme/storefront",
+  });
+  await appendMessagePair(
+    session.id,
+    { id: "m1", sessionId: session.id, role: "user", content: "Where is the login handler defined?" },
+    {
+      id: "m2",
+      sessionId: session.id,
+      role: "assistant",
+      content: "The login handler lives in the auth module and validates credentials before issuing a session token.",
+      confidence: 0.9,
+      sources: ["src/auth/login.ts", "src/auth/session.ts"],
+    },
+    "Auth flow questions",
+  );
+  return session.id;
+}
 
 function renderChat(route: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -64,28 +90,36 @@ describe("Chat", () => {
     renderChat("/chat");
     expect(await screen.findByText("Ask CodeSage")).toBeTruthy();
     expect(screen.getByText("Select or start a conversation")).toBeTruthy();
+    expect(screen.queryByText("Auth flow questions")).toBeNull();
   });
 
   it("renders the selected conversation with its messages", async () => {
-    renderChat("/chat/s1");
-    // Title appears in both sidebar and header; assert text unique to the reply.
+    const sessionId = await seedSessionWithMessages();
+    renderChat(`/chat/${sessionId}`);
     expect(await screen.findByText(/validates credentials/)).toBeTruthy();
   });
 
-  it("prompts for a first question on an empty conversation without a project", async () => {
-    renderChat("/chat/s3");
+  it("prompts for a first question on an empty conversation", async () => {
+    const session = await createSession({
+      mode: "developer",
+      projectId: "p1",
+      projectName: "acme/storefront",
+    });
+    renderChat(`/chat/${session.id}`);
     expect(await screen.findByText("Ask your first question about this project.")).toBeTruthy();
   });
 
   it("toggles the conversation sidebar", async () => {
-    renderChat("/chat/s1");
+    const sessionId = await seedSessionWithMessages();
+    renderChat(`/chat/${sessionId}`);
     await screen.findByText(/validates credentials/);
     fireEvent.click(screen.getByRole("button", { name: "Toggle conversation list" }));
     expect(screen.getByRole("button", { name: "Toggle conversation list" })).toBeTruthy();
   });
 
   it("sends a message and appends it to the thread", async () => {
-    renderChat("/chat/s1");
+    const sessionId = await seedSessionWithMessages();
+    renderChat(`/chat/${sessionId}`);
     await screen.findByText(/validates credentials/);
     fireEvent.change(screen.getByLabelText("Ask about your codebase\u2026"), {
       target: { value: "What about logout?" },
@@ -98,6 +132,7 @@ describe("Chat", () => {
     renderChat("/chat");
     fireEvent.click(await screen.findByRole("button", { name: "Start a Conversation" }));
     expect(await screen.findByText("New Conversation")).toBeTruthy();
+    expect(screen.queryByLabelText("Title")).toBeNull();
   });
 
   it("opens the new-chat dialog from the mobile header button", async () => {
@@ -108,20 +143,15 @@ describe("Chat", () => {
     expect(await screen.findByText("New Conversation")).toBeTruthy();
   });
 
-  // Navigation after create is flaky in jsdom (MemoryRouter + async mutation); covered by hook tests.
-  it.skip("creates a new conversation and navigates to it", async () => {
+  it("creates a new conversation and navigates to it", async () => {
     renderChat("/chat");
     fireEvent.click(await screen.findByRole("button", { name: "Start a Conversation" }));
-    expect(await screen.findByText("New Conversation")).toBeTruthy();
+    await screen.findByRole("option", { name: "acme/storefront" });
+    fireEvent.change(screen.getByLabelText("Project"), { target: { value: "p1" } });
     fireEvent.click(screen.getByRole("button", { name: "Start Chat" }));
-    await waitFor(
-      () => {
-        expect(screen.queryByText("Select or start a conversation")).toBeNull();
-      },
-      { timeout: 3000 },
-    );
-    expect(
-      await screen.findByText("Ask your first question about this project.", {}, { timeout: 3000 }),
-    ).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText("Select or start a conversation")).toBeNull();
+    });
+    expect(await screen.findByText("Ask your first question about this project.")).toBeTruthy();
   });
 });

@@ -27,6 +27,8 @@ export interface ChatStreamResult {
   sources: string[];
   needsReview: boolean;
   confidence: number;
+  /** LLM-generated title when `generateTitle` was requested on the first message. */
+  title?: string;
 }
 
 /**
@@ -89,6 +91,7 @@ export async function streamChatQuery(
   let content = "";
   const sources: string[] = [];
   let needsReview = false;
+  let title: string | undefined;
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -103,6 +106,9 @@ export async function streamChatQuery(
       const chunk = parseChatSseLine(line);
       if (!chunk) {
         continue;
+      }
+      if (chunk.type === "title" && chunk.content) {
+        title = chunk.content;
       }
       if (chunk.type === "token" && chunk.content) {
         content += chunk.content;
@@ -119,5 +125,5 @@ export async function streamChatQuery(
   }
 
   const confidence = needsReview ? 0.4 : sources.length > 0 ? 0.9 : 0.75;
-  return { content, sources, needsReview, confidence };
+  return { content, sources, needsReview, confidence, title };
 }

@@ -6,11 +6,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  Input,
   Label,
   Select,
 } from "@/shared/ui";
-import type { ChatMode, ChatSession } from "@/shared/mock";
+import type { ChatMode, ChatSession } from "./chatTypes";
 import { useProjects } from "./useProjects";
 import { useCreateSession } from "./useCreateSession";
 
@@ -22,31 +21,33 @@ export interface NewChatDialogProps {
   onCreated: (session: ChatSession) => void;
 }
 
-/** Modal form to start a new conversation, optionally scoped to a project. */
+/** Modal form to start a new conversation scoped to a project. */
 export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogProps) {
   const { t } = useTranslation();
-  const { data: projects } = useProjects();
+  const { data: projects, isPending: projectsLoading } = useProjects();
   const createSession = useCreateSession();
 
-  const [title, setTitle] = useState("");
   const [mode, setMode] = useState<ChatMode>("developer");
   const [projectId, setProjectId] = useState("");
 
-  const indexedProjects = (projects ?? []).filter((project) => project.status === "indexed");
+  const projectList = projects ?? [];
+  const selectedProject = projectList.find((project) => project.id === projectId);
 
   const reset = () => {
-    setTitle("");
     setMode("developer");
     setProjectId("");
   };
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+    if (!selectedProject) {
+      return;
+    }
     createSession.mutate(
       {
-        title: title.trim() || t("chat.new.defaultTitle"),
         mode,
-        projectId: projectId || null,
+        projectId: selectedProject.id,
+        projectName: selectedProject.name,
       },
       {
         onSuccess: (session) => {
@@ -66,15 +67,6 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
         </DialogHeader>
         <form onSubmit={handleSubmit} className="mt-2 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="new-chat-title">{t("chat.new.titleLabel")}</Label>
-            <Input
-              id="new-chat-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder={t("chat.new.titlePlaceholder")}
-            />
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="new-chat-mode">{t("chat.new.modeLabel")}</Label>
             <Select
               id="new-chat-mode"
@@ -91,11 +83,19 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
               id="new-chat-project"
               value={projectId}
               onChange={(event) => setProjectId(event.target.value)}
+              disabled={projectsLoading || projectList.length === 0}
             >
-              <option value="">{t("chat.new.projectNone")}</option>
-              {indexedProjects.map((project) => (
+              <option value="">
+                {projectsLoading
+                  ? t("chat.new.projectLoading")
+                  : projectList.length === 0
+                    ? t("chat.new.projectEmpty")
+                    : t("chat.new.projectPlaceholder")}
+              </option>
+              {projectList.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
+                  {project.status !== "indexed" ? ` (${project.status})` : ""}
                 </option>
               ))}
             </Select>
@@ -104,7 +104,10 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={createSession.isPending}>
+            <Button
+              type="submit"
+              disabled={createSession.isPending || !selectedProject}
+            >
               {createSession.isPending ? t("chat.new.creating") : t("chat.new.submit")}
             </Button>
           </div>

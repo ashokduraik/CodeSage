@@ -70,6 +70,11 @@ export interface components {
             /** @description Optional repo filter; when omitted, all project repos are searched. */
             repoIds?: string[];
             audience: components["schemas"]["QueryAudience"];
+            /**
+             * @description When true, emit a `title` chunk summarizing the question (first message in a conversation).
+             * @default false
+             */
+            generateTitle: boolean;
             /** @description Optional current UI route for page-scoped product questions (Phase 6). */
             pageContext?: string;
         };
@@ -94,10 +99,10 @@ export interface components {
             excerpt?: string;
         };
         /**
-         * @description token — streamed answer text fragment. citation — a grounding reference emitted before or during the answer. abstain — model could not ground an answer; stream ends. done — successful completion marker.
+         * @description token — streamed answer text fragment. citation — a grounding reference emitted before or during the answer. title — short conversation title derived from the first question. abstain — model could not ground an answer; stream ends. done — successful completion marker.
          * @enum {string}
          */
-        RagAnswerChunkType: "token" | "citation" | "abstain" | "done";
+        RagAnswerChunkType: "token" | "citation" | "title" | "abstain" | "done";
         RagAnswerChunk: {
             type: components["schemas"]["RagAnswerChunkType"];
             /** @description Text fragment when type is `token` or abstain reason when type is `abstain`. */

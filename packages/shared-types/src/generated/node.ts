@@ -530,6 +530,11 @@ export interface components {
              */
             projectId: string;
             audience: components["schemas"]["ChatMode"];
+            /**
+             * @description When true, the RAG service emits a `title` chunk summarizing the question (used for the first message in a conversation).
+             * @default false
+             */
+            generateTitle: boolean;
             /** @description Optional repo filter within the project. */
             repoIds?: string[];
         };
@@ -545,7 +550,7 @@ export interface components {
             excerpt?: string;
         };
         /** @enum {string} */
-        ChatAnswerChunkType: "token" | "citation" | "abstain" | "done";
+        ChatAnswerChunkType: "token" | "citation" | "title" | "abstain" | "done";
         ChatAnswerChunk: {
             type: components["schemas"]["ChatAnswerChunkType"];
             content?: string;

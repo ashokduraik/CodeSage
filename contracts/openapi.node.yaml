@@ -987,6 +987,12 @@ components:
           description: Project scope for retrieval.
         audience:
           $ref: '#/components/schemas/ChatMode'
+        generateTitle:
+          type: boolean
+          default: false
+          description: >-
+            When true, the RAG service emits a `title` chunk summarizing the question
+            (used for the first message in a conversation).
         repoIds:
           type: array
           items:
@@ -1020,6 +1026,7 @@ components:
       enum:
         - token
         - citation
+        - title
         - abstain
         - done
 

@@ -4,7 +4,7 @@ import { MessageSquare, Plus, Search } from "lucide-react";
 import { Button, Input } from "@/shared/ui";
 import { cn } from "@/shared/lib/cn";
 import { formatRelativeTime } from "@/shared/lib";
-import type { ChatSession } from "@/shared/mock";
+import type { ChatSession } from "./chatTypes";
 
 /** Props for {@link ChatSidebar}. */
 export interface ChatSidebarProps {

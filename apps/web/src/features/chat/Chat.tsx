@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { MessageSquare, PanelLeft, PanelLeftClose } from "lucide-react";
 import { Button, Spinner } from "@/shared/ui";
 import { cn } from "@/shared/lib/cn";
-import type { ChatSession } from "@/shared/mock";
+import type { ChatSession } from "./chatTypes";
 import { ChatSidebar } from "./ChatSidebar";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";

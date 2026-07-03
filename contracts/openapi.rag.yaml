@@ -106,6 +106,12 @@ components:
           description: Optional repo filter; when omitted, all project repos are searched.
         audience:
           $ref: '#/components/schemas/QueryAudience'
+        generateTitle:
+          type: boolean
+          default: false
+          description: >-
+            When true, emit a `title` chunk summarizing the question (first message
+            in a conversation).
         pageContext:
           type: string
           maxLength: 500
@@ -142,11 +148,13 @@ components:
       enum:
         - token
         - citation
+        - title
         - abstain
         - done
       description: >-
         token — streamed answer text fragment.
         citation — a grounding reference emitted before or during the answer.
+        title — short conversation title derived from the first question.
         abstain — model could not ground an answer; stream ends.
         done — successful completion marker.
 

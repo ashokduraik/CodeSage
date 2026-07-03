@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Bot, FileCode, User } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
-import { CONFIDENCE_THRESHOLD, type ChatMessage } from "@/shared/mock";
+import { CONFIDENCE_THRESHOLD, type ChatMessage } from "./chatTypes";
 
 /** Props for {@link MessageBubble}. */
 export interface MessageBubbleProps {

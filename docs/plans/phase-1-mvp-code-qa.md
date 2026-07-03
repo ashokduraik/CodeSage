@@ -123,13 +123,13 @@ For local development without GPU:
 
 ## Definition of Done (Phase 1)
 
-- [ ] Exit criteria met on a single test repo (manual or E2E in `tests/e2e/`).
-- [ ] All shapes from `contracts/`; codegen drift check passes.
-- [ ] Node never blocks on heavy work (sync/parse/embed/query stay in Python).
-- [ ] Answers include citations; abstain path works (NFR-7).
-- [ ] Tests ≥ 80% (line + branch) on all workspaces; lint + typecheck clean in CI.
-- [ ] `TODO.md` / `PLAN.md` updated in each touched component.
-- [ ] `.env.example` documents new variables.
+- [ ] Exit criteria met on a single test repo (manual or E2E in `tests/e2e/` — run with `E2E_BASE_URL` set).
+- [x] All shapes from `contracts/`; codegen drift check passes.
+- [x] Node never blocks on heavy work (sync/parse/embed/query stay in Python).
+- [x] Answers include citations; abstain path works (NFR-7).
+- [x] Tests ≥ 80% (line + branch) on all workspaces; lint + typecheck clean in CI.
+- [x] `TODO.md` / `PLAN.md` updated in each touched component.
+- [x] `.env.example` documents new variables (TEI/vLLM model ids + `docker-compose.gpu.yml`).
 
 ---
 

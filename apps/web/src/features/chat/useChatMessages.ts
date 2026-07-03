@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { listMessages, type ChatMessage } from "@/shared/mock";
+import { listMessages } from "./chatStore";
+import type { ChatMessage } from "./chatTypes";
 import { chatKeys } from "./chatKeys";
 
 /**

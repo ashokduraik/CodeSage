@@ -49,6 +49,7 @@ def handle_embed_job(session: Session, settings: Settings, payload: dict[str, An
     remaining = chunks_repo.list_unembedded(repo_id, limit=1)
     if not remaining:
         projects.update_status(repo.project_id, ProjectStatus.INDEXED)
+        repos.mark_index_complete(repo_id)
 
 
 def create_embed_handler(

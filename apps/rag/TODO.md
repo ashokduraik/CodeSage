@@ -26,13 +26,13 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`. All modules under `src/`
 
 ## services/ (Phase 1)
 - [x] `sync/` — git clone/fetch + file enumeration + enqueue parse.
-- [x] `parsing/` — line-window chunking (tree-sitter symbol boundaries next).
+- [x] `parsing/` — tree-sitter symbol boundaries + line-window fallback.
 - [x] `embedding/` — TEI client + deterministic dev fallback.
 - [x] `retrieval/` — vector search + abstain threshold.
 - [x] `qa/` — SSE answer streaming with citations.
-- [ ] `graph/` — graph node/edge extraction during parse.
-- [ ] `llm/` — vLLM streaming provider (currently excerpt-based fallback).
-- [ ] `router/` — code vs product classifier (Phase 1 stubs end_user → abstain).
+- [x] `graph/` — file + symbol node extraction during parse.
+- [x] `llm/` — vLLM streaming provider with excerpt fallback when unset.
+- [x] `router/` — Phase 1 code-only path (`developer`; `end_user` abstains).
 - [ ] `distill/` — derived knowledge extractors (Phase 4).
 - [ ] `experts/` — expert loop (Phase 5).
 

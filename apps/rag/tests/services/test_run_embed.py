@@ -57,6 +57,7 @@ def test_handle_embed_job_updates_vectors_and_marks_indexed(monkeypatch) -> None
     )
     mock_chunks.update_embedding.assert_called_once()
     mock_projects.update_status.assert_called_once()
+    mock_repos.mark_index_complete.assert_called_once_with(repo_id)
 
 
 def test_handle_embed_job_no_valid_chunks_returns_early(monkeypatch) -> None:

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { renderWithRouter } from "@/test/utils";
-import type { ChatSession } from "@/shared/mock";
+import type { ChatSession } from "./chatTypes";
 import { ChatSidebar } from "./ChatSidebar";
 
 afterEach(cleanup);

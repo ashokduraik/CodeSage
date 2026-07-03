@@ -64,7 +64,7 @@ def test_process_next_job_marks_failed_on_error() -> None:
     with patch("workers.consumer.JobRepository", job_repo):
         with patch("workers.consumer.build_job_handlers", lambda *a, **k: {"sync": boom}):
             assert process_next_job(factory, Settings()) is True
-    jobs_work.mark_failed.assert_called_once_with(job.id)
+    jobs_work.mark_failed.assert_called_once_with(job.id, error_message="fail")
 
 
 def test_process_next_job_marks_failed_for_unsupported_type() -> None:
@@ -86,7 +86,7 @@ def test_process_next_job_marks_failed_for_unsupported_type() -> None:
                 MagicMock(side_effect=UnsupportedJobError("nope")),
             ):
                 assert process_next_job(factory, Settings()) is True
-    jobs_work.mark_failed.assert_called_once_with(job.id)
+    jobs_work.mark_failed.assert_called_once_with(job.id, error_message="Unsupported job type")
 
 
 def test_run_job_consumer_stops_on_event() -> None:

@@ -9,7 +9,7 @@ Component checklist, organized by feature. Check items as they land. (Global seq
 - [x] Tailwind CSS + design-token theme (`src/index.css`); vendored UI primitives in `src/shared/ui/`.
 - [x] Auth-aware navigation + login screen — `AuthContext`/`useAuth` (JWT, localStorage), `LoginPage`, `ProtectedRoute` guard; `AuthProvider` wraps the app in `main.tsx`.
 - [x] Typed API client — `shared/lib/apiClient.ts` (`apiFetch` typed against `@codesage/shared-types`; Authorization header injection).
-- [ ] Replace `src/shared/mock/` with the real typed API client (chat/dashboard still mock-backed).
+- [ ] Replace `src/shared/mock/` with the real typed API client (dashboard sessions still mock-backed on API).
 - [ ] WebSocket client utility for streamed responses.
 
 ## Dashboard feature
@@ -20,15 +20,15 @@ Component checklist, organized by feature. Check items as they land. (Global seq
 ## Projects feature
 - [x] Create project form (`CreateProjectDialog` + `useCreateProject`).
 - [x] Attach repo(s): URL + token + branch + role — `AttachRepoDialog` + `useAttachRepo` (enqueues sync job on attach).
-- [ ] Multi-repo management UI for a project (per-repo list + status).
-- [ ] Index/job status display per repo.
+- [ ] Multi-repo management UI for a project (per-repo list + status). — `ProjectRepoList` + `RepoCard` shipped; job polling still open.
+- [x] Index/job status display per repo (`lastIndexedAt` set after embed completes).
 
 ## Chat feature
-- [x] Conversation list + message thread (mock-backed).
-- [x] New-conversation dialog with audience toggle (developer vs end-user) + project scope.
+- [x] Conversation list + message thread (client localStorage store; empty on first visit).
+- [x] New-conversation dialog — dynamic project dropdown; title from first LLM response.
 - [x] Citation rendering (source chips) + low-confidence "sent for expert review" state.
-- [ ] WebSocket streaming of answers (currently a mock React Query mutation).
-- [ ] Citation rendering against real code refs + expert-verified KB.
+- [x] Wire developer-audience chat to RAG SSE proxy; render real citations + live token streaming.
+- [ ] WebSocket streaming (optional; SSE token streaming implemented).
 - [ ] Page-context capture for page-scoped product questions.
 
 ## Expert-queue feature

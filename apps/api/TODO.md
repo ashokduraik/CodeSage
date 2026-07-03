@@ -38,9 +38,9 @@ Checklist organized by module. (Global sequencing lives in `docs/final-solution.
 - [ ] Enqueue incremental re-index job per repo.
 
 ## chat
-- [ ] WebSocket gateway.
-- [ ] Proxy/stream to `apps/rag` with citations.
-- [ ] Pass audience + optional page context through.
+- [x] SSE proxy (`POST /chat/query`) — stream RAG answers with citations.
+- [x] Pass audience + optional `generateTitle` through to RAG.
+- [ ] WebSocket gateway (deferred; SSE satisfies Phase 1 exit criteria).
 
 ## knowledge
 - [ ] Read workflows / pages / permissions / data-flows for a project.

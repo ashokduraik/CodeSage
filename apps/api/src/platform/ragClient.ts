@@ -28,6 +28,7 @@ export async function postRagQueryStream(
       projectId: body.projectId,
       audience: body.audience,
       repoIds: body.repoIds,
+      generateTitle: body.generateTitle,
     }),
   });
   if (!response.ok || !response.body) {

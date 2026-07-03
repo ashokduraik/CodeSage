@@ -1,14 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { listSessions, type ChatSession } from "@/shared/mock";
+import { listSessions } from "./chatStore";
+import type { ChatSession } from "./chatTypes";
 import { chatKeys } from "./chatKeys";
 
 /**
- * Lists chat sessions, ordered by most recent activity.
- * @returns The TanStack Query result for the session list.
+ * Loads all chat sessions for the sidebar.
+ * @returns TanStack query result with session list (empty when none exist).
  */
 export function useChatSessions() {
   return useQuery<ChatSession[], Error>({
     queryKey: chatKeys.sessions,
-    queryFn: () => listSessions(),
+    queryFn: listSessions,
   });
 }

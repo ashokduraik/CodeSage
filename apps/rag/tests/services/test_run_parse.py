@@ -49,9 +49,12 @@ def test_handle_parse_job_chunks_and_enqueues_embed(tmp_path: Path, monkeypatch)
     monkeypatch.setattr("services.parsing.run_parse.RepoRepository", lambda s: mock_repos)
     monkeypatch.setattr("services.parsing.run_parse.CodeChunkRepository", lambda s: mock_chunks)
     monkeypatch.setattr("services.parsing.run_parse.JobRepository", lambda s: mock_jobs)
+    monkeypatch.setattr("services.parsing.run_parse.persist_file_graph", lambda *a, **k: None)
     monkeypatch.setattr(
         "services.parsing.run_parse.chunk_source",
-        lambda text: [SourceChunk(content=text, span={"startLine": 1, "endLine": 1})],
+        lambda text, file_path="": [
+            SourceChunk(content=text, span={"startLine": 1, "endLine": 1}),
+        ],
     )
 
     handle_parse_job(

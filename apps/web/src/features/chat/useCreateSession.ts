@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createSession, type ChatSession, type NewChatInput } from "@/shared/mock";
+import { createSession } from "./chatStore";
+import type { ChatSession, NewChatInput } from "./chatTypes";
 import { chatKeys } from "./chatKeys";
 
 /**

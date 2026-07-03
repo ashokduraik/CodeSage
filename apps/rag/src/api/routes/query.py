@@ -23,6 +23,7 @@ class RagQueryBody(BaseModel):
     audience: str
     repoIds: list[uuid.UUID] | None = None
     pageContext: str | None = Field(default=None, max_length=500)
+    generateTitle: bool = False
 
 
 @router.post("/rag/query")
@@ -44,6 +45,7 @@ def rag_query(request: Request, body: RagQueryBody) -> StreamingResponse:
             project_id=body.projectId,
             audience=body.audience,
             repo_ids=body.repoIds,
+            generate_title=body.generateTitle,
         )
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

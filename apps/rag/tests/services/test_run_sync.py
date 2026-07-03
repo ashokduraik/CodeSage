@@ -64,7 +64,7 @@ def test_handle_sync_job_enqueues_parse(monkeypatch) -> None:
     )
 
     handle_sync_job(session, Settings(repo_clone_dir="/tmp"), {"repoId": str(repo_id)})
-    mock_repos.update_last_indexed_sha.assert_called_once_with(repo_id, "abc")
+    mock_repos.update_head_sha.assert_called_once_with(repo_id, "abc")
     mock_repos.update_connection_status.assert_called_once()
     mock_jobs.enqueue.assert_called_once()
     assert mock_jobs.enqueue.call_args[0][0] == "parse"

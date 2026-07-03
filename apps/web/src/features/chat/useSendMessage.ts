@@ -1,11 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  appendMessagePair,
-  getSession,
-  sendMessage,
-  type ChatMessage,
-  type SendMessageResult,
-} from "@/shared/mock";
+import { appendAssistantMessage, appendUserMessage, getSession, listMessages } from "./chatStore";
+import type { ChatMessage, SendMessageResult } from "./chatTypes";
 import { streamChatQuery } from "./chatClient";
 import { chatKeys } from "./chatKeys";
 
@@ -19,8 +14,8 @@ function nextMessageId(): string {
 
 /**
  * Sends a message in a session and refreshes the affected caches on success.
- * Uses the real RAG-backed API when the session is scoped to a project; otherwise
- * falls back to the in-memory mock for unscoped sessions.
+ * On the first message, requests an LLM-generated title alongside the answer.
+ * Streams assistant tokens into the React Query cache while the RAG response is in flight.
  * @param sessionId - The session the message belongs to.
  * @returns A TanStack mutation accepting the message text.
  */
@@ -32,32 +27,63 @@ export function useSendMessage(sessionId: string) {
       if (!session) {
         throw new Error(`unknown session: ${sessionId}`);
       }
+      if (!session.projectId) {
+        throw new Error("session must be scoped to a project");
+      }
 
-      if (session.projectId && session.mode === "developer") {
-        const userMessage: ChatMessage = {
-          id: nextMessageId(),
-          sessionId,
-          role: "user",
-          content: text,
-        };
-        const result = await streamChatQuery({
+      const existingMessages = await listMessages(sessionId);
+      const isFirstMessage = existingMessages.length === 0;
+
+      const userMessage: ChatMessage = {
+        id: nextMessageId(),
+        sessionId,
+        role: "user",
+        content: text,
+      };
+      const assistantId = nextMessageId();
+
+      await appendUserMessage(sessionId, userMessage);
+      queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(sessionId), (old) => [
+        ...(old ?? []),
+        userMessage,
+      ]);
+
+      let streamedContent = "";
+      const result = await streamChatQuery(
+        {
           question: text,
           projectId: session.projectId,
           audience: session.mode,
-        });
-        const assistantMessage: ChatMessage = {
-          id: nextMessageId(),
-          sessionId,
-          role: "assistant",
-          content: result.content,
-          confidence: result.confidence,
-          sources: result.sources,
-          needsReview: result.needsReview,
-        };
-        return appendMessagePair(sessionId, userMessage, assistantMessage);
-      }
+          generateTitle: isFirstMessage,
+        },
+        (token) => {
+          streamedContent += token;
+          queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(sessionId), (old) => {
+            const base = (old ?? []).filter((message) => message.id !== assistantId);
+            return [
+              ...base,
+              {
+                id: assistantId,
+                sessionId,
+                role: "assistant",
+                content: streamedContent,
+              },
+            ];
+          });
+        },
+      );
 
-      return sendMessage(sessionId, text);
+      const assistantMessage: ChatMessage = {
+        id: assistantId,
+        sessionId,
+        role: "assistant",
+        content: result.content,
+        confidence: result.confidence,
+        sources: result.sources,
+        needsReview: result.needsReview,
+      };
+
+      return appendAssistantMessage(sessionId, assistantMessage, result.title);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.messages(sessionId) });

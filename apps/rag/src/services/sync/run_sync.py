@@ -70,7 +70,7 @@ def handle_sync_job(session: Session, settings: Settings, payload: dict[str, Any
         )
         raise
 
-    repos.update_last_indexed_sha(repo_id, result.head_sha)
+    repos.update_head_sha(repo_id, result.head_sha)
     repos.update_connection_status(repo_id, RepoConnectionStatus.CONNECTED)
 
     if result.changed_files:

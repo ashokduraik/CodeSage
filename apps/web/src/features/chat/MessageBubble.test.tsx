@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import "@/i18n";
-import type { ChatMessage } from "@/shared/mock";
+import type { ChatMessage } from "./chatTypes";
 import { MessageBubble } from "./MessageBubble";
 
 afterEach(cleanup);

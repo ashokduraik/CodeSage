@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from config import Settings
 from models import CodeChunk
 from services.llm.vllm_client import stream_vllm_answer
+from services.llm.title import generate_session_title
 from services.retrieval.search import is_confident_match, retrieve_code_chunks
 from services.router.classify import is_code_audience
 
@@ -80,6 +81,7 @@ def stream_rag_answer(
     project_id: uuid.UUID,
     audience: str,
     repo_ids: list[uuid.UUID] | None = None,
+    generate_title: bool = False,
 ) -> Iterator[str]:
     """Run retrieval + grounded streaming for a RAG query request.
 
@@ -89,8 +91,13 @@ def stream_rag_answer(
     @param project_id - Project scope.
     @param audience - `developer` or `end_user` (Phase 1 product path abstains).
     @param repo_ids - Optional repo filter.
+    @param generate_title - When true, emit a title chunk before the answer.
     @yields SSE event strings.
     """
+    if generate_title:
+        title = generate_session_title(settings, question)
+        yield _chunk_event("title", content=title)
+
     if not is_code_audience(audience):
         yield _chunk_event(
             "abstain",

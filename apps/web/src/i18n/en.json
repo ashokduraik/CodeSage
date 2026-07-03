@@ -188,13 +188,13 @@
     },
     "new": {
       "title": "New Conversation",
-      "titleLabel": "Title",
-      "titlePlaceholder": "e.g., Auth flow questions",
       "modeLabel": "Mode",
       "modeDeveloper": "Developer \u2014 code-level questions",
       "modeEndUser": "End User \u2014 navigation, permissions, data",
-      "projectLabel": "Project (optional)",
-      "projectNone": "No project (general)",
+      "projectLabel": "Project",
+      "projectPlaceholder": "Select a project\u2026",
+      "projectLoading": "Loading projects\u2026",
+      "projectEmpty": "No projects yet",
       "creating": "Creating\u2026",
       "submit": "Start Chat",
       "defaultTitle": "New Chat"

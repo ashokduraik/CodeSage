@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from config import Settings
 from repositories import CodeChunkRepository, JobRepository, RepoRepository
+from services.graph.extract import persist_file_graph
 from services.parsing.chunker import chunk_source
 from services.sync.paths import repo_worktree_path
 
@@ -47,13 +48,21 @@ def handle_parse_job(session: Session, settings: Settings, payload: dict[str, An
             continue
         chunks_repo.delete_by_repo_file(repo_id, rel_path)
         text = file_path.read_text(encoding="utf-8", errors="replace")
-        for part in chunk_source(text):
+        persist_file_graph(
+            session,
+            project_id=repo.project_id,
+            repo_id=repo_id,
+            file_path=rel_path,
+            content=text,
+        )
+        for part in chunk_source(text, file_path=rel_path):
             row = chunks_repo.add(
                 project_id=repo.project_id,
                 repo_id=repo_id,
                 file_path=rel_path,
                 span=part.span,
                 content=part.content,
+                symbol_refs=part.symbol_refs,
             )
             new_chunk_ids.append(str(row.id))
 
