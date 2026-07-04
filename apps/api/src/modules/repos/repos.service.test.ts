@@ -55,6 +55,7 @@ const mockRegisterWebhook = vi.mocked(registerRepoWebhook);
 const mockUnregisterWebhook = vi.mocked(unregisterRepoWebhook);
 
 const DB = {} as Sql;
+const ACTOR = "u1";
 
 const PROJECT_ROW = {
   id: "p1",
@@ -123,12 +124,14 @@ describe("attachRepo", () => {
       { repoUrl: "https://github.com/org/repo", branch: "main", primaryLanguage: "TypeScript" },
       "",
       "",
+      ACTOR,
     );
     expect(result.repo.id).toBe("r1");
     expect(result.jobId).toBe("job-1");
     expect(mockInsertRepo).toHaveBeenCalledWith(
       DB,
       expect.objectContaining({ primaryLanguage: "TypeScript" }),
+      ACTOR,
     );
   });
 
@@ -149,11 +152,12 @@ describe("attachRepo", () => {
       { repoUrl: "https://github.com/org/repo", branch: "main", token: "ghp_secret" },
       key,
       "https://codesage.example.com",
+      ACTOR,
     );
 
     const insertCall = mockInsertRepo.mock.calls[0]?.[1];
     expect(insertCall?.tokenEnc).not.toBe("ghp_secret");
-    expect(mockUpdateWebhook).toHaveBeenCalledWith(DB, "r1", "99", "enc-secret");
+    expect(mockUpdateWebhook).toHaveBeenCalledWith(DB, "r1", "99", "enc-secret", ACTOR);
   });
 
   it("throws 400 when a token is provided but encryption key is absent", async () => {
@@ -164,7 +168,7 @@ describe("attachRepo", () => {
         "p1",
         { repoUrl: "https://github.com/org/repo", branch: "main", token: "token" },
         "",
-        "",
+        ACTOR,
       ),
     ).rejects.toMatchObject({ statusCode: 400, code: "ENCRYPTION_NOT_CONFIGURED" });
   });
@@ -177,7 +181,7 @@ describe("attachRepo", () => {
         "missing",
         { repoUrl: "https://github.com/org/repo", branch: "main" },
         "",
-        "",
+        ACTOR,
       ),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
@@ -185,7 +189,7 @@ describe("attachRepo", () => {
   it("throws 400 for invalid repo URL", async () => {
     mockFindProject.mockResolvedValue(PROJECT_ROW);
     await expect(
-      attachRepo(DB, "p1", { repoUrl: "not-a-url", branch: "main" }, "", ""),
+      attachRepo(DB, "p1", { repoUrl: "not-a-url", branch: "main" }, "", "", ACTOR),
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 });
@@ -195,15 +199,15 @@ describe("syncRepo", () => {
     mockFindRepoById.mockResolvedValue(REPO_ROW);
     mockEnqueue.mockResolvedValue("job-sync");
 
-    const result = await syncRepo(DB, "p1", "r1");
+    const result = await syncRepo(DB, "p1", "r1", ACTOR);
     expect(result.jobId).toBe("job-sync");
-    expect(mockSetConnecting).toHaveBeenCalledWith(DB, "r1");
-    expect(mockEnqueue).toHaveBeenCalledWith(DB, "sync", { repoId: "r1" });
+    expect(mockSetConnecting).toHaveBeenCalledWith(DB, "r1", ACTOR);
+    expect(mockEnqueue).toHaveBeenCalledWith(DB, "sync", { repoId: "r1" }, ACTOR);
   });
 
   it("throws 404 when the repo does not exist", async () => {
     mockFindRepoById.mockResolvedValue(undefined);
-    await expect(syncRepo(DB, "p1", "missing")).rejects.toMatchObject({ statusCode: 404 });
+    await expect(syncRepo(DB, "p1", "missing", ACTOR)).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 
@@ -216,13 +220,13 @@ describe("detachRepo", () => {
       webhook_id: "1",
     });
     mockSoftDeleteRepo.mockResolvedValue(true);
-    await detachRepo(DB, "p1", "r1", "");
+    await detachRepo(DB, "p1", "r1", "", ACTOR);
     expect(mockUnregisterWebhook).toHaveBeenCalled();
-    expect(mockSoftDeleteRepo).toHaveBeenCalledWith(DB, "p1", "r1");
+    expect(mockSoftDeleteRepo).toHaveBeenCalledWith(DB, "p1", "r1", ACTOR);
   });
 
   it("throws 404 when the repo does not exist", async () => {
     mockFindSecrets.mockResolvedValue(undefined);
-    await expect(detachRepo(DB, "p1", "missing", "")).rejects.toMatchObject({ statusCode: 404 });
+    await expect(detachRepo(DB, "p1", "missing", "", ACTOR)).rejects.toMatchObject({ statusCode: 404 });
   });
 });

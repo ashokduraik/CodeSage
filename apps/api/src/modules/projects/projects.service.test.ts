@@ -33,6 +33,7 @@ const mockSoftDelete = vi.mocked(softDeleteProject);
 const mockFindRepos = vi.mocked(findReposByProject);
 const mockDetach = vi.mocked(detachRepo);
 
+const ACTOR = "u1";
 const DB = {} as Sql;
 
 afterEach(() => vi.clearAllMocks());
@@ -75,22 +76,22 @@ describe("removeProject", () => {
     mockDetach.mockResolvedValue(undefined);
     mockSoftDelete.mockResolvedValue(true);
 
-    await removeProject(DB, "p1", "enc-key");
+    await removeProject(DB, "p1", "enc-key", ACTOR);
 
-    expect(mockDetach).toHaveBeenCalledWith(DB, "p1", "r1", "enc-key");
-    expect(mockSoftDelete).toHaveBeenCalledWith(DB, "p1");
+    expect(mockDetach).toHaveBeenCalledWith(DB, "p1", "r1", "enc-key", ACTOR);
+    expect(mockSoftDelete).toHaveBeenCalledWith(DB, "p1", ACTOR);
   });
 
   it("throws 404 when soft delete fails after detach", async () => {
     mockFind.mockResolvedValue(ROW);
     mockFindRepos.mockResolvedValue([]);
     mockSoftDelete.mockResolvedValue(false);
-    await expect(removeProject(DB, "p1", "")).rejects.toMatchObject({ statusCode: 404 });
+    await expect(removeProject(DB, "p1", "", ACTOR)).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it("throws 404 when the project does not exist", async () => {
     mockFind.mockResolvedValue(undefined);
-    await expect(removeProject(DB, "missing", "")).rejects.toMatchObject({ statusCode: 404 });
+    await expect(removeProject(DB, "missing", "", ACTOR)).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 
@@ -124,13 +125,13 @@ describe("getProject", () => {
 describe("createProject", () => {
   it("creates a project and returns the mapped response", async () => {
     mockInsert.mockResolvedValue(ROW);
-    const result = await createProject(DB, "  Acme  ");
-    expect(mockInsert).toHaveBeenCalledWith(DB, "Acme");
+    const result = await createProject(DB, "  Acme  ", ACTOR);
+    expect(mockInsert).toHaveBeenCalledWith(DB, "Acme", ACTOR);
     expect(result.name).toBe("Acme");
   });
 
   it("throws 400 when name is blank", async () => {
-    await expect(createProject(DB, "   ")).rejects.toMatchObject({
+    await expect(createProject(DB, "   ", ACTOR)).rejects.toMatchObject({
       statusCode: 400,
       code: "VALIDATION_ERROR",
     });

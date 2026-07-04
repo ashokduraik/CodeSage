@@ -1,14 +1,15 @@
 ---
 description: Database schema source-of-truth and migration rules
-globs: db/**,apps/rag/src/repositories/**,apps/rag/src/models/**,docs/data-model.md
+globs: db/**,apps/rag/src/repositories/**,apps/rag/src/models/**,docs/data-model.md,docs/schema/**
 alwaysApply: false
 ---
 
 # Data & migrations
 
-- **One concern, one place:** the schema source of truth is `db/migrations/` (versioned SQL).
-  Change the schema **only** via a new migration.
-- Keep `docs/data-model.md` updated in the **same change** as any migration.
+- **One concern, one place:** the schema source of truth is `apps/api/src/platform/migrations/`
+  (versioned SQL). Change the schema **only** via a new migration.
+- Keep `docs/data-model.md` and the matching `docs/schema/<table>.md` updated in the **same
+  change** as any migration.
 - **Single datastore = PostgreSQL** (+pgvector): metadata, KB, vectors (`halfvec` + HNSW), graph
   adjacency, job queue, encrypted tokens. No second data system without an ADR.
 - Every **derived-knowledge** table (`workflows`, `page_map`, `permission_rules`, `data_flows`)
@@ -20,4 +21,4 @@ alwaysApply: false
 - **Soft delete** domain entities via `status = 'D'` (see `soft-delete.mdc`); never hard-delete
   user-facing resources without an ADR.
 
-See `docs/data-model.md` and ADRs 0003–0006.
+See `docs/data-model.md`, `docs/schema/`, and ADRs 0003–0006.

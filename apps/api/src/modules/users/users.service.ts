@@ -58,13 +58,14 @@ export async function createNewUser(
   email: string,
   password: string,
   role: UserRole,
+  actorId: string,
 ): Promise<NodeApi.components["schemas"]["User"]> {
   const taken = await emailExists(db, email);
   if (taken) {
     throw new ApiError(409, "EMAIL_IN_USE", "An account with that email already exists.");
   }
   const passwordHash = await hash(password, BCRYPT_ROUNDS);
-  const row = await createUser(db, email, passwordHash, role);
+  const row = await createUser(db, email, passwordHash, role, actorId);
   return toUserResponse(row);
 }
 
@@ -80,8 +81,9 @@ export async function changeUserRole(
   db: Sql,
   id: string,
   role: UserRole,
+  actorId: string,
 ): Promise<NodeApi.components["schemas"]["User"]> {
-  const row = await updateUserRole(db, id, role);
+  const row = await updateUserRole(db, id, role, actorId);
   if (!row) {
     throw new ApiError(404, "NOT_FOUND", "User not found.");
   }

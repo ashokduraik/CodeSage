@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Sql } from './db.js';
+import { resolveServiceUser } from './serviceUsers.js';
 
 const SALT_ROUNDS = 10;
 
@@ -38,10 +39,11 @@ export async function runSeed(sql: Sql, log: FastifyBaseLogger): Promise<void> {
       continue;
     }
 
+    const apiActor = resolveServiceUser('api');
     const hash = await bcrypt.hash(user.password, SALT_ROUNDS);
     await sql`
-      INSERT INTO users (email, password_hash, role)
-      VALUES (${user.email}, ${hash}, ${user.role}::user_role)
+      INSERT INTO users (email, password_hash, role, created_by, updated_by)
+      VALUES (${user.email}, ${hash}, ${user.role}::user_role, ${apiActor}, ${apiActor})
     `;
     log.info({ email: user.email, role: user.role }, 'seed: user created');
   }

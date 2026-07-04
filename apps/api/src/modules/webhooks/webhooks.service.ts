@@ -3,6 +3,7 @@ import type { Sql } from "../../platform/db";
 import { ApiError } from "../../platform/errors";
 import { decryptToken, parseEncryptionKey } from "../../platform/encryption";
 import { enqueueJob } from "../../platform/queue";
+import { resolveServiceUser } from "../../platform/serviceUsers";
 import { findRepoByUrl } from "../repos/repos.repository";
 import { parseRepoUrl } from "../repos/repo-url";
 import type { NodeApi } from "@codesage/shared-types";
@@ -169,5 +170,5 @@ export async function handlePushWebhook(
   await enqueueJob(db, "sync", {
     repoId: repo.id,
     ...(beforeSha ? { sinceSha: beforeSha } : {}),
-  });
+  }, resolveServiceUser("webhook"));
 }

@@ -344,7 +344,7 @@ vector database.
 
 Migrations are versioned SQL files applied in order — never edit applied migrations.
 
-**Why here:** Schema source of truth is `db/migrations/`; `docs/data-model.md` mirrors it.
+**Why here:** Schema source of truth is `apps/api/src/platform/migrations/`; `docs/data-model.md` and `docs/schema/` mirror it.
 
 **How used:** `-- migrate:up` / `-- migrate:down` blocks; Docker `migrate` service (dbmate); API
 also applies copies from `apps/api/src/platform/migrations/` on startup.

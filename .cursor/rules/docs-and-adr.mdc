@@ -11,8 +11,10 @@ Docs are part of the deliverable; keep them truthful and in sync with the code.
 ## Conventions
 - Canonical specs live in `docs/` (`requirement.md`, `intermediate-solution.md`,
   `final-solution.md`); treat them as source-of-truth context, not throwaway notes.
-- `docs/data-model.md` **mirrors** `db/migrations/` — update it in the **same change** as any
-  migration.
+- `docs/data-model.md` **mirrors** migrations at a high level — update it in the **same change**
+  as any migration.
+- `docs/schema/<table>.md` is the **per-table column reference** — update the affected file(s)
+  in the same change.
 - Each deployable/package keeps four docs: `README.md`, `PLAN.md`, `TODO.md`, `AGENTS.md`.
   Update the relevant ones in the same change as code.
 - **One decision = one ADR** in `docs/adr/` (Status · Context · Decision · Consequences ·

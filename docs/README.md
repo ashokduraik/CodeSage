@@ -15,7 +15,8 @@ This folder is the single home for all project documentation. Start here.
 | Doc | Purpose |
 |---|---|
 | [`architecture.md`](./architecture.md) | Consolidated architecture overview + component map + cross-service contracts. |
-| [`data-model.md`](./data-model.md) | PostgreSQL schema reference (tables, relationships, derived-knowledge trust model). |
+| [`data-model.md`](./data-model.md) | PostgreSQL schema overview (domains, relationships, trust model). |
+| [`schema/`](./schema/README.md) | **Per-table column reference** — one file per table. |
 | [`development-workflow.md`](./development-workflow.md) | How we work: branching, contracts-first codegen, testing, review, Definition of Done. |
 | [`plans/phase-1-mvp-code-qa.md`](./plans/phase-1-mvp-code-qa.md) | **Phase 1 plan** — MVP code QA milestones and build order. |
 | [`tech-learning-guide.md`](./tech-learning-guide.md) | **Onboarding:** each technology in the stack — what to learn and how CodeSage uses it. |
@@ -36,7 +37,7 @@ Each deployable/package documents itself locally. Each folder carries four files
 
 1. `requirement.md` → understand the problem.
 2. `final-solution.md` → understand the chosen design.
-3. `architecture.md` + `data-model.md` → understand the moving parts.
+3. `architecture.md` + `data-model.md` + `schema/` → understand the moving parts.
 4. The `AGENTS.md` of the component you are about to touch.
 5. `development-workflow.md` → understand how to ship a change safely.
 

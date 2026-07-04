@@ -154,4 +154,5 @@ On startup the API will:
 ## See also
 
 - [`docs/data-model.md`](./data-model.md)
+- [`docs/schema/`](./schema/README.md)
 - [`db/README.md`](../db/README.md)

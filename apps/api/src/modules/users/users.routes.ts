@@ -28,6 +28,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
     Reply: NodeApi.components["schemas"]["User"];
   }>("/users", { preHandler: requireRoles(["admin"]) }, async (request, reply) => {
     const { email, password, role } = request.body;
+    const { sub } = request.user as JwtPayload;
 
     if (!email || !password || !role) {
       return reply.status(400).send({
@@ -35,8 +36,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
       } as never);
     }
 
-    const user = await createNewUser(app.db, email, password, role);
-    const { sub } = request.user as JwtPayload;
+    const user = await createNewUser(app.db, email, password, role, sub);
     await appendAuditLog(app.db, sub, AUDIT_ACTIONS.USER_CREATE, user.id);
     return reply.status(201).send(user);
   });
@@ -47,6 +47,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
     Reply: NodeApi.components["schemas"]["User"];
   }>("/users/:userId", { preHandler: requireRoles(["admin"]) }, async (request, reply) => {
     const { role } = request.body;
+    const { sub } = request.user as JwtPayload;
 
     if (!role) {
       return reply.status(400).send({
@@ -54,8 +55,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
       } as never);
     }
 
-    const user = await changeUserRole(app.db, request.params.userId, role);
-    const { sub } = request.user as JwtPayload;
+    const user = await changeUserRole(app.db, request.params.userId, role, sub);
     await appendAuditLog(
       app.db,
       sub,

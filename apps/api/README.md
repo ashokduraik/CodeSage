@@ -74,4 +74,4 @@ docker compose up -d --build api   # http://localhost:3000/health
 
 - [`PLAN.md`](./PLAN.md) · [`TODO.md`](./TODO.md) · [`AGENTS.md`](./AGENTS.md)
 - Architecture: [`../../docs/architecture.md`](../../docs/architecture.md)
-- Data model: [`../../docs/data-model.md`](../../docs/data-model.md)
+- Data model: [`../../docs/data-model.md`](../../docs/data-model.md) · [`../../docs/schema/`](../../docs/schema/README.md)

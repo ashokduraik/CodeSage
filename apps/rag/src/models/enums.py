@@ -11,6 +11,7 @@ USER_ROLE = ENUM(
     "expert",
     "developer",
     "end_user",
+    "system",
     name="user_role",
     create_type=False,
 )
@@ -50,6 +51,7 @@ class UserRole(str, enum.Enum):
     EXPERT = "expert"
     DEVELOPER = "developer"
     END_USER = "end_user"
+    SYSTEM = "system"
 
 
 class RepoProvider(str, enum.Enum):

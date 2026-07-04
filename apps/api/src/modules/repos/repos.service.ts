@@ -102,6 +102,7 @@ export async function attachRepo(
   body: CreateRepoRequest,
   encryptionKey: string,
   webhookBaseUrl: string,
+  actorId: string,
 ): Promise<{ repo: NodeApi.components["schemas"]["Repo"]; jobId: string }> {
   const project = await findProjectById(db, projectId);
   if (!project) {
@@ -147,7 +148,7 @@ export async function attachRepo(
     isPrivate,
     tokenEnc,
     primaryLanguage,
-  });
+  }, actorId);
 
   const webhook = await registerRepoWebhook(
     { ...parsed, baseUrl: baseUrl || parsed.baseUrl },
@@ -157,12 +158,12 @@ export async function attachRepo(
     encryptionKey,
   );
   if (webhook.webhookEnabled && webhook.webhookId && webhook.webhookSecretEnc) {
-    await updateRepoWebhook(db, row.id, webhook.webhookId, webhook.webhookSecretEnc);
+    await updateRepoWebhook(db, row.id, webhook.webhookId, webhook.webhookSecretEnc, actorId);
     row.webhook_id = webhook.webhookId;
     row.webhook_enabled = true;
   }
 
-  const jobId = await enqueueJob(db, "sync", { repoId: row.id });
+  const jobId = await enqueueJob(db, "sync", { repoId: row.id }, actorId);
   return { repo: toRepoResponse(row), jobId };
 }
 
@@ -179,14 +180,15 @@ export async function syncRepo(
   db: Sql,
   projectId: string,
   repoId: string,
+  actorId: string,
 ): Promise<{ jobId: string }> {
   const row = await findRepoById(db, projectId, repoId);
   if (!row) {
     throw new ApiError(404, "NOT_FOUND", "Repo not found in this project.");
   }
 
-  await setRepoConnecting(db, repoId);
-  const jobId = await enqueueJob(db, "sync", { repoId });
+  await setRepoConnecting(db, repoId, actorId);
+  const jobId = await enqueueJob(db, "sync", { repoId }, actorId);
   return { jobId };
 }
 
@@ -204,6 +206,7 @@ export async function detachRepo(
   projectId: string,
   repoId: string,
   encryptionKey: string,
+  actorId: string,
 ): Promise<void> {
   const row = await findRepoSecretsById(db, projectId, repoId);
   if (!row) {
@@ -230,7 +233,7 @@ export async function detachRepo(
     );
   }
 
-  const deleted = await softDeleteRepo(db, projectId, repoId);
+  const deleted = await softDeleteRepo(db, projectId, repoId, actorId);
   if (!deleted) {
     throw new ApiError(404, "NOT_FOUND", "Repo not found in this project.");
   }

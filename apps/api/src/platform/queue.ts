@@ -23,10 +23,16 @@ export async function enqueueJob(
   db: Sql,
   type: JobType,
   payload: Record<string, unknown>,
+  actorId: string,
 ): Promise<string> {
   const rows = await db<{ id: string }[]>`
-    INSERT INTO jobs (type, payload)
-    VALUES (${type}, ${db.json(payload as Parameters<typeof db.json>[0])})
+    INSERT INTO jobs (type, payload, created_by, updated_by)
+    VALUES (
+      ${type},
+      ${db.json(payload as Parameters<typeof db.json>[0])},
+      ${actorId},
+      ${actorId}
+    )
     RETURNING id
   `;
   const row = rows[0];

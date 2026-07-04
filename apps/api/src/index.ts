@@ -3,6 +3,7 @@ import { buildApp } from './http/app.js';
 import { loadConfig } from './platform/config.js';
 import { runMigrations } from './platform/migrate.js';
 import { runSeed } from './platform/seed.js';
+import { assertServiceUsersExist } from './platform/serviceUsers.js';
 
 /**
  * Application entry point.
@@ -19,6 +20,7 @@ async function start(): Promise<void> {
   const app = buildApp(config);
 
   await runMigrations(app.db, app.log);
+  await assertServiceUsersExist(app.db);
   await runSeed(app.db, app.log);
 
   await app.listen({ host: config.host, port: config.port });

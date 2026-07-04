@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from models.enums import ProjectStatus, RepoConnectionStatus, RowStatus
 from models import Project, Repo
+from repositories.audit import stamp_created, stamp_updated
 
 _TOKEN_PATTERN = re.compile(r"ghp_[A-Za-z0-9]+|glpat-[A-Za-z0-9_-]+|://[^@\s]+@")
 
@@ -66,7 +67,7 @@ class ProjectRepository:
         @param status - Initial lifecycle status.
         @returns The persisted project (flushed, not committed).
         """
-        project = Project(name=name, lifecycle_status=status)
+        project = stamp_created(Project(name=name, lifecycle_status=status))
         self._session.add(project)
         self._session.flush()
         return project
@@ -82,6 +83,7 @@ class ProjectRepository:
         if project is None:
             return None
         project.lifecycle_status = status
+        stamp_updated(project)
         self._session.flush()
         return project
 
@@ -133,6 +135,7 @@ class RepoRepository:
         if repo is None:
             return None
         repo.last_indexed_sha = sha
+        stamp_updated(repo)
         self._session.flush()
         return repo
 
@@ -146,6 +149,7 @@ class RepoRepository:
         if repo is None:
             return None
         repo.last_indexed_at = datetime.now(UTC)
+        stamp_updated(repo)
         self._session.flush()
         return repo
 
@@ -161,6 +165,7 @@ class RepoRepository:
             return None
         repo.last_indexed_sha = sha
         repo.last_indexed_at = datetime.now(UTC)
+        stamp_updated(repo)
         self._session.flush()
         return repo
 
@@ -187,6 +192,7 @@ class RepoRepository:
         else:
             repo.last_error = None
             repo.last_error_at = None
+        stamp_updated(repo)
         self._session.flush()
         return repo
 

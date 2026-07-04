@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from models.enums import JobStatus
 from models import AuditLog, Job
+from repositories.audit import RAG_ACTOR_ID, stamp_created, stamp_updated
 
 
 class JobRepository:
@@ -29,7 +30,7 @@ class JobRepository:
         @param payload - JSON-serializable payload matching `contracts/jobs.schema.json`.
         @returns The persisted job (flushed, not committed).
         """
-        job = Job(type=job_type, payload=payload, job_status=JobStatus.PENDING)
+        job = stamp_created(Job(type=job_type, payload=payload, job_status=JobStatus.PENDING))
         self._session.add(job)
         self._session.flush()
         return job
@@ -39,12 +40,14 @@ class JobRepository:
 
         @returns The claimed job marked `running`, or `None` when the queue is empty.
         """
+        rag_actor = str(RAG_ACTOR_ID)
         stmt = text(
             """
             UPDATE jobs
             SET job_status = 'running',
                 locked_at = now(),
-                attempts = attempts + 1
+                attempts = attempts + 1,
+                updated_by = :updated_by
             WHERE id = (
                 SELECT id
                 FROM jobs
@@ -57,7 +60,7 @@ class JobRepository:
             RETURNING id
             """,
         )
-        row = self._session.execute(stmt).first()
+        row = self._session.execute(stmt, {"updated_by": rag_actor}).first()
         if row is None:
             return None
         job_id = row[0]
@@ -74,6 +77,7 @@ class JobRepository:
             return None
         job.job_status = JobStatus.DONE
         job.locked_at = None
+        stamp_updated(job)
         self._session.flush()
         return job
 
@@ -91,6 +95,7 @@ class JobRepository:
         job.locked_at = None
         if error_message is not None:
             job.error_message = error_message[:2000]
+        stamp_updated(job)
         self._session.flush()
         return job
 

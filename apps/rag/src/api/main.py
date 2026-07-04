@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from api.routes.query import router as query_router
 from config import load_settings
+from config.service_users import assert_service_users_exist
 from repositories import create_engine_from_settings, create_session_factory
 from workers.worker import run_worker_loop
 
@@ -23,6 +24,8 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         nonlocal worker_thread
+        with session_factory() as session:
+            assert_service_users_exist(session)
         worker_thread = threading.Thread(
             target=run_worker_loop,
             args=(settings, stop_event),

@@ -31,7 +31,7 @@ the process every contributor (human or agent) follows.
 2. Run codegen  (scripts/ codegen)
 3. TS types → packages/shared-types ;  Pydantic models → apps/rag/ (when generated)
 4. Implement against generated types on both sides (Node + Python)
-5. Update docs/data-model.md if persistence changed; add/adjust db/migrations/
+5. Update `docs/data-model.md` and `docs/schema/<table>.md` if persistence changed; add/adjust `apps/api/src/platform/migrations/`
 ```
 
 If Node and Python disagree at runtime, the contract or the codegen is wrong — fix there, not
@@ -43,7 +43,7 @@ with local patches.
 |---|---|---|
 | A request/response shape | `contracts/` → codegen | `shared-types`, both call sites |
 | A job payload | `contracts/jobs.schema.json` → codegen | enqueuer (Node) + consumer (`apps/rag`) |
-| DB schema | `db/migrations/` (new migration) | `docs/data-model.md` |
+| DB schema | `apps/api/src/platform/migrations/` (new migration) | `docs/data-model.md`, `docs/schema/<table>.md` |
 | Business logic (parse/graph/embed/distill/retrieve/route) | `apps/rag/src/services/<module>` | thin wiring in `src/api/`, `src/workers/` |
 | A prompt | `apps/rag/src/services/llm` or `apps/rag/src/services/distill` | nothing else hand-edited |
 | Frontend feature | `apps/web/src/features/<feature>` | `apps/web` API client (from contracts) |
@@ -74,7 +74,7 @@ with local patches.
 - [ ] Respects the Node/Python boundary.
 - [ ] Contracts updated + codegen run (if any cross-service shape changed).
 - [ ] Business logic lives in `apps/rag/src/services/` (if Python); `src/api/` and `src/workers/` stay thin.
-- [ ] Migration added + `docs/data-model.md` updated (if schema changed).
+- [ ] Migration added + `docs/data-model.md` and `docs/schema/<table>.md` updated (if schema changed).
 - [ ] Tests colocated and passing; **≥ 80% coverage (line + branch)**; lint clean.
 - [ ] Relevant `README.md` / `TODO.md` / `PLAN.md` updated.
 - [ ] No secrets committed; `.env.example` updated if new env vars were added.

@@ -35,7 +35,7 @@ loadConfig() → buildApp() → runMigrations() → runSeed() [non-prod only] �
 
 1. Copy `src/platform/migrations/_TEMPLATE.sql` → `YYYYMMDDHHMMSS_describe_change.sql`.
 2. Fill `-- migrate:up` (and `-- migrate:down`).
-3. Update `docs/data-model.md` in the same PR.
+3. Update `docs/data-model.md` and `docs/schema/<table>.md` in the same PR.
 4. Restart the API — migration applies automatically.
 
 Never edit an already-applied migration file; add a new one.

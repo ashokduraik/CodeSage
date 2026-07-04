@@ -2,7 +2,7 @@
 -- Copy this file to: YYYYMMDDHHMMSS_describe_change_here.sql
 -- Use the current UTC timestamp for the prefix, e.g. 20260620100000_add_status_to_repos.sql
 -- Then uncomment and fill the relevant blocks below.
--- Always update docs/data-model.md in the same change as the migration.
+-- Always update docs/data-model.md and docs/schema/<table>.md in the same change as the migration.
 
 -- migrate:up
 
@@ -11,8 +11,13 @@
 --     id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
 --     name       text        NOT NULL,
 --     status     char(1)     NOT NULL DEFAULT 'A' CHECK (status IN ('A', 'D')),
---     created_at timestamptz NOT NULL DEFAULT now()
+--     created_at timestamptz NOT NULL DEFAULT now(),
+--     updated_at timestamptz NOT NULL DEFAULT now(),
+--     created_by uuid        NOT NULL REFERENCES users (id),
+--     updated_by uuid        NOT NULL REFERENCES users (id)
 -- );
+-- CREATE TRIGGER trg_example_updated_at
+--   BEFORE UPDATE ON example FOR EACH ROW EXECUTE FUNCTION set_row_updated_at();
 
 -- ── ADD COLUMN ──────────────────────────────────────────────────────────────────
 -- ALTER TABLE example ADD COLUMN description text;

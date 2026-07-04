@@ -9,6 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from models import CodeChunk, GraphEdge, GraphNode
+from repositories.audit import stamp_created, stamp_updated
 
 
 class GraphNodeRepository:
@@ -44,7 +45,7 @@ class GraphNodeRepository:
         @param node - Unsaved node instance.
         @returns The flushed node with generated id.
         """
-        self._session.add(node)
+        self._session.add(stamp_created(node))
         self._session.flush()
         return node
 
@@ -97,7 +98,7 @@ class GraphEdgeRepository:
         @param edge - Unsaved edge instance.
         @returns The flushed edge with generated id.
         """
-        self._session.add(edge)
+        self._session.add(stamp_created(edge))
         self._session.flush()
         return edge
 
@@ -178,13 +179,15 @@ class CodeChunkRepository:
         @param symbol_refs - Optional symbol reference list.
         @returns The persisted chunk (flushed, not committed).
         """
-        chunk = CodeChunk(
+        chunk = stamp_created(
+            CodeChunk(
             project_id=project_id,
             repo_id=repo_id,
             file_path=file_path,
             span=span,
             content=content,
             symbol_refs=symbol_refs or [],
+            ),
         )
         self._session.add(chunk)
         self._session.flush()
@@ -201,6 +204,7 @@ class CodeChunkRepository:
         if chunk is None:
             return None
         chunk.embedding = embedding
+        stamp_updated(chunk)
         self._session.flush()
         return chunk
 

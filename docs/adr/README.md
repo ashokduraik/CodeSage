@@ -34,6 +34,7 @@ Consequences · Alternatives considered · Escape hatch**.
 | [0015](./0015-single-python-deployable-mvp.md) | Single Python deployable for MVP (`apps/rag`) | Accepted |
 | [0016](./0016-repo-probe-in-node-api.md) | Repo probe runs in Node API | Accepted |
 | [0017](./0017-webhook-registration-on-connect.md) | Webhook registration during repo connect | Accepted |
+| [0018](./0018-mandatory-audit-columns.md) | Mandatory audit columns on domain tables | Accepted |
 
 ## Adding a new ADR
 

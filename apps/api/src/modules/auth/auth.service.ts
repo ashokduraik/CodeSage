@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { Sql } from "../../platform/db";
 import { ApiError } from "../../platform/errors";
 import type { JwtPayload, UserRole } from "../../platform/auth.plugin";
+import { isServiceUserRole } from "../../platform/serviceUsers";
 import type { NodeApi } from "@codesage/shared-types";
 
 type LoginResponse = NodeApi.components["schemas"]["LoginResponse"];
@@ -11,7 +12,7 @@ type LoginResponse = NodeApi.components["schemas"]["LoginResponse"];
 interface UserRow {
   id: string;
   email: string;
-  role: UserRole;
+  role: string;
   password_hash: string;
   created_at: Date;
 }
@@ -34,7 +35,7 @@ export async function loginUser(
   password: string,
 ): Promise<LoginResponse> {
   const rows = await db<UserRow[]>`
-    SELECT id, email, role, password_hash, created_at
+    SELECT id, email, role::text AS role, password_hash, created_at
     FROM users
     WHERE email = ${email}
     LIMIT 1
@@ -43,12 +44,15 @@ export async function loginUser(
   const user = rows[0];
   const passwordMatches = user ? await compare(password, user.password_hash) : false;
 
-  // Always run compare (even on missing user) to prevent timing attacks.
-  if (!user || !passwordMatches) {
+  if (!user || !passwordMatches || isServiceUserRole(user.role)) {
     throw new ApiError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
   }
 
-  const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
+  const payload: JwtPayload = {
+    sub: user.id,
+    email: user.email,
+    role: user.role as UserRole,
+  };
   const token = app.jwt.sign(payload, { expiresIn: app.config.jwtTtl });
 
   return {

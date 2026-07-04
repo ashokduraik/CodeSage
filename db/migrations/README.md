@@ -9,7 +9,8 @@
 - **Append-only** — never edit an applied migration; add a new one.
 - Naming is dbmate's timestamp prefix: `YYYYMMDDHHMMSS_description.sql`.
 - Enable required extensions early (`CREATE EXTENSION IF NOT EXISTS vector;`).
-- Update [`../../docs/data-model.md`](../../docs/data-model.md) in the same change.
+- Update [`../../docs/data-model.md`](../../docs/data-model.md) and the matching
+  [`../../docs/schema/<table>.md`](../../docs/schema/README.md) in the same change.
 
 ## Migrations
 

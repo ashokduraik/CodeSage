@@ -18,7 +18,7 @@ A self-hosted, codebase-aware QA platform. See [`docs/README.md`](./docs/README.
    and types are **generated**, never hand-written. Edit contract → run codegen → implement
    against generated types. Never guess request/response shapes.
 4. **One concern, one place.** DB schema → `db/migrations/`. API shapes → `contracts/`.
-   Prompts → `apps/rag/src/services/llm` + `apps/rag/src/services/distill`. Persistence reference → `docs/data-model.md`.
+   Prompts → `apps/rag/src/services/llm` + `apps/rag/src/services/distill`. Persistence reference → `docs/data-model.md` + `docs/schema/`.
 5. **Single datastore = PostgreSQL.** No Redis, Qdrant, Neo4j, or separate broker in the MVP
    (see ADRs 0003–0006). If you think you need one, write an ADR first.
 
@@ -45,11 +45,11 @@ A self-hosted, codebase-aware QA platform. See [`docs/README.md`](./docs/README.
 
 Follow the **Definition of Done** in [`docs/development-workflow.md`](./docs/development-workflow.md)
 §7. In short: respect the boundary, update contracts + codegen, keep `rag/` wiring thin, add
-migration + update `docs/data-model.md` if schema changed, colocate tests, update the relevant
+migration + update `docs/data-model.md` and `docs/schema/<table>.md` if schema changed, colocate tests, update the relevant
 `README/TODO/PLAN`, write an ADR for new decisions, commit no secrets.
 
 ## Where to learn shapes & decisions
 
 - API/job shapes → `contracts/` + `docs/architecture.md` §4.
-- Data shapes → `docs/data-model.md`.
+- Data shapes → `docs/data-model.md` + `docs/schema/`.
 - *Why* something is the way it is → `docs/adr/`.

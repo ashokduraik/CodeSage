@@ -56,14 +56,15 @@ export async function reposRoutes(app: FastifyInstance): Promise<void> {
       } as never);
     }
 
+    const { sub } = request.user as JwtPayload;
     const result = await attachRepo(
       app.db,
       projectId,
       body,
       app.config.encryptionKey,
       app.config.webhookBaseUrl,
+      sub,
     );
-    const { sub } = request.user as JwtPayload;
     await appendAuditLog(app.db, sub, AUDIT_ACTIONS.REPO_ATTACH, result.repo.id);
     return reply.status(202).send(result);
   });
@@ -72,8 +73,8 @@ export async function reposRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId/repos/:repoId",
     async (request, reply) => {
       const { projectId, repoId } = request.params;
-      await detachRepo(app.db, projectId, repoId, app.config.encryptionKey);
       const { sub } = request.user as JwtPayload;
+      await detachRepo(app.db, projectId, repoId, app.config.encryptionKey, sub);
       await appendAuditLog(app.db, sub, AUDIT_ACTIONS.REPO_DETACH, repoId);
       return reply.status(204).send();
     },
@@ -84,8 +85,8 @@ export async function reposRoutes(app: FastifyInstance): Promise<void> {
     Reply: NodeApi.components["schemas"]["SyncRepoResponse"];
   }>("/projects/:projectId/repos/:repoId/sync", async (request, reply) => {
     const { projectId, repoId } = request.params;
-    const result = await syncRepo(app.db, projectId, repoId);
     const { sub } = request.user as JwtPayload;
+    const result = await syncRepo(app.db, projectId, repoId, sub);
     await appendAuditLog(app.db, sub, AUDIT_ACTIONS.REPO_SYNC, repoId);
     return reply.status(202).send(result);
   });

@@ -51,7 +51,7 @@ describe("createNewUser", () => {
   it("creates and returns the new user when the email is available", async () => {
     mockEmailExists.mockResolvedValue(false);
     mockCreateUser.mockResolvedValue(MOCK_ROW);
-    const user = await createNewUser(MOCK_DB, "user@example.com", "password123", "developer");
+    const user = await createNewUser(MOCK_DB, "user@example.com", "password123", "developer", "admin-1");
     expect(user.id).toBe("u1");
     expect(user.email).toBe("user@example.com");
   });
@@ -59,7 +59,7 @@ describe("createNewUser", () => {
   it("throws 409 when the email is already in use", async () => {
     mockEmailExists.mockResolvedValue(true);
     await expect(
-      createNewUser(MOCK_DB, "taken@example.com", "password123", "developer"),
+      createNewUser(MOCK_DB, "taken@example.com", "password123", "developer", "admin-1"),
     ).rejects.toMatchObject({ statusCode: 409, code: "EMAIL_IN_USE" });
   });
 });
@@ -67,13 +67,13 @@ describe("createNewUser", () => {
 describe("changeUserRole", () => {
   it("returns the updated user profile when found", async () => {
     mockUpdateUserRole.mockResolvedValue({ ...MOCK_ROW, role: "expert" });
-    const user = await changeUserRole(MOCK_DB, "u1", "expert");
+    const user = await changeUserRole(MOCK_DB, "u1", "expert", "admin-1");
     expect(user.role).toBe("expert");
   });
 
   it("throws 404 when the user is not found", async () => {
     mockUpdateUserRole.mockResolvedValue(undefined);
-    await expect(changeUserRole(MOCK_DB, "missing", "developer")).rejects.toMatchObject({
+    await expect(changeUserRole(MOCK_DB, "missing", "developer", "admin-1")).rejects.toMatchObject({
       statusCode: 404,
     });
   });

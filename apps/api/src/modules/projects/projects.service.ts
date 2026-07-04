@@ -65,11 +65,11 @@ export async function getProject(db: Sql, id: string): Promise<Project> {
  * @returns The newly created public project response.
  * @throws {@link ApiError} 400 when the name is blank.
  */
-export async function createProject(db: Sql, name: string): Promise<Project> {
+export async function createProject(db: Sql, name: string, actorId: string): Promise<Project> {
   if (!name.trim()) {
     throw new ApiError(400, "VALIDATION_ERROR", "Project name must not be blank.");
   }
-  const row = await insertProject(db, name.trim());
+  const row = await insertProject(db, name.trim(), actorId);
   return toProjectResponse(row);
 }
 
@@ -84,6 +84,7 @@ export async function removeProject(
   db: Sql,
   id: string,
   encryptionKey: string,
+  actorId: string,
 ): Promise<void> {
   const project = await findProjectById(db, id);
   if (!project) {
@@ -92,10 +93,10 @@ export async function removeProject(
 
   const repos = await findReposByProject(db, id);
   for (const repo of repos) {
-    await detachRepo(db, id, repo.id, encryptionKey);
+    await detachRepo(db, id, repo.id, encryptionKey, actorId);
   }
 
-  const deleted = await softDeleteProject(db, id);
+  const deleted = await softDeleteProject(db, id, actorId);
   if (!deleted) {
     throw new ApiError(404, "NOT_FOUND", "Project not found.");
   }

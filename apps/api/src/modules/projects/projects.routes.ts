@@ -34,13 +34,13 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     "/projects",
     async (request, reply) => {
       const { name } = request.body;
+      const { sub } = request.user as JwtPayload;
       if (!name) {
         return reply.status(400).send({
           error: { code: "VALIDATION_ERROR", message: "name is required." },
         } as never);
       }
-      const project = await createProject(app.db, name);
-      const { sub } = request.user as JwtPayload;
+      const project = await createProject(app.db, name, sub);
       await appendAuditLog(app.db, sub, AUDIT_ACTIONS.PROJECT_CREATE, project.id);
       return reply.status(201).send(project);
     },
@@ -55,8 +55,8 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId",
     async (request, reply) => {
       const { projectId } = request.params;
-      await removeProject(app.db, projectId, app.config.encryptionKey);
       const { sub } = request.user as JwtPayload;
+      await removeProject(app.db, projectId, app.config.encryptionKey, sub);
       await appendAuditLog(app.db, sub, AUDIT_ACTIONS.PROJECT_DELETE, projectId);
       return reply.status(204).send();
     },

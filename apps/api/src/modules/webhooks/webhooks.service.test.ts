@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { handlePushWebhook, extractPushMetadata } from "./webhooks.service";
+import { WEBHOOK_HANDLER_USER_ID } from "../../platform/serviceUsers";
 import type { Sql } from "../../platform/db";
 
 vi.mock("../repos/repos.repository", () => ({
@@ -82,7 +83,7 @@ describe("handlePushWebhook", () => {
     expect(mockEnqueue).toHaveBeenCalledWith(DB, "sync", {
       repoId: "r1",
       sinceSha: "sha-old",
-    });
+    }, WEBHOOK_HANDLER_USER_ID);
   });
 
   it("throws 404 when repo is not registered", async () => {

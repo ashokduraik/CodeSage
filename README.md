@@ -204,7 +204,8 @@ Start at [`docs/README.md`](./docs/README.md).
 | [`docs/intermediate-solution.md`](./docs/intermediate-solution.md) | Technology options and trade-offs considered |
 | [`docs/final-solution.md`](./docs/final-solution.md) | Locked technical solution, architecture diagrams, roadmap |
 | [`docs/architecture.md`](./docs/architecture.md) | Component map, runtime flows, cross-service boundaries |
-| [`docs/data-model.md`](./docs/data-model.md) | PostgreSQL schema — tables, relationships, trust model |
+| [`docs/data-model.md`](./docs/data-model.md) | PostgreSQL schema overview — domains, relationships, trust model |
+| [`docs/schema/`](./docs/schema/README.md) | Per-table column reference (one file per table) |
 | [`docs/development-workflow.md`](./docs/development-workflow.md) | Branching, testing, review, Definition of Done |
 | [`docs/tech-learning-guide.md`](./docs/tech-learning-guide.md) | Onboarding: each technology explained for newcomers |
 | [`docs/plans/phase-1-mvp-code-qa.md`](./docs/plans/phase-1-mvp-code-qa.md) | Phase 1 milestones and build order |
