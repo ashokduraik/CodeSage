@@ -15,6 +15,10 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - uses: astral-sh/setup-uv@v5
+      - name: Sync Python codegen deps
+        working-directory: apps/rag
+        run: uv lock && uv sync --dev
       - run: npm ci
       - name: Codegen up to date (contracts -> types)
         run: npm run codegen:check

@@ -146,16 +146,19 @@ async function generatePythonModels(input, output, fileType) {
     fileType,
     "--output-model-type",
     "pydantic_v2.BaseModel",
+    "--disable-timestamp",
     "--output",
     tmpOutput,
   ];
   const result = spawnSync("uv", args, {
     cwd: ragRoot,
     encoding: "utf8",
-    shell: process.platform === "win32",
   });
   if (result.status !== 0) {
-    console.error(result.stderr || result.stdout);
+    const detail = [result.error?.message, result.stderr, result.stdout]
+      .filter(Boolean)
+      .join("\n");
+    console.error(detail || "unknown error");
     throw new Error(`datamodel-codegen failed for ${input}`);
   }
   let body = await readFile(tmpOutput, "utf8");
