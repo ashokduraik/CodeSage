@@ -79,12 +79,13 @@ describe("registerRequestLogging", () => {
     expect(app.addHook).toHaveBeenCalledWith("onRequest", expect.any(Function));
     expect(app.addHook).toHaveBeenCalledWith("onResponse", expect.any(Function));
 
-    const onRequest = vi.mocked(app.addHook).mock.calls[0][1] as (
+    const hookCalls = vi.mocked(app.addHook).mock.calls;
+    const onRequest = hookCalls[0]![1] as (
       req: { log: { debug: typeof debug }; method: string },
       reply: unknown,
       done: () => void,
     ) => void;
-    const onResponse = vi.mocked(app.addHook).mock.calls[1][1] as (
+    const onResponse = hookCalls[1]![1] as (
       req: { log: { debug: typeof debug } },
       reply: { statusCode: number; elapsedTime: number },
       done: () => void,

@@ -60,7 +60,7 @@ export async function loginUser(
     user: {
       id: user.id,
       email: user.email,
-      role: user.role,
+      role: user.role as UserRole,
       createdAt: user.created_at.toISOString(),
     },
   };

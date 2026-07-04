@@ -45,23 +45,26 @@ describe("findProjectById", () => {
 describe("insertProject", () => {
   it("returns the created row", async () => {
     const db = makeMockSql([{ ...MOCK_ROW, repo_count: 0 }]);
-    expect(await insertProject(db, "My Project")).toMatchObject({ id: "p1", name: "My Project" });
+    expect(await insertProject(db, "My Project", "u1")).toMatchObject({
+      id: "p1",
+      name: "My Project",
+    });
   });
 
   it("throws when INSERT returns no rows", async () => {
     const db = makeMockSql([]);
-    await expect(insertProject(db, "fail")).rejects.toThrow("Unexpected empty result");
+    await expect(insertProject(db, "fail", "u1")).rejects.toThrow("Unexpected empty result");
   });
 });
 
 describe("softDeleteProject", () => {
   it("returns true when a row was soft-deleted", async () => {
     const db = makeMockSql([{ id: "p1" }]);
-    expect(await softDeleteProject(db, "p1")).toBe(true);
+    expect(await softDeleteProject(db, "p1", "u1")).toBe(true);
   });
 
   it("returns false when no active row matched", async () => {
     const db = makeMockSql([]);
-    expect(await softDeleteProject(db, "missing")).toBe(false);
+    expect(await softDeleteProject(db, "missing", "u1")).toBe(false);
   });
 });

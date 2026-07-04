@@ -20,6 +20,7 @@
     "codegen:check": "node scripts/codegen.mjs --check",
     "build": "npm run build -w @codesage/shared-types && npm run build -w @codesage/api && npm run build -w @codesage/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck:staged": "node scripts/typecheck-staged.mjs",
     "lint": "npm run lint --workspaces --if-present",
     "lint:fix": "npm run lint:fix --workspaces --if-present",
     "lint:api": "npm run lint -w @codesage/api",

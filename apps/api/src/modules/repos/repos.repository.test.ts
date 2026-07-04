@@ -51,25 +51,9 @@ describe("findReposByProject", () => {
 describe("insertRepo", () => {
   it("returns the created row", async () => {
     const db = makeMockSql([MOCK_ROW]);
-    const result = await insertRepo(db, {
-      projectId: "p1",
-      repoUrl: "https://github.com/o/r",
-      provider: "github",
-      branch: "main",
-      fullName: "o/r",
-      description: null,
-      baseUrl: null,
-      isPrivate: false,
-      tokenEnc: null,
-      primaryLanguage: "Python",
-    });
-    expect(result.id).toBe("r1");
-  });
-
-  it("throws when INSERT returns no rows", async () => {
-    const db = makeMockSql([]);
-    await expect(
-      insertRepo(db, {
+    const result = await insertRepo(
+      db,
+      {
         projectId: "p1",
         repoUrl: "https://github.com/o/r",
         provider: "github",
@@ -79,8 +63,32 @@ describe("insertRepo", () => {
         baseUrl: null,
         isPrivate: false,
         tokenEnc: null,
-        primaryLanguage: null,
-      }),
+        primaryLanguage: "Python",
+      },
+      "u1",
+    );
+    expect(result.id).toBe("r1");
+  });
+
+  it("throws when INSERT returns no rows", async () => {
+    const db = makeMockSql([]);
+    await expect(
+      insertRepo(
+        db,
+        {
+          projectId: "p1",
+          repoUrl: "https://github.com/o/r",
+          provider: "github",
+          branch: "main",
+          fullName: "o/r",
+          description: null,
+          baseUrl: null,
+          isPrivate: false,
+          tokenEnc: null,
+          primaryLanguage: null,
+        },
+        "u1",
+      ),
     ).rejects.toThrow("Unexpected empty result");
   });
 });
@@ -96,20 +104,20 @@ describe("findRepoByUrl", () => {
 describe("updateRepoWebhook", () => {
   it("executes update without throwing", async () => {
     const db = makeMockSql([]);
-    await expect(updateRepoWebhook(db, "r1", "99", "enc")).resolves.toBeUndefined();
+    await expect(updateRepoWebhook(db, "r1", "99", "enc", "u1")).resolves.toBeUndefined();
   });
 });
 
 describe("setRepoConnecting", () => {
   it("executes update without throwing", async () => {
     const db = makeMockSql([]);
-    await expect(setRepoConnecting(db, "r1")).resolves.toBeUndefined();
+    await expect(setRepoConnecting(db, "r1", "u1")).resolves.toBeUndefined();
   });
 });
 
 describe("softDeleteRepo", () => {
   it("returns true when a row was soft-deleted", async () => {
     const db = makeMockSql([{ id: "r1" }]);
-    expect(await softDeleteRepo(db, "p1", "r1")).toBe(true);
+    expect(await softDeleteRepo(db, "p1", "r1", "u1")).toBe(true);
   });
 });

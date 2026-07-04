@@ -168,6 +168,7 @@ describe("attachRepo", () => {
         "p1",
         { repoUrl: "https://github.com/org/repo", branch: "main", token: "token" },
         "",
+        "",
         ACTOR,
       ),
     ).rejects.toMatchObject({ statusCode: 400, code: "ENCRYPTION_NOT_CONFIGURED" });
@@ -180,6 +181,7 @@ describe("attachRepo", () => {
         DB,
         "missing",
         { repoUrl: "https://github.com/org/repo", branch: "main" },
+        "",
         "",
         ACTOR,
       ),

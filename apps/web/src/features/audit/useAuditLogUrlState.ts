@@ -16,7 +16,7 @@ export interface AuditLogUrlState {
 export const DEFAULT_PAGE_SIZE = 25;
 
 /** Default preset applied on first visit. */
-export const DEFAULT_PRESET: AuditDatePreset = "30d";
+export const DEFAULT_PRESET: Exclude<AuditDatePreset, "custom"> = "30d";
 
 /**
  * Returns ISO bounds for a date preset ending at `now`.
