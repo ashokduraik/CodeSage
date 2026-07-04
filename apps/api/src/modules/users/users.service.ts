@@ -2,7 +2,8 @@ import { hash } from "bcryptjs";
 import type { Sql } from "../../platform/db";
 import { ApiError } from "../../platform/errors";
 import type { UserRole } from "../../platform/auth.plugin";
-import { emailExists, createUser, findUserById, updateUserRole } from "./users.repository";
+import { isServiceUserRole } from "../../platform/serviceUsers";
+import { emailExists, createUser, findUserById, updateUserRole, searchUsersByEmailPrefix } from "./users.repository";
 import type { NodeApi } from "@codesage/shared-types";
 
 /** bcrypt cost factor — 12 is the OWASP-recommended minimum for 2025+. */
@@ -88,4 +89,37 @@ export async function changeUserRole(
     throw new ApiError(404, "NOT_FOUND", "User not found.");
   }
   return toUserResponse(row);
+}
+
+/** Maximum autocomplete results per request. */
+const MAX_USER_SEARCH_LIMIT = 20;
+
+/** Default autocomplete result limit. */
+const DEFAULT_USER_SEARCH_LIMIT = 10;
+
+/**
+ * Prefix-searches users by email for admin autocomplete (includes service accounts).
+ *
+ * @param db - postgres.js client.
+ * @param query - Email prefix (minimum 2 characters).
+ * @param limit - Max results (capped at 20).
+ * @returns Matching user search results.
+ * @throws {@link ApiError} 400 when query is too short.
+ */
+export async function searchUsers(
+  db: Sql,
+  query: string,
+  limit?: number,
+): Promise<NodeApi.components["schemas"]["UserSearchResult"][]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) {
+    throw new ApiError(400, "VALIDATION_ERROR", "Search query must be at least 2 characters.");
+  }
+  const cappedLimit = Math.min(MAX_USER_SEARCH_LIMIT, Math.max(1, limit ?? DEFAULT_USER_SEARCH_LIMIT));
+  const rows = await searchUsersByEmailPrefix(db, trimmed, cappedLimit);
+  return rows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    isSystem: isServiceUserRole(row.role),
+  }));
 }

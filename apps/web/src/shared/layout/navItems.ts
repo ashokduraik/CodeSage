@@ -1,10 +1,12 @@
-import { FolderGit2, LayoutDashboard, MessageSquare, type LucideIcon } from "lucide-react";
+import { FolderGit2, LayoutDashboard, MessageSquare, ScrollText, type LucideIcon } from "lucide-react";
 
 /** A primary navigation entry. `labelKey` is resolved through i18n at render time. */
 export interface NavItem {
   labelKey: string;
   icon: LucideIcon;
   path: string;
+  /** When true, only shown to users with the admin role. */
+  adminOnly?: boolean;
 }
 
 /**
@@ -15,6 +17,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { labelKey: "nav.dashboard", icon: LayoutDashboard, path: "/" },
   { labelKey: "nav.projects", icon: FolderGit2, path: "/projects" },
   { labelKey: "nav.chat", icon: MessageSquare, path: "/chat" },
+  { labelKey: "nav.auditLog", icon: ScrollText, path: "/admin/audit-log", adminOnly: true },
 ];
 
 /**

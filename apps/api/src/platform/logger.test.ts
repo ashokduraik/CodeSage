@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { buildLoggerOptions } from "./logger";
+import { describe, it, expect, vi } from "vitest";
+import type { FastifyInstance } from "fastify";
+import { buildLoggerOptions, registerRequestLogging } from "./logger";
 import type { AppConfig } from "./config";
 
 /** Minimal config fixture for testing logger options only. */
@@ -62,5 +63,44 @@ describe("buildLoggerOptions", () => {
     };
     const raw = opts.timestamp();
     expect(raw).toMatch(/^,"time":"[\d]{4}-[\d]{2}-[\d]{2}T[\d]{2}:[\d]{2}:[\d]{2}/);
+  });
+});
+
+describe("registerRequestLogging", () => {
+  it("registers onRequest and onResponse hooks that log at debug", async () => {
+    const debug = vi.fn();
+    const app = {
+      addHook: vi.fn(),
+    } as unknown as FastifyInstance;
+
+    registerRequestLogging(app);
+
+    expect(app.addHook).toHaveBeenCalledTimes(2);
+    expect(app.addHook).toHaveBeenCalledWith("onRequest", expect.any(Function));
+    expect(app.addHook).toHaveBeenCalledWith("onResponse", expect.any(Function));
+
+    const onRequest = vi.mocked(app.addHook).mock.calls[0][1] as (
+      req: { log: { debug: typeof debug }; method: string },
+      reply: unknown,
+      done: () => void,
+    ) => void;
+    const onResponse = vi.mocked(app.addHook).mock.calls[1][1] as (
+      req: { log: { debug: typeof debug } },
+      reply: { statusCode: number; elapsedTime: number },
+      done: () => void,
+    ) => void;
+    const done = vi.fn();
+    onRequest({ log: { debug }, method: "GET" }, {}, done);
+    expect(debug).toHaveBeenCalledWith(
+      expect.objectContaining({ req: expect.objectContaining({ method: "GET" }) }),
+      "incoming request",
+    );
+    debug.mockClear();
+    onResponse({ log: { debug } }, { statusCode: 200, elapsedTime: 12.5 }, done);
+    expect(debug).toHaveBeenCalledWith(
+      { res: { statusCode: 200, elapsedTime: 12.5 }, responseTime: 12.5 },
+      "request completed",
+    );
+    expect(done).toHaveBeenCalledTimes(2);
   });
 });

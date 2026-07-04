@@ -3,7 +3,17 @@ import { NAV_ITEMS, isNavItemActive } from "./navItems";
 
 describe("navItems", () => {
   it("lists only routes that currently exist", () => {
-    expect(NAV_ITEMS.map((item) => item.path)).toEqual(["/", "/projects", "/chat"]);
+    expect(NAV_ITEMS.map((item) => item.path)).toEqual([
+      "/",
+      "/projects",
+      "/chat",
+      "/admin/audit-log",
+    ]);
+  });
+
+  it("marks audit log as admin-only", () => {
+    const audit = NAV_ITEMS.find((item) => item.path === "/admin/audit-log");
+    expect(audit?.adminOnly).toBe(true);
   });
 
   it("marks the root active only on an exact match", () => {

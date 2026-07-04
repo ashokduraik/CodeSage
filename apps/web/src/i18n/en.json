@@ -11,6 +11,7 @@
     "dashboard": "Dashboard",
     "projects": "Projects",
     "chat": "Chat",
+    "auditLog": "Audit log",
     "openMenu": "Open navigation menu",
     "closeMenu": "Close navigation menu"
   },
@@ -198,6 +199,72 @@
       "creating": "Creating\u2026",
       "submit": "Start Chat",
       "defaultTitle": "New Chat"
+    }
+  },
+  "audit": {
+    "title": "Audit log",
+    "subtitle": "Review security-sensitive actions across the workspace",
+    "loadError": "Could not load audit events. Please try again.",
+    "retry": "Retry",
+    "empty": "No events match your filters in this time range.",
+    "copyTarget": "Copy target to clipboard",
+    "deletedActor": "Deleted user",
+    "unknownActor": "Unknown actor",
+    "systemBadge": "System",
+    "accessDenied": {
+      "title": "Access denied",
+      "body": "Only administrators can view the audit log."
+    },
+    "presets": {
+      "24h": "Last 24 hours",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "custom": "Custom range"
+    },
+    "filters": {
+      "actor": "Actor",
+      "actorPlaceholder": "Search by email prefix\u2026",
+      "clearActor": "Clear",
+      "action": "Action",
+      "allActions": "All actions",
+      "from": "From",
+      "to": "To",
+      "search": "Search",
+      "clearAll": "Clear all",
+      "searching": "Searching\u2026",
+      "noUsers": "No matching users"
+    },
+    "chips": {
+      "actor": "Actor: {{email}}",
+      "action": "Action: {{action}}",
+      "removeActor": "Remove actor filter",
+      "removeAction": "Remove action filter"
+    },
+    "columns": {
+      "when": "When",
+      "actor": "Actor",
+      "action": "Action",
+      "target": "Target"
+    },
+    "pagination": {
+      "summary": "Showing {{start}}\u2013{{end}}",
+      "emptyPage": "No events on this page",
+      "moreAvailable": "(more available)",
+      "pageSize": "Per page",
+      "page": "Page {{page}}",
+      "previous": "Previous",
+      "next": "Next",
+      "deepPageHint": "For faster results, narrow the date range or add filters."
+    },
+    "actions": {
+      "user_create": "User created",
+      "user_role_change": "User role changed",
+      "project_create": "Project created",
+      "project_delete": "Project deleted",
+      "repo_attach": "Repo attached",
+      "repo_detach": "Repo detached",
+      "repo_sync": "Repo sync enqueued"
     }
   }
 }

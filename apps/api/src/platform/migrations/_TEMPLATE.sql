@@ -33,6 +33,8 @@
 -- CREATE INDEX idx_example_project_id ON example (project_id);
 
 -- ── ADD ENUM VALUE ──────────────────────────────────────────────────────────────
+-- Put ADD VALUE in its own migration file (separate transaction). Postgres rejects
+-- using the new value in the same txn as ALTER TYPE ... ADD VALUE.
 -- ALTER TYPE some_enum ADD VALUE IF NOT EXISTS 'new_value';
 
 -- ── RENAME COLUMN ───────────────────────────────────────────────────────────────

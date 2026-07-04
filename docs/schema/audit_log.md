@@ -26,6 +26,7 @@ Append-only security audit trail for sensitive actions (who did what, to what, w
 |---|---|---|
 | `idx_audit_log_actor` | `actor_id` | Filter by actor |
 | `idx_audit_log_ts` | `ts` | Time-range queries |
+| `idx_audit_log_active_ts` | `ts DESC` | Partial index on active rows (`WHERE status = 'A'`) for default list ordering |
 
 ## Foreign keys
 

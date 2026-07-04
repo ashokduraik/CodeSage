@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { requireRoles } from "../../platform/auth.plugin";
 import type { JwtPayload } from "../../platform/auth.plugin";
 import { appendAuditLog, AUDIT_ACTIONS } from "../../platform/audit";
-import { getUserById, createNewUser, changeUserRole } from "./users.service";
+import { getUserById, createNewUser, changeUserRole, searchUsers } from "./users.service";
 import type { NodeApi } from "@codesage/shared-types";
 
 /**
@@ -13,6 +13,7 @@ import type { NodeApi } from "@codesage/shared-types";
  * Routes:
  * - `GET /users/me` — returns the authenticated user's profile.
  * - `POST /users` — creates a new user (admin role required).
+ * - `GET /users/search` — prefix-search users by email (admin role required).
  * - `PATCH /users/:userId` — updates a user's RBAC role (admin role required).
  *
  * @param app - The Fastify application instance.
@@ -21,6 +22,23 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Reply: NodeApi.components["schemas"]["User"] }>("/users/me", async (request) => {
     const { sub } = request.user as JwtPayload;
     return getUserById(app.db, sub);
+  });
+
+  app.get<{
+    Querystring: { q: string; limit?: string };
+    Reply: NodeApi.components["schemas"]["UserSearchResult"][];
+  }>("/users/search", { preHandler: requireRoles(["admin"]) }, async (request, reply) => {
+    const { q, limit } = request.query;
+    if (!q?.trim()) {
+      return reply.status(400).send({
+        error: { code: "VALIDATION_ERROR", message: "q is required." },
+      } as never);
+    }
+    return searchUsers(
+      app.db,
+      q,
+      limit !== undefined ? Number(limit) : undefined,
+    );
   });
 
   app.post<{

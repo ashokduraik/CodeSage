@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Prefix-search users by email (admin only).
+         * @description Returns active users whose email starts with the query string (case-insensitive). Includes internal service accounts for audit-log actor autocomplete.
+         */
+        get: operations["searchUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users": {
         parameters: {
             query?: never;
@@ -87,6 +107,26 @@ export interface paths {
         head?: never;
         /** Update a user's RBAC role (admin only). */
         patch: operations["updateUserRole"];
+        trace?: never;
+    };
+    "/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List security audit events (admin only).
+         * @description Returns paginated audit log entries newest first. When tsFrom/tsTo are omitted, defaults to the last 30 days. Uses hasMore (fetch pageSize+1) instead of a total count for performance on large tables. Maximum lookback is 365 days.
+         */
+        get: operations["listAuditLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/projects": {
@@ -343,6 +383,58 @@ export interface components {
         };
         UpdateUserRoleRequest: {
             role: components["schemas"]["UserRole"];
+        };
+        UserSearchResult: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            /** @description True for internal service accounts (e.g. rag-worker@codesage.internal). */
+            isSystem: boolean;
+        };
+        /**
+         * @description Machine-readable audit action verb.
+         * @enum {string}
+         */
+        AuditAction: "user.create" | "user.role_change" | "project.create" | "project.delete" | "repo.attach" | "repo.detach" | "repo.sync";
+        AuditLogEntry: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description User who performed the action; null when deleted.
+             */
+            actorId?: string | null;
+            /**
+             * Format: email
+             * @description Actor email from users join; null when actor was deleted.
+             */
+            actorEmail?: string | null;
+            action: components["schemas"]["AuditAction"];
+            /** @description Resource identifier or description of what was affected. */
+            target?: string | null;
+            /**
+             * Format: date-time
+             * @description Event timestamp (UTC).
+             */
+            ts: string;
+        };
+        AuditLogListResponse: {
+            items: components["schemas"]["AuditLogEntry"][];
+            page: number;
+            pageSize: number;
+            /** @description True when another page exists after this one. */
+            hasMore: boolean;
+            /**
+             * Format: date-time
+             * @description Applied lower bound (echoed from request or default).
+             */
+            tsFrom: string;
+            /**
+             * Format: date-time
+             * @description Applied upper bound (echoed from request or default).
+             */
+            tsTo: string;
         };
         CreateProjectRequest: {
             /** @description Human-readable project name. */
@@ -647,6 +739,49 @@ export interface operations {
             };
         };
     };
+    searchUsers: {
+        parameters: {
+            query: {
+                /** @description Email prefix to match (minimum 2 characters). */
+                q: string;
+                /** @description Maximum number of results. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching users. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSearchResult"][];
+                };
+            };
+            /** @description Validation error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — admin role required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     createUser: {
         parameters: {
             query?: never;
@@ -743,6 +878,57 @@ export interface operations {
             };
             /** @description User not found. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAuditLogs: {
+        parameters: {
+            query?: {
+                /** @description Filter by actor user UUID. */
+                actorId?: string;
+                /** @description Filter by exact action verb. */
+                action?: components["schemas"]["AuditAction"];
+                /** @description Inclusive lower bound (defaults to now minus 30 days). */
+                tsFrom?: string;
+                /** @description Inclusive upper bound (defaults to now). */
+                tsTo?: string;
+                /** @description Page number (1-based). page × pageSize must not exceed 10 000. */
+                page?: number;
+                /** @description Rows per page. */
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated audit log entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogListResponse"];
+                };
+            };
+            /** @description Validation error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden — admin role required. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

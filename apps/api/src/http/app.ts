@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import jwt from "@fastify/jwt";
 import cors from "@fastify/cors";
 import { loadConfig, normalizeJwtTtl, type AppConfig } from "../platform/config";
-import { buildLoggerOptions } from "../platform/logger";
+import { buildLoggerOptions, registerRequestLogging } from "../platform/logger";
 import { registerErrorHandler } from "../platform/errors";
 import { createDbClient, type Sql } from "../platform/db";
 import { registerRoutes } from "./routes";
@@ -30,7 +30,14 @@ declare module "fastify" {
  */
 export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
   const resolvedConfig: AppConfig = { ...config, jwtTtl: normalizeJwtTtl(config.jwtTtl) };
-  const app = Fastify({ logger: buildLoggerOptions(resolvedConfig) });
+  const app = Fastify({
+    logger: buildLoggerOptions(resolvedConfig),
+    disableRequestLogging: true,
+  });
+
+  if (resolvedConfig.logger) {
+    registerRequestLogging(app);
+  }
 
   app.decorate("config", resolvedConfig);
 

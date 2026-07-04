@@ -1,7 +1,7 @@
 -- migrate:up
 
 -- Internal service accounts for audit attribution (ADR 0018).
-ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'system';
+-- user_role 'system' is added in 20260704115000_add_system_user_role.sql (separate txn).
 
 ALTER TABLE users
   ADD COLUMN IF NOT EXISTS updated_at timestamptz,

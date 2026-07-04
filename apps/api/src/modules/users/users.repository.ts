@@ -1,6 +1,7 @@
 import type { Sql } from "../../platform/db";
 import type { UserRole } from "../../platform/auth.plugin";
 import { isServiceUserId, isServiceUserRole, SYSTEM_USER_ROLE } from "../../platform/serviceUsers";
+import { ROW_STATUS } from "../../platform/rowStatus";
 
 /** Shape of a row returned from the `users` table. */
 export interface UserRow {
@@ -111,4 +112,35 @@ export async function updateUserRole(
     RETURNING id, email, role, created_at
   `;
   return rows[0];
+}
+
+/** Row returned from prefix user search (includes service accounts). */
+export interface UserSearchRow {
+  id: string;
+  email: string;
+  role: string;
+}
+
+/**
+ * Prefix-searches active users by email (case-insensitive).
+ * Includes internal service accounts for audit actor autocomplete.
+ *
+ * @param db - postgres.js client.
+ * @param prefix - Email prefix (not wrapped with wildcards).
+ * @param limit - Maximum rows to return.
+ */
+export async function searchUsersByEmailPrefix(
+  db: Sql,
+  prefix: string,
+  limit: number,
+): Promise<UserSearchRow[]> {
+  const pattern = `${prefix}%`;
+  return db<UserSearchRow[]>`
+    SELECT id, email, role::text AS role
+    FROM users
+    WHERE status = ${ROW_STATUS.ACTIVE}
+      AND email ILIKE ${pattern}
+    ORDER BY email
+    LIMIT ${limit}
+  `;
 }

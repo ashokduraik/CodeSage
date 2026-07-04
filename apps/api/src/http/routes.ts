@@ -8,12 +8,14 @@ import { reposRoutes } from "../modules/repos";
 import { webhooksRoutes } from "../modules/webhooks";
 import { dashboardRoutes } from "../modules/dashboard";
 import { chatRoutes } from "../modules/chat";
+import { auditRoutes } from "../modules/audit";
 
 /** Domain route plugins registered in dependency order (health first for liveness). */
 const ROUTE_PLUGINS: FastifyPluginAsync[] = [
   healthRoutes,
   authRoutes,
   usersRoutes,
+  auditRoutes,
   projectsRoutes,
   reposRoutes,
   webhooksRoutes,

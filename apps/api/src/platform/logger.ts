@@ -1,4 +1,4 @@
-import type { FastifyServerOptions } from "fastify";
+import type { FastifyInstance, FastifyServerOptions } from "fastify";
 import type { AppConfig } from "./config";
 
 /** Fastify-compatible logger option: `false` to disable or a Pino configuration object. */
@@ -35,4 +35,24 @@ export function buildLoggerOptions(config: AppConfig): LoggerOption {
     /** Emit ISO 8601 wall-clock time instead of epoch milliseconds. */
     timestamp: () => `,"time":"${new Date().toISOString()}"`,
   };
+}
+
+/**
+ * Registers per-request access logs at `debug` (Fastify defaults to `info`).
+ *
+ * @param app - Fastify instance with logging enabled.
+ */
+export function registerRequestLogging(app: FastifyInstance): void {
+  app.addHook("onRequest", (request, _reply, done) => {
+    request.log.debug({ req: request }, "incoming request");
+    done();
+  });
+
+  app.addHook("onResponse", (request, reply, done) => {
+    request.log.debug(
+      { res: reply, responseTime: reply.elapsedTime },
+      "request completed",
+    );
+    done();
+  });
 }

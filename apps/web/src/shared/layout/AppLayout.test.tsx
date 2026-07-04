@@ -1,18 +1,17 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import "@/i18n";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { Route, Routes } from "react-router-dom";
+import { renderWithRouter } from "@/test/utils";
 import { AppLayout } from "./AppLayout";
 
 function renderLayout() {
-  return render(
-    <MemoryRouter initialEntries={["/"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<div>child content</div>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
+  return renderWithRouter(
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<div>child content</div>} />
+      </Route>
+    </Routes>,
+    { route: "/" },
   );
 }
 

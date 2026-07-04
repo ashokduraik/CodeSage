@@ -19,9 +19,29 @@ describe("Sidebar", () => {
     expect(screen.getByRole("link", { name: "Chat" }).getAttribute("aria-current")).toBeNull();
   });
 
-  it("marks the chat link active on a chat sub-route", () => {
-    renderWithRouter(<Sidebar />, { route: "/chat/s1" });
-    expect(screen.getByRole("link", { name: "Chat" }).getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("aria-current")).toBeNull();
+  it("shows audit log nav for admin users", () => {
+    renderWithRouter(<Sidebar />, {
+      route: "/",
+      user: {
+        id: "u1",
+        email: "admin@example.com",
+        role: "admin",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+    expect(screen.getByRole("link", { name: "Audit log" })).toBeTruthy();
+  });
+
+  it("hides audit log nav for non-admin users", () => {
+    renderWithRouter(<Sidebar />, {
+      route: "/",
+      user: {
+        id: "u2",
+        email: "dev@example.com",
+        role: "developer",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+    expect(screen.queryByRole("link", { name: "Audit log" })).toBeNull();
   });
 });

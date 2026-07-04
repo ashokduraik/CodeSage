@@ -1,12 +1,18 @@
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
+import { useAuth } from "@/features/auth";
 import { NAV_ITEMS, isNavItemActive } from "./navItems";
 
 /** Fixed left navigation rail shown on large screens. */
 export function Sidebar() {
   const { t } = useTranslation();
   const { pathname } = useLocation();
+  const { user } = useAuth();
+
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => !item.adminOnly || user?.role === "admin",
+  );
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 z-50 flex w-64 flex-col bg-sidebar text-sidebar-foreground">
@@ -27,7 +33,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const active = isNavItemActive(item.path, pathname);
           return (
             <Link

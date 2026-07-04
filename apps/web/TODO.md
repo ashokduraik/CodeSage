@@ -42,6 +42,10 @@ Component checklist, organized by feature. Check items as they land. (Global seq
 - [ ] Permission map browser.
 - [ ] Data-flow / freshness browser.
 
+## Admin / audit feature
+- [x] Audit log page — filters (actor, action, date range), hasMore pagination, URL-synced state.
+- [x] Admin route guard and conditional nav entry.
+
 ## Cross-cutting
 - [ ] Loading / error / empty states across features.
 - [ ] Accessibility pass.

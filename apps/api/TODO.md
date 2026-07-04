@@ -21,6 +21,10 @@ Checklist organized by module. (Global sequencing lives in `docs/final-solution.
 ## users
 - [x] User CRUD — `GET /users/me`, `POST /users` (admin-only).
 - [x] Role assignment (`PATCH /users/:id/role`).
+- [x] User prefix search — `GET /users/search` (admin-only, actor autocomplete).
+
+## audit
+- [x] Audit log list — `GET /audit-logs` (admin-only, filters, hasMore pagination).
 
 ## projects
 - [x] Project CRUD — `GET /projects`, `POST /projects`, `GET /projects/:id`, `DELETE /projects/:id`.
