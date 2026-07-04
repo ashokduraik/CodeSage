@@ -13,6 +13,7 @@ const CONFIG: AppConfig = {
   encryptionKey: "",
   mockMode: false,
   ragBaseUrl: "http://rag.test",
+  webhookBaseUrl: "",
 };
 
 afterEach(() => {
@@ -30,6 +31,7 @@ describe("postRagQueryStream", () => {
       question: "where?",
       projectId: "11111111-1111-1111-1111-111111111111",
       audience: "developer",
+      generateTitle: false,
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -46,6 +48,7 @@ describe("postRagQueryStream", () => {
         question: "where?",
         projectId: "11111111-1111-1111-1111-111111111111",
         audience: "developer",
+        generateTitle: false,
       }),
     ).rejects.toThrow("RAG query failed");
   });

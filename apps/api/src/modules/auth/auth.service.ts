@@ -5,6 +5,8 @@ import { ApiError } from "../../platform/errors";
 import type { JwtPayload, UserRole } from "../../platform/auth.plugin";
 import type { NodeApi } from "@codesage/shared-types";
 
+type LoginResponse = NodeApi.components["schemas"]["LoginResponse"];
+
 /** Database row shape returned by the users table login query. */
 interface UserRow {
   id: string;
@@ -22,7 +24,7 @@ interface UserRow {
  * @param app - The Fastify instance (used to sign the JWT via `app.jwt.sign`).
  * @param email - The user's email address.
  * @param password - The plaintext password to verify.
- * @returns A {@link NodeApi.components["schemas"]["LoginResponse"]} with the signed token and user.
+ * @returns A {@link LoginResponse} with the signed token and user.
  * @throws {@link ApiError} 401 if the email is not found or the password does not match.
  */
 export async function loginUser(
@@ -30,7 +32,7 @@ export async function loginUser(
   app: FastifyInstance,
   email: string,
   password: string,
-): Promise<NodeApi.components["schemas"]["LoginResponse"]> {
+): Promise<LoginResponse> {
   const rows = await db<UserRow[]>`
     SELECT id, email, role, password_hash, created_at
     FROM users

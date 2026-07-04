@@ -81,6 +81,13 @@ describe("removeProject", () => {
     expect(mockSoftDelete).toHaveBeenCalledWith(DB, "p1");
   });
 
+  it("throws 404 when soft delete fails after detach", async () => {
+    mockFind.mockResolvedValue(ROW);
+    mockFindRepos.mockResolvedValue([]);
+    mockSoftDelete.mockResolvedValue(false);
+    await expect(removeProject(DB, "p1", "")).rejects.toMatchObject({ statusCode: 404 });
+  });
+
   it("throws 404 when the project does not exist", async () => {
     mockFind.mockResolvedValue(undefined);
     await expect(removeProject(DB, "missing", "")).rejects.toMatchObject({ statusCode: 404 });
@@ -96,6 +103,18 @@ describe("listProjects", () => {
 });
 
 describe("getProject", () => {
+  it("returns the mapped project when found", async () => {
+    mockFind.mockResolvedValue(ROW);
+    const result = await getProject(DB, "p1");
+    expect(result).toEqual({
+      id: "p1",
+      name: "Acme",
+      status: "active",
+      repoCount: 0,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+  });
+
   it("throws 404 when not found", async () => {
     mockFind.mockResolvedValue(undefined);
     await expect(getProject(DB, "missing")).rejects.toMatchObject({ statusCode: 404 });
@@ -103,6 +122,13 @@ describe("getProject", () => {
 });
 
 describe("createProject", () => {
+  it("creates a project and returns the mapped response", async () => {
+    mockInsert.mockResolvedValue(ROW);
+    const result = await createProject(DB, "  Acme  ");
+    expect(mockInsert).toHaveBeenCalledWith(DB, "Acme");
+    expect(result.name).toBe("Acme");
+  });
+
   it("throws 400 when name is blank", async () => {
     await expect(createProject(DB, "   ")).rejects.toMatchObject({
       statusCode: 400,

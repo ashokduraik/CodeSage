@@ -23,11 +23,10 @@ vi.mock("../../platform/audit", () => ({
 }));
 
 const { buildApp } = await import("../../http/app");
-import { listRepos, attachRepo, detachRepo, probeRepoUrl, syncRepo } from "./repos.service";
+import { attachRepo, detachRepo, probeRepoUrl, syncRepo } from "./repos.service";
 import { ApiError } from "../../platform/errors";
 import type { JwtPayload } from "../../platform/auth.plugin";
 
-const mockList = vi.mocked(listRepos);
 const mockAttach = vi.mocked(attachRepo);
 const mockDetach = vi.mocked(detachRepo);
 const mockProbe = vi.mocked(probeRepoUrl);

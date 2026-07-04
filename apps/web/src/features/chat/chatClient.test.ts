@@ -69,6 +69,7 @@ describe("streamChatQuery", () => {
         question: "hi",
         projectId: "11111111-1111-1111-1111-111111111111",
         audience: "developer",
+        generateTitle: false,
       }),
     ).rejects.toThrow(/502/);
   });
@@ -92,6 +93,7 @@ describe("streamChatQuery", () => {
       question: "unknown?",
       projectId: "11111111-1111-1111-1111-111111111111",
       audience: "developer",
+      generateTitle: false,
     });
     expect(result.content).toBe("Not certain");
     expect(result.needsReview).toBe(true);
