@@ -7,7 +7,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 RUN npm ci
 COPY . .
-RUN npm run codegen && npm run build -w @codesage/api
+RUN npm run codegen:ts && npm run build -w @codesage/api
 
 FROM node:24-bookworm-slim AS run
 WORKDIR /app

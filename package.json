@@ -16,6 +16,7 @@
   },
   "scripts": {
     "codegen": "node scripts/codegen.mjs",
+    "codegen:ts": "node scripts/codegen.mjs --ts-only",
     "codegen:check": "node scripts/codegen.mjs --check",
     "build": "npm run build -w @codesage/shared-types && npm run build -w @codesage/api && npm run build -w @codesage/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
