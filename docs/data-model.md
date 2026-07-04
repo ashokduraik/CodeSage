@@ -59,7 +59,8 @@ Postgres covers everything the MVP needs, eliminating extra services:
 |---|---|---|
 | `conversations` | QA chat sessions | [`schema/conversations.md`](./schema/conversations.md) *(planned)* |
 | `messages` | Turns within a conversation | [`schema/messages.md`](./schema/messages.md) *(planned)* |
-| `jobs` | Postgres-backed job queue (ADR 0006) | [`schema/jobs.md`](./schema/jobs.md) |
+| `jobs` | Postgres-backed job queue (ADR 0006); supersession via row `status = 'D'`; see [`schema/jobs.md`](./schema/jobs.md) | [`schema/jobs.md`](./schema/jobs.md) |
+| `repo_indexing_events` | Per-repo indexing progress timeline (user-facing) | [`schema/repo_indexing_events.md`](./schema/repo_indexing_events.md) |
 | `audit_log` | Security/audit trail | [`schema/audit_log.md`](./schema/audit_log.md) |
 
 ## 3. Relationships (high level)

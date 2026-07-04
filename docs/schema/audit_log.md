@@ -3,7 +3,10 @@
 > **Status:** implemented  
 > **Domain:** QA, operations, audit
 
-Append-only security audit trail for sensitive actions (who did what, to what, when).
+Append-only security audit trail for sensitive product actions — logins, project/repo changes,
+role updates, and similar events that require accountability. Each row captures actor, action, target
+entity, timestamp, and optional detail payload for forensics. Unlike domain tables, audit rows are
+never soft-deleted; retention follows deployment policy and future purge ADRs if needed.
 
 ## Columns
 

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
+
+from config.logging import get_indexing_logger, log_event, short_commit
+from services.sync.paths import is_existing_clone
+
+logger = get_indexing_logger()
 
 
 @dataclass(frozen=True)
@@ -78,11 +84,14 @@ def sync_repository(
     @raises RuntimeError when git commands fail.
     """
     authed_url = build_authenticated_url(repo_url, token)
-    if worktree.exists() and (worktree / ".git").exists():
+    is_update = is_existing_clone(worktree)
+    if is_update:
+        log_event(logger, logging.INFO, "Fetching latest changes from remote")
         _run_git(["fetch", "--depth", "1", "origin", branch], cwd=worktree)
         _run_git(["checkout", branch], cwd=worktree)
         _run_git(["reset", "--hard", f"origin/{branch}"], cwd=worktree)
     else:
+        log_event(logger, logging.INFO, "Cloning repository (first sync)")
         worktree.parent.mkdir(parents=True, exist_ok=True)
         if worktree.exists():
             raise RuntimeError(f"Worktree path exists but is not a git repo: {worktree}")
@@ -99,11 +108,19 @@ def sync_repository(
         )
 
     head_sha = _run_git(["rev-parse", "HEAD"], cwd=worktree).stdout.strip()
+    log_event(logger, logging.INFO, f"Repository at commit {short_commit(head_sha)}")
+
     if since_sha and since_sha != head_sha:
         diff = _run_git(["diff", "--name-only", since_sha, head_sha], cwd=worktree)
         changed = [line.strip() for line in diff.stdout.splitlines() if line.strip()]
         all_indexable = set(list_files())
         changed_files = sorted(path for path in changed if path in all_indexable)
+        log_event(
+            logger,
+            logging.INFO,
+            f"{len(changed_files)} files changed since last index",
+        )
     else:
         changed_files = list_files()
+        log_event(logger, logging.INFO, "Full index — scanning all source files")
     return GitSyncResult(head_sha=head_sha, changed_files=changed_files)

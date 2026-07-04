@@ -5,7 +5,15 @@ from pathlib import Path
 import pytest
 
 from services.sync.git_ops import GitSyncResult, build_authenticated_url, sync_repository
-from services.sync.paths import is_indexable_file, list_indexable_files, repo_worktree_path, should_skip_dir
+from services.sync.paths import (
+    FileScanResult,
+    is_existing_clone,
+    is_indexable_file,
+    list_indexable_files,
+    repo_worktree_path,
+    scan_indexable_files,
+    should_skip_dir,
+)
 
 
 def test_build_authenticated_url_injects_token() -> None:
@@ -24,6 +32,15 @@ def test_repo_worktree_path() -> None:
     repo_id = uuid.uuid4()
     path = repo_worktree_path("/tmp/clones", repo_id)
     assert path == Path("/tmp/clones") / str(repo_id)
+
+
+def test_is_existing_clone(tmp_path: Path) -> None:
+    worktree = tmp_path / "repo"
+    assert is_existing_clone(worktree) is False
+    worktree.mkdir()
+    assert is_existing_clone(worktree) is False
+    (worktree / ".git").mkdir()
+    assert is_existing_clone(worktree) is True
 
 
 def test_list_indexable_files_filters(tmp_path: Path) -> None:
@@ -55,6 +72,54 @@ def test_list_indexable_files_skips_large_files(tmp_path: Path) -> None:
     big.write_text("x" * 20, encoding="utf-8")
     files = list_indexable_files(tmp_path, max_file_bytes=5)
     assert files == []
+
+
+def test_list_indexable_files_skips_large_files(tmp_path: Path) -> None:
+    big = tmp_path / "big.ts"
+    big.write_text("x" * 20, encoding="utf-8")
+    files = list_indexable_files(tmp_path, max_file_bytes=5)
+    assert files == []
+    scan = scan_indexable_files(tmp_path, max_file_bytes=5)
+    assert scan.skipped_large_count == 1
+
+
+def test_sync_repository_clone_logs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import logging
+
+    from config import Settings
+    from config.logging import configure_logging
+
+    configure_logging(Settings(log_level="info"))
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path | None = None) -> object:
+        calls.append(args)
+
+        class Result:
+            stdout = "abc123\n"
+            returncode = 0
+
+        if args[:2] == ["rev-parse", "HEAD"]:
+            Result.stdout = "sha1\n"
+        return Result()
+
+    monkeypatch.setattr("services.sync.git_ops._run_git", fake_run)
+    worktree = tmp_path / "repo"
+    sync_repository(
+        repo_url="https://example.com/r.git",
+        branch="main",
+        worktree=worktree,
+        token=None,
+        since_sha=None,
+        list_files=lambda: ["a.ts"],
+    )
+    captured = capsys.readouterr()
+    assert "Cloning repository" in captured.err
+    assert "Full index" in captured.err
 
 
 def test_sync_repository_clone(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -141,6 +206,46 @@ def test_sync_repository_fetch_existing(monkeypatch: pytest.MonkeyPatch, tmp_pat
     )
     assert result.changed_files == ["a.ts"]
     assert any(args[0] == "fetch" for args in calls)
+
+
+def test_sync_repository_fetch_existing_logs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import logging
+
+    from config import Settings
+    from config.logging import configure_logging
+
+    configure_logging(Settings(log_level="info"))
+
+    def fake_run(args: list[str], *, cwd: Path | None = None) -> object:
+        class Result:
+            stdout = "sha2\n"
+            returncode = 0
+
+        if args[:2] == ["rev-parse", "HEAD"]:
+            Result.stdout = "sha2\n"
+        if args[:2] == ["diff", "--name-only"]:
+            Result.stdout = "a.ts\n"
+        return Result()
+
+    monkeypatch.setattr("services.sync.git_ops._run_git", fake_run)
+    worktree = tmp_path / "repo"
+    worktree.mkdir()
+    (worktree / ".git").mkdir()
+    sync_repository(
+        repo_url="https://example.com/r.git",
+        branch="main",
+        worktree=worktree,
+        token=None,
+        since_sha="sha1",
+        list_files=lambda: ["a.ts"],
+    )
+    captured = capsys.readouterr()
+    assert "Fetching latest changes" in captured.err
+    assert "Cloning repository" not in captured.err
 
 
 def test_sync_repository_rejects_non_git_existing_path(tmp_path: Path) -> None:

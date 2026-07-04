@@ -3,7 +3,11 @@
 > **Status:** planned (no migration yet)  
 > **Domain:** QA, operations, audit
 
-QA chat sessions scoped to a project and audience (developer vs end-user).
+QA chat sessions tying together a sequence of user and assistant turns for one project. Each
+conversation selects an audience mode — developer (code-grounded, graph/chunk citations) or
+end-user (product-knowledge layer) — so retrieval and prompting stay appropriate to the role.
+Sessions belong to the authenticated user (or service context) and persist history for resume,
+audit, and feedback on answer quality.
 
 ## Intended columns
 

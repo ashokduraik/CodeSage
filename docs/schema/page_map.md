@@ -3,7 +3,11 @@
 > **Status:** planned (no migration yet)  
 > **Domain:** Derived product knowledge (end-user layer)
 
-Derived map of UI pages/routes, their components, and backing data sources.
+Derived map of UI pages and routes inferred from front-end code and routing config within a project.
+Rows link each page to its components, entry files, and known API or data dependencies so end-user
+QA can explain “what this screen does” without reading source. Like other derived-knowledge tables,
+each entry carries confidence and citations; low-confidence pages may surface as expert questions
+instead of definitive chat answers.
 
 ## Intended columns
 

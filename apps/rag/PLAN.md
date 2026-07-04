@@ -24,6 +24,7 @@ Layered Python backend under **`src/`**: **api → services → repositories →
 ### Wiring
 1. **`api/routes/query.py`** — `POST /rag/query`, streams via services.
 2. **`workers/handlers/`** — dispatch each job type to the matching service.
+3. **Job dedup** — orphan reclaim on worker start; API supersession + 409 re-index throttle. ✅
 
 ## Definition of Done
 

@@ -5,10 +5,17 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, RootModel
+
+
+class Trigger(Enum):
+    initial_attach = 'initial_attach'
+    manual_sync = 'manual_sync'
+    webhook_push = 'webhook_push'
 
 
 class SyncPayload(BaseModel):
@@ -17,17 +24,29 @@ class SyncPayload(BaseModel):
         None,
         description='If present, only sync changes since this commit SHA (incremental). Absent on initial sync.',
     )
+    trigger: Trigger | None = Field(
+        None,
+        description='Why this indexing run was started (set by Node on sync enqueue).',
+    )
 
 
 class ParsePayload(BaseModel):
     repoId: UUID
     files: list[str] = Field(..., description='Relative file paths to parse.')
     sha: str = Field(..., description='Current HEAD SHA at parse time.')
+    runId: UUID | None = Field(
+        None, description='Sync job UUID grouping this indexing run.'
+    )
+    trigger: Trigger | None = None
 
 
 class EmbedPayload(BaseModel):
     repoId: UUID
     chunkIds: list[UUID] = Field(..., description='IDs of code_chunks rows to embed.')
+    runId: UUID | None = Field(
+        None, description='Sync job UUID grouping this indexing run.'
+    )
+    trigger: Trigger | None = None
 
 
 class XrepoPayload(BaseModel):

@@ -11,6 +11,7 @@ vi.mock("./repos.service", () => ({
   detachRepo: vi.fn(),
   probeRepoUrl: vi.fn(),
   syncRepo: vi.fn(),
+  listRepoIndexingEvents: vi.fn(),
 }));
 
 vi.mock("../../platform/audit", () => ({
@@ -23,7 +24,7 @@ vi.mock("../../platform/audit", () => ({
 }));
 
 const { buildApp } = await import("../../http/app");
-import { attachRepo, detachRepo, probeRepoUrl, syncRepo } from "./repos.service";
+import { attachRepo, detachRepo, probeRepoUrl, syncRepo, listRepoIndexingEvents } from "./repos.service";
 import { ApiError } from "../../platform/errors";
 import type { JwtPayload } from "../../platform/auth.plugin";
 
@@ -31,6 +32,7 @@ const mockAttach = vi.mocked(attachRepo);
 const mockDetach = vi.mocked(detachRepo);
 const mockProbe = vi.mocked(probeRepoUrl);
 const mockSync = vi.mocked(syncRepo);
+const mockListIndexingEvents = vi.mocked(listRepoIndexingEvents);
 
 const TEST_CONFIG = {
   host: "127.0.0.1",
@@ -44,6 +46,7 @@ const TEST_CONFIG = {
   mockMode: false,
   ragBaseUrl: "http://127.0.0.1:8001",
   webhookBaseUrl: "",
+  workerStaleJobSeconds: 600,
 } as const;
 
 const MOCK_REPO = {
@@ -173,6 +176,84 @@ describe("POST /projects/:projectId/repos/:repoId/sync", () => {
     });
     expect(res.statusCode).toBe(202);
     expect(res.json()).toEqual({ jobId: "job-sync" });
+    await app.close();
+  });
+
+  it("returns 409 when indexing is already in progress", async () => {
+    mockSync.mockRejectedValue(
+      new ApiError(409, "CONFLICT", "Indexing already in progress; retry after 10 minutes."),
+    );
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/projects/p1/repos/r1/sync",
+      headers: { authorization: `Bearer ${devToken(app)}` },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe("CONFLICT");
+    await app.close();
+  });
+});
+
+describe("GET /projects/:projectId/repos/:repoId/indexing-events", () => {
+  it("returns 401 when unauthenticated", async () => {
+    const app = buildApp(TEST_CONFIG);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/projects/p1/repos/r1/indexing-events",
+    });
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("returns paginated events when authenticated", async () => {
+    mockListIndexingEvents.mockResolvedValue({
+      items: [
+        {
+          id: "e1",
+          runId: "run-1",
+          step: "embed",
+          phase: "finished",
+          startedAt: "2026-07-04T14:36:00.000Z",
+          durationMs: 374,
+          message: "File tree parsed.",
+        },
+      ],
+      limit: 50,
+      hasMore: false,
+      nextCursor: null,
+    });
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/projects/p1/repos/r1/indexing-events?limit=50",
+      headers: { authorization: `Bearer ${devToken(app)}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().items).toHaveLength(1);
+    expect(mockListIndexingEvents).toHaveBeenCalledWith(
+      expect.anything(),
+      "p1",
+      "r1",
+      { limit: 50, cursor: undefined },
+    );
+    await app.close();
+  });
+
+  it("returns 404 when repo is not found", async () => {
+    mockListIndexingEvents.mockRejectedValue(
+      new ApiError(404, "NOT_FOUND", "Repo not found in this project."),
+    );
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/projects/p1/repos/missing/indexing-events",
+      headers: { authorization: `Bearer ${devToken(app)}` },
+    });
+    expect(res.statusCode).toBe(404);
     await app.close();
   });
 });

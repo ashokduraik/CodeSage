@@ -2,6 +2,7 @@
 
 from models.identity import Project, Repo, User
 from models.indexing import CodeChunk, GraphEdge, GraphNode
+from models.indexing_progress import RepoIndexingEvent
 from models.operations import AuditLog, Job
 
 __all__ = [
@@ -12,5 +13,6 @@ __all__ = [
     "Job",
     "Project",
     "Repo",
+    "RepoIndexingEvent",
     "User",
 ]

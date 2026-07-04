@@ -3,7 +3,11 @@
 > **Status:** planned (no migration yet)  
 > **Domain:** Expert-in-the-loop
 
-Queue of clarification questions raised when the system lacks confident grounded answers.
+Queue of clarification requests created when retrieval or distillation cannot produce a confident,
+grounded answer — replacing silent hallucination with an explicit ask to a human expert. Questions
+are scoped to a project (and often a repo or page) and carry context about what the user or pipeline
+was trying to resolve. Experts resolve items by submitting `expert_answers`; unresolved questions
+remain visible in admin/expert workflows until answered or dismissed.
 
 ## Intended columns
 

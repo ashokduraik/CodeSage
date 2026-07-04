@@ -3,7 +3,11 @@
 > **Status:** planned (no migration yet)  
 > **Domain:** QA, operations, audit
 
-Individual turns within a QA conversation, with grounded citations on assistant replies.
+Individual turns within a `conversations` row: user prompts and assistant replies stored in order.
+Assistant messages attach grounded citations (code chunks, graph nodes, or derived-knowledge sources)
+so the UI can show “why” alongside each answer; when grounding is insufficient, the pipeline may
+emit an uncertainty response or enqueue an `expert_question` instead of inventing detail. Messages are
+append-only within a conversation for a clear audit trail of what was asked and answered.
 
 ## Intended columns
 

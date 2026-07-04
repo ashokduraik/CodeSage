@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from config import Settings
 from models import Job
 from services.embedding.run_embed import create_embed_handler
+from services.indexing.job_context import JobExecutionContext
 from services.parsing.run_parse import create_parse_handler
 from services.sync.run_sync import create_sync_handler
 from workers.jobs import is_known_job
@@ -19,10 +20,13 @@ class UnsupportedJobError(ValueError):
     """Raised when a job type has no handler in the current phase."""
 
 
+HandlerFn = Callable[[dict[str, Any], JobExecutionContext, Session], None]
+
+
 def build_job_handlers(
     settings: Settings,
     session_factory: sessionmaker[Session],
-) -> dict[str, Callable[[dict[str, Any]], None]]:
+) -> dict[str, HandlerFn]:
     """Create the Phase 1 handler map keyed by job type.
 
     @param settings - Application settings.
@@ -38,12 +42,16 @@ def build_job_handlers(
 
 def dispatch_job(
     job: Job,
-    handlers: dict[str, Callable[[dict[str, Any]], None]],
+    handlers: dict[str, HandlerFn],
+    ctx: JobExecutionContext,
+    session: Session,
 ) -> None:
     """Invoke the handler for a claimed job row.
 
     @param job - Claimed job ORM instance.
     @param handlers - Handler map from {@link build_job_handlers}.
+    @param ctx - Execution context for progress recording.
+    @param session - Shared SQLAlchemy session for the job transaction.
     @raises UnsupportedJobError when the job type is unknown or not implemented.
     """
     if not is_known_job(job.type):
@@ -51,4 +59,4 @@ def dispatch_job(
     handler = handlers.get(job.type)
     if handler is None:
         raise UnsupportedJobError(f"No handler registered for job type: {job.type}")
-    handler(job.payload)
+    handler(job.payload, ctx, session)

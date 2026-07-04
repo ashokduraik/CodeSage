@@ -3,7 +3,11 @@
 > **Status:** planned (no migration yet)  
 > **Domain:** Expert-in-the-loop
 
-Authoritative expert responses that override LLM-inferred knowledge and survive re-indexing.
+Authoritative expert-authored responses linked to `expert_questions` (or standing knowledge topics).
+Unlike LLM-derived rows, expert answers are treated as ground truth in QA and intentionally survive
+re-indexing — they override or supplement inferred workflows, permissions, and page maps when code
+alone is ambiguous. Each answer records the expert user, timestamp, and optional scope so audit and
+RBAC remain intact.
 
 ## Intended columns
 

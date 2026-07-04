@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+from urllib.parse import urlparse
 
 import httpx
 
 from config import Settings
+from config.logging import sanitize_log_message
 
 
 def fake_embedding(text: str, dimension: int) -> list[float]:
@@ -56,14 +58,27 @@ class EmbeddingClient:
 
         @param texts - Input strings.
         @returns Parsed embedding vectors.
+        @raises RuntimeError when the TEI request fails.
         """
-        url = f"{self._settings.tei_base_url.rstrip('/')}/embeddings"
+        base = self._settings.tei_base_url.rstrip("/")
+        url = f"{base}/embeddings"
+        host = urlparse(base).hostname or base
         body: dict[str, object] = {"input": texts}
         if self._settings.tei_embed_model:
             body["model"] = self._settings.tei_embed_model
-        response = httpx.post(url, json=body, timeout=60.0)
+        try:
+            response = httpx.post(url, json=body, timeout=60.0)
+        except httpx.ConnectError as exc:
+            raise RuntimeError(
+                f"Cannot connect to embedding service at {host}: {exc}",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise RuntimeError(
+                f"Embedding service request failed at {host}: {exc}",
+            ) from exc
         if response.status_code >= 400:
-            raise RuntimeError(f"TEI embed failed ({response.status_code}): {response.text}")
+            detail = sanitize_log_message(response.text)
+            raise RuntimeError(f"TEI embed failed ({response.status_code}): {detail}")
         data = response.json()
         items = data.get("data", [])
         return [item["embedding"] for item in items]

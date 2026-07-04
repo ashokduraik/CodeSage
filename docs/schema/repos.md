@@ -3,7 +3,10 @@
 > **Status:** implemented  
 > **Domain:** Identity & projects
 
-Git repositories attached to a project. Stores encrypted access tokens, webhook config, and sync/indexing metadata.
+Git repositories connected to a project — the entry point for sync, parse, and embed pipelines.
+Each row holds provider metadata, an encrypted read-only access token, webhook configuration, and
+connection/indexing state (`connection_status`, last sync commit, etc.). Detaching a repo soft-deletes
+the row (`status = 'D'`) so webhooks and workers stop processing it while history remains auditable.
 
 ## Columns
 

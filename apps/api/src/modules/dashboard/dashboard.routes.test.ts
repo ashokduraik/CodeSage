@@ -33,6 +33,7 @@ const TEST_CONFIG = {
   mockMode: false,
   ragBaseUrl: "http://127.0.0.1:8001",
   webhookBaseUrl: "",
+  workerStaleJobSeconds: 600,
 } as const;
 
 const MOCK_CONFIG = { ...TEST_CONFIG, mockMode: true } as const;

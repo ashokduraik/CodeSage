@@ -3,7 +3,10 @@
 > **Status:** implemented  
 > **Domain:** Identity & projects
 
-Accounts with email/password auth and RBAC role assignment.
+Human and service accounts that authenticate to CodeSage and carry a role for access control.
+Each row stores email, a password hash, and an RBAC role (`admin`, `expert`, `developer`, or
+`end_user`) that gates API and UI capabilities. Internal `system` users (e.g. `rag-worker`) are
+seeded for background writes and cannot log in; see ADR 0018.
 
 ## Columns
 

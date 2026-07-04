@@ -14,6 +14,7 @@ const CONFIG: AppConfig = {
   mockMode: false,
   ragBaseUrl: "http://rag.test",
   webhookBaseUrl: "",
+  workerStaleJobSeconds: 600,
 };
 
 afterEach(() => {

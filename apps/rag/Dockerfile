@@ -5,4 +5,4 @@ COPY apps/rag /app/apps/rag
 WORKDIR /app/apps/rag
 RUN uv sync --no-dev
 EXPOSE 8001
-CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uv", "run", "python", "-m", "api.run", "--host", "0.0.0.0", "--port", "8001"]

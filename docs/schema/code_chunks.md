@@ -3,7 +3,10 @@
 > **Status:** implemented  
 > **Domain:** Code knowledge (developer layer)
 
-RAG retrieval units: source text spans with optional embedding vectors for semantic search.
+Retrieval units for semantic search: contiguous source text spans (functions, blocks, docs) with
+metadata tying each chunk to file, symbol, and repo. After embed jobs run, rows store pgvector
+embeddings used by the RAG service to ground chat answers with citations. Chunks are rebuilt on
+re-index; stale vectors for a repo are replaced rather than accumulated indefinitely.
 
 ## Columns
 

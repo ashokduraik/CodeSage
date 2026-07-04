@@ -107,7 +107,9 @@ The Node API handles auth, CRUD, and WebSocket streaming — fast, non-blocking 
 heavy (cloning repos, parsing, embedding, distillation, retrieval) runs in Python and is stored in
 a **single PostgreSQL database** — vectors, graph, job queue, and encrypted repo tokens all live
 there, with no separate Redis, Qdrant, or Neo4j. Node either enqueues a background job or calls
-Python and streams the result back. All business logic lives in `apps/rag/src/services/`.
+Python and streams the result back. Manual re-index (`POST …/repos/:repoId/sync`) returns **409**
+when indexing is already in progress (younger than `WORKER_STALE_JOB_SECONDS`, default 10 min).
+All business logic lives in `apps/rag/src/services/`.
 See [`AGENTS.md`](./AGENTS.md) before editing.
 
 Expert answers are treated as authoritative: they outrank LLM-inferred values and survive

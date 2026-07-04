@@ -18,6 +18,7 @@ rules change.
 | `graph_edges` | Code knowledge | [`graph_edges.md`](./graph_edges.md) |
 | `code_chunks` | Code knowledge | [`code_chunks.md`](./code_chunks.md) |
 | `jobs` | Operations | [`jobs.md`](./jobs.md) |
+| `repo_indexing_events` | Operations | [`repo_indexing_events.md`](./repo_indexing_events.md) |
 | `audit_log` | Operations | [`audit_log.md`](./audit_log.md) |
 | `schema_migrations` | Operations (runner) | [`schema_migrations.md`](./schema_migrations.md) |
 

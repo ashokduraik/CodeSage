@@ -1,17 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { FastifyBaseLogger } from 'fastify';
+
+const MIGRATIONS_DIR = dirname(fileURLToPath(import.meta.url)) + '/migrations';
 
 /**
  * Mock node:fs so no real filesystem access happens during tests.
  * Each test configures the mocks as needed.
  */
-vi.mock('node:fs', () => ({
-  default: {
-    readdirSync: vi.fn(),
-    readFileSync: vi.fn(),
-    cpSync: vi.fn(),
-  },
-}));
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    default: {
+      readdirSync: vi.fn(),
+      readFileSync: vi.fn(),
+      cpSync: vi.fn(),
+      existsSync: actual.existsSync,
+    },
+    existsSync: actual.existsSync,
+    readFileSync: actual.readFileSync,
+  };
+});
 
 /**
  * Mock import.meta.url resolution so MIGRATIONS_DIR resolves predictably.
@@ -204,5 +215,12 @@ describe('runMigrations', () => {
     await runMigrations(sql as never, log);
 
     expect(log.info).toHaveBeenCalledWith('all migrations already applied');
+  });
+
+  it('ships idx_jobs_repo_active migration for job supersession lookups', () => {
+    const path = join(MIGRATIONS_DIR, '20260704170000_idx_jobs_repo_active.sql');
+    const sql = readFileSync(path, 'utf8');
+    expect(sql).toContain('idx_jobs_repo_active');
+    expect(sql).toContain("payload->>'repoId'");
   });
 });

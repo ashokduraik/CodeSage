@@ -8,15 +8,22 @@ vi.mock("./repos.repository", () => ({
   updateRepoWebhook: vi.fn(),
   softDeleteRepo: vi.fn(),
   setRepoConnecting: vi.fn(),
+  findIndexingEventsByRepo: vi.fn(),
 }));
 
 vi.mock("../projects/projects.repository", () => ({
   findProjectById: vi.fn(),
 }));
 
-vi.mock("../../platform/queue", () => ({
-  enqueueJob: vi.fn(),
-}));
+vi.mock("../../platform/queue", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../platform/queue")>();
+  return {
+    ...actual,
+    enqueueJob: vi.fn(),
+    cancelPendingJobsForRepo: vi.fn(),
+    findActiveJobsForRepo: vi.fn(),
+  };
+});
 
 vi.mock("./repo-probe.service", () => ({
   probeRepo: vi.fn(),
@@ -27,7 +34,7 @@ vi.mock("./repo-webhook.service", () => ({
   unregisterRepoWebhook: vi.fn(),
 }));
 
-const { listRepos, attachRepo, detachRepo, syncRepo } = await import("./repos.service");
+const { listRepos, attachRepo, detachRepo, syncRepo, listRepoIndexingEvents } = await import("./repos.service");
 import {
   findReposByProject,
   findRepoById,
@@ -36,9 +43,14 @@ import {
   updateRepoWebhook,
   softDeleteRepo,
   setRepoConnecting,
+  findIndexingEventsByRepo,
 } from "./repos.repository";
 import { findProjectById } from "../projects/projects.repository";
-import { enqueueJob } from "../../platform/queue";
+import {
+  cancelPendingJobsForRepo,
+  enqueueJob,
+  findActiveJobsForRepo,
+} from "../../platform/queue";
 import { registerRepoWebhook, unregisterRepoWebhook } from "./repo-webhook.service";
 import type { Sql } from "../../platform/db";
 
@@ -50,7 +62,10 @@ const mockUpdateWebhook = vi.mocked(updateRepoWebhook);
 const mockFindSecrets = vi.mocked(findRepoSecretsById);
 const mockSoftDeleteRepo = vi.mocked(softDeleteRepo);
 const mockSetConnecting = vi.mocked(setRepoConnecting);
+const mockFindIndexingEvents = vi.mocked(findIndexingEventsByRepo);
 const mockEnqueue = vi.mocked(enqueueJob);
+const mockCancelPending = vi.mocked(cancelPendingJobsForRepo);
+const mockFindActiveJobs = vi.mocked(findActiveJobsForRepo);
 const mockRegisterWebhook = vi.mocked(registerRepoWebhook);
 const mockUnregisterWebhook = vi.mocked(unregisterRepoWebhook);
 
@@ -117,6 +132,7 @@ describe("attachRepo", () => {
       webhookEnabled: false,
     });
     mockEnqueue.mockResolvedValue("job-1");
+    mockCancelPending.mockResolvedValue(0);
 
     const result = await attachRepo(
       DB,
@@ -128,6 +144,13 @@ describe("attachRepo", () => {
     );
     expect(result.repo.id).toBe("r1");
     expect(result.jobId).toBe("job-1");
+    expect(mockCancelPending).toHaveBeenCalledWith(DB, "r1", ACTOR);
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      DB,
+      "sync",
+      { repoId: "r1", trigger: "initial_attach" },
+      ACTOR,
+    );
     expect(mockInsertRepo).toHaveBeenCalledWith(
       DB,
       expect.objectContaining({ primaryLanguage: "TypeScript" }),
@@ -197,14 +220,54 @@ describe("attachRepo", () => {
 });
 
 describe("syncRepo", () => {
-  it("sets connecting and enqueues a sync job", async () => {
+  it("sets connecting and enqueues a sync job when no active jobs exist", async () => {
     mockFindRepoById.mockResolvedValue(REPO_ROW);
+    mockFindActiveJobs.mockResolvedValue([]);
+    mockCancelPending.mockResolvedValue(0);
     mockEnqueue.mockResolvedValue("job-sync");
 
     const result = await syncRepo(DB, "p1", "r1", ACTOR);
     expect(result.jobId).toBe("job-sync");
     expect(mockSetConnecting).toHaveBeenCalledWith(DB, "r1", ACTOR);
-    expect(mockEnqueue).toHaveBeenCalledWith(DB, "sync", { repoId: "r1" }, ACTOR);
+    expect(mockCancelPending).toHaveBeenCalledWith(DB, "r1", ACTOR);
+    expect(mockEnqueue).toHaveBeenCalledWith(DB, "sync", { repoId: "r1", trigger: "manual_sync" }, ACTOR);
+  });
+
+  it("throws 409 when active job is younger than stale threshold", async () => {
+    mockFindRepoById.mockResolvedValue(REPO_ROW);
+    mockFindActiveJobs.mockResolvedValue([
+      {
+        id: "j1",
+        job_status: "pending",
+        created_at: new Date(),
+        locked_at: null,
+      },
+    ]);
+
+    await expect(syncRepo(DB, "p1", "r1", ACTOR, 600)).rejects.toMatchObject({
+      statusCode: 409,
+      code: "CONFLICT",
+    });
+    expect(mockEnqueue).not.toHaveBeenCalled();
+  });
+
+  it("cancels stale pending jobs then enqueues sync", async () => {
+    mockFindRepoById.mockResolvedValue(REPO_ROW);
+    const old = new Date(Date.now() - 700_000);
+    mockFindActiveJobs.mockResolvedValue([
+      {
+        id: "j1",
+        job_status: "pending",
+        created_at: old,
+        locked_at: null,
+      },
+    ]);
+    mockCancelPending.mockResolvedValue(2);
+    mockEnqueue.mockResolvedValue("job-sync");
+
+    const result = await syncRepo(DB, "p1", "r1", ACTOR, 600);
+    expect(result.jobId).toBe("job-sync");
+    expect(mockCancelPending).toHaveBeenCalledWith(DB, "r1", ACTOR);
   });
 
   it("throws 404 when the repo does not exist", async () => {
@@ -230,5 +293,67 @@ describe("detachRepo", () => {
   it("throws 404 when the repo does not exist", async () => {
     mockFindSecrets.mockResolvedValue(undefined);
     await expect(detachRepo(DB, "p1", "missing", "", ACTOR)).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+const EVENT_ROW = {
+  id: "e1",
+  run_id: "run-1",
+  step: "sync",
+  phase: "finished",
+  started_at: new Date("2026-07-04T14:36:00.000Z"),
+  duration_ms: 374,
+  message: "Repository synced.",
+  failure_reason: null,
+  trigger: "manual_sync",
+  details: { commit_sha: "abc" },
+};
+
+describe("listRepoIndexingEvents", () => {
+  it("returns empty list when repo exists but has no events", async () => {
+    mockFindRepoById.mockResolvedValue(REPO_ROW);
+    mockFindIndexingEvents.mockResolvedValue([]);
+    const result = await listRepoIndexingEvents(DB, "p1", "r1");
+    expect(result).toEqual({ items: [], limit: 50, hasMore: false, nextCursor: null });
+  });
+
+  it("returns hasMore and nextCursor when extra row is fetched", async () => {
+    mockFindRepoById.mockResolvedValue(REPO_ROW);
+    mockFindIndexingEvents.mockResolvedValue([
+      EVENT_ROW,
+      { ...EVENT_ROW, id: "e2", started_at: new Date("2026-07-04T14:35:00.000Z") },
+    ]);
+    const result = await listRepoIndexingEvents(DB, "p1", "r1", { limit: 1 });
+    expect(result.items).toHaveLength(1);
+    expect(result.hasMore).toBe(true);
+    expect(result.nextCursor).toBeTruthy();
+    expect(result.items[0]?.runId).toBe("run-1");
+  });
+
+  it("throws 404 when repo is missing", async () => {
+    mockFindRepoById.mockResolvedValue(undefined);
+    await expect(listRepoIndexingEvents(DB, "p1", "missing")).rejects.toMatchObject({
+      statusCode: 404,
+    });
+  });
+
+  it("throws 400 for invalid cursor", async () => {
+    mockFindRepoById.mockResolvedValue(REPO_ROW);
+    await expect(
+      listRepoIndexingEvents(DB, "p1", "r1", { cursor: "bad-cursor" }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("maps durationMs from details.elapsed_ms when column is null", async () => {
+    mockFindRepoById.mockResolvedValue(REPO_ROW);
+    mockFindIndexingEvents.mockResolvedValue([
+      {
+        ...EVENT_ROW,
+        duration_ms: null,
+        details: { elapsed_ms: 820 },
+      },
+    ]);
+    const result = await listRepoIndexingEvents(DB, "p1", "r1");
+    expect(result.items[0]?.durationMs).toBe(820);
   });
 });

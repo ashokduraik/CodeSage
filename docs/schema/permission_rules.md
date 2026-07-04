@@ -3,7 +3,11 @@
 > **Status:** planned (no migration yet)  
 > **Domain:** Derived product knowledge (end-user layer)
 
-Per-page or per-action permission requirements inferred from code and config.
+Inferred permission and authorization rules — which roles or claims are required to reach a page or
+perform an action — distilled from middleware, guards, and config across repos. End-user chat uses
+this layer to answer “who can do X?” with grounded references rather than guessing from generic
+patterns. Rules are versioned with indexing runs and must record confidence plus source citations
+for trust and auditability.
 
 ## Intended columns
 

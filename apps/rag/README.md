@@ -19,6 +19,9 @@ Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from t
 | `REPO_CLONE_DIR` | `/var/codesage/repos` | yes | Where `sync` jobs clone repositories (Phase 3+). |
 | `EMBEDDING_DIMENSION` | `1024` | yes | pgvector column width; must match the TEI model. |
 | `RAG_PORT` | `8001` | Docker only | Host port mapping in Compose (not read by app yet). |
+| `WORKER_IDLE_SECONDS` | `10` | yes | Sleep between polls when the `jobs` queue is empty. |
+| `LOG_LEVEL` | `info` | yes | Indexing log verbosity (`info` or `debug` for per-file detail). |
+| `WORKER_POLL_SECONDS` | `2` | no | Reserved; consumer uses `WORKER_IDLE_SECONDS` today. |
 | `WORKER_CONCURRENCY` | `2` | planned | Max parallel heavy jobs (Phase 3). |
 | `VLLM_BASE_URL`, `VLLM_MODEL` | see `.env.example` | planned | LLM inference (Phase 1+). |
 | `TEI_BASE_URL`, `TEI_EMBED_MODEL` | see `.env.example` | planned | Embeddings (Phase 1+). |
@@ -43,8 +46,10 @@ npm run dev:rag
 Or from `apps/rag`:
 
 ```bash
-uv run uvicorn api.main:app --host 127.0.0.1 --port 8001 --reload
+uv run python -m api.run --reload --host 127.0.0.1 --port 8001
 ```
+
+All stdout lines use one format: `TIMESTAMP  LEVEL  [RAG]  message` (uvicorn included).
 
 - **`--reload`** — restart on file changes (dev only).
 - The app starts a **background worker thread** in the same process (see `api/main.py`); there
@@ -57,7 +62,7 @@ directory). To override inline:
 
 ```bash
 DATABASE_URL=postgresql://codesage:change-me@localhost:5432/codesage \
-  uv run uvicorn api.main:app --host 127.0.0.1 --port 8001
+  uv run python -m api.run --host 127.0.0.1 --port 8001
 ```
 
 ### Docker — RAG service only
@@ -70,6 +75,88 @@ curl http://localhost:8001/health
 ```
 
 Compose sets `DATABASE_URL` to the `db` service and waits for migrations to finish.
+
+## Worker & job queue
+
+The RAG process is a single deployable: HTTP API and background worker run together.
+
+| Topic | Detail |
+|---|---|
+| **Entry file** | `src/api/run.py` (dev) / `src/api/main.py` (app) — `npm run dev:rag` |
+| **Worker start** | FastAPI `lifespan` in `create_app()` spawns a daemon thread → `workers/worker.py` → `workers/consumer.py`. |
+| **Queue table** | `jobs` — not `repos`. Worker claims the oldest `job_status = 'pending'` row (`ORDER BY created_at`, `FOR UPDATE SKIP LOCKED`). |
+| **How a repo is indexed** | API attach enqueues `sync` `{ repoId }` → worker runs `sync` → enqueues `parse` → enqueues `embed`. |
+| **Poll frequency** | Processes jobs back-to-back while the queue has work. When empty, sleeps `WORKER_IDLE_SECONDS` (default **10 s**). |
+| **Orphan reclaim** | On startup and before each claim, `reclaim_orphaned_running_jobs()` resets active `running` → `pending` (previous worker died). |
+| **Stale reclaim** | `reclaim_stale_running_jobs()` after `WORKER_STALE_JOB_SECONDS` (default **600 s**) during normal operation. |
+| **Failed jobs** | Never auto-requeued; startup logs them as history only. |
+| **Manual re-index** | API returns **409** when active jobs for the repo are younger than `WORKER_STALE_JOB_SECONDS`; then cancels pending jobs and enqueues a fresh sync. |
+
+Indexing pipeline (per file):
+
+1. **sync** — clone to `REPO_CLONE_DIR/<repo_id>/`, list indexable `.ts`/`.js` files.
+2. **parse** — tree-sitter chunking → `code_chunks` + `graph_nodes` / `graph_edges`.
+3. **embed** — write vectors to `code_chunks.embedding`; mark project indexed when complete.
+
+Verify progress:
+
+```sql
+SELECT id, type, job_status, error_message, created_at, finished_at
+FROM jobs
+WHERE payload->>'repoId' = '<repo_id>'
+ORDER BY created_at;
+```
+
+## Logging
+
+Indexing logs use plain English and the unified `[RAG]` tag on **every** line
+(application, indexing worker, and uvicorn). Watch them in the terminal running
+`npm run dev:rag` or via `docker compose logs -f rag`.
+
+Set `LOG_LEVEL=info` (default) for the three-step story; `LOG_LEVEL=debug` adds per-file
+lines. Logs never contain tokens, passwords, or source code.
+
+### The three steps
+
+| Step | Job type | What you see |
+|---|---|---|
+| 1/3 | `sync` | Downloading the repository |
+| 2/3 | `parse` | Reading and splitting source files into code sections |
+| 3/3 | `embed` | Making code sections searchable |
+
+### Glossary
+
+| Technical term | Plain meaning in logs |
+|---|---|
+| `sync` | Downloading repository |
+| `parse` | Reading source files |
+| `embed` | Making code searchable |
+| code section | A chunk of source used for search |
+| commit | Short git revision id (7 characters) |
+| symbols | Functions/classes found in a file |
+
+### Example output
+
+```
+2026-07-04 17:03:00  INFO   [RAG]  Connected to PostgreSQL at localhost:5432/codesage_db
+2026-07-04 17:03:00  INFO   [RAG]  Database schema ready — service users verified
+2026-07-04 17:03:00  INFO   [RAG]  RAG service started — background indexing worker is running
+2026-07-04 17:03:00  INFO   [RAG]  Worker ready — clone directory D:\codesage\repos, poll every 10s
+2026-07-04 17:03:00  INFO   [RAG]  Job queue: 1 pending (1 sync) — processing now
+2026-07-04 17:03:01  INFO   [RAG]  Job claimed — project "My App" / repo github.com/org/repo (branch main) — Step 1/3 downloading repository
+2026-07-04 17:03:01  INFO   [RAG]  Step 1/3 started — downloading repository for project "My App" / repo github.com/org/repo (branch main)
+2026-07-04 17:03:01  INFO   [RAG]  Cloning repository (first sync)
+2026-07-04 17:03:15  INFO   [RAG]  Step 1/3 finished — repository download complete (commit a1b2c3d)
+2026-07-04 17:03:15  INFO   [RAG]  Queued Step 2/3 — reading 42 files for project "My App" / repo github.com/org/repo (branch main)
+2026-07-04 17:03:20  INFO   [RAG]  Step 2/3 progress — read 10 of 42 files (24%)
+2026-07-04 17:04:02  INFO   [RAG]  Indexing complete — project "My App" is ready for code questions
+```
+
+Set `LOG_LEVEL=debug` for per-file lines. If you only see startup lines, check the `jobs` table
+or attach a repo from the UI.
+
+Implementation rules: [`.cursor/rules/rag-indexing-logs.mdc`](../../.cursor/rules/rag-indexing-logs.mdc)
+and [`docs/rag-indexing-logs.md`](../../docs/rag-indexing-logs.md).
 
 ## Testing
 
@@ -156,15 +243,25 @@ apps/rag/
 
 Only **`apps/api`** (Node) should call this service over HTTP — not the browser directly.
 
+## Repo indexing progress (`repo_indexing_events`)
+
+The worker appends user-facing rows to `repo_indexing_events` for every indexing run (initial attach, manual re-index, webhook push). Each run is grouped by `run_id` (the sync job UUID) with step events for `sync` → `parse` → `embed` (`started`, `finished`, `failed`, `skipped`). Messages mirror `[RAG]` log wording; `failure_reason` uses `explain_failure()` for plain-English hints. Full history is retained. UI/API read path is planned — storage is live now.
+
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
+| `RAG startup configuration is incomplete` | Set `DATABASE_URL` and `REPO_CLONE_DIR` in `apps/rag/.env` (copy from `.env.example`). |
+| `Cannot connect to PostgreSQL` | Run `docker compose up -d db migrate` from repo root; confirm `DATABASE_URL` host/port match. |
+| Connects as wrong DB user (e.g. `codesage` not your user) | Ensure `apps/rag/.env` exists — RAG loads repo-root `.env` then `apps/rag/.env`. Restart after edits. |
+| `DATABASE_URL looks malformed` | URL-encode `@` in passwords (`Test@123` → `Test%40123`). |
 | `ModuleNotFoundError: No module named 'api'` | Run via `uv run …` from `apps/rag`, or set `PYTHONPATH=src`. |
 | `uv: command not found` | Install [uv](https://docs.astral.sh/uv/) — see root [`README.md`](../../README.md). |
 | Wrong Python version | `requires-python = ">=3.12"`. With uv: `uv python install 3.12 && uv sync --dev`. |
 | Port 8001 in use | `uvicorn … --port 8002` or stop the other process. |
 | Coverage failure | Run `uv run pytest` (no `--no-cov`); check `--cov-report=term-missing` output. Ensure `test_health.py` uses `with TestClient(…)` so lifespan is covered. |
+| Only startup logs, no indexing activity | Check `jobs` table for `pending`/`failed` rows; attach a repo or retry sync in the UI; confirm API and RAG share the same `DATABASE_URL`; set writable `REPO_CLONE_DIR` on Windows (e.g. `D:\codesage\repos`). |
+| Re-index returns 409 / duplicate indexing | Wait until active jobs are older than `WORKER_STALE_JOB_SECONDS` (default 10 min), or restart RAG to reclaim orphaned `running` jobs. Ensure API and RAG use the same `WORKER_STALE_JOB_SECONDS`. |
 | `uv.lock` missing | Run `uv lock` once, then commit the generated file. |
 
 ## Related docs

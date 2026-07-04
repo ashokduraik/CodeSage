@@ -13,6 +13,10 @@ export interface SyncPayload {
    * If present, only sync changes since this commit SHA (incremental). Absent on initial sync.
    */
   sinceSha?: string;
+  /**
+   * Why this indexing run was started (set by Node on sync enqueue).
+   */
+  trigger?: "initial_attach" | "manual_sync" | "webhook_push";
 }
 
 /**
@@ -28,6 +32,11 @@ export interface ParsePayload {
    * Current HEAD SHA at parse time.
    */
   sha: string;
+  /**
+   * Sync job UUID grouping this indexing run.
+   */
+  runId?: string;
+  trigger?: "initial_attach" | "manual_sync" | "webhook_push";
 }
 
 /**
@@ -39,6 +48,11 @@ export interface EmbedPayload {
    * IDs of code_chunks rows to embed.
    */
   chunkIds: string[];
+  /**
+   * Sync job UUID grouping this indexing run.
+   */
+  runId?: string;
+  trigger?: "initial_attach" | "manual_sync" | "webhook_push";
 }
 
 /**

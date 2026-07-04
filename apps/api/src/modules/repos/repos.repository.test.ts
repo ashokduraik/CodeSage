@@ -6,6 +6,7 @@ import {
   updateRepoWebhook,
   softDeleteRepo,
   setRepoConnecting,
+  findIndexingEventsByRepo,
 } from "./repos.repository";
 import type { Sql } from "../../platform/db";
 
@@ -119,5 +120,38 @@ describe("softDeleteRepo", () => {
   it("returns true when a row was soft-deleted", async () => {
     const db = makeMockSql([{ id: "r1" }]);
     expect(await softDeleteRepo(db, "p1", "r1", "u1")).toBe(true);
+  });
+});
+
+const EVENT_ROW = {
+  id: "e1",
+  run_id: "run-1",
+  step: "embed",
+  phase: "finished",
+  started_at: new Date("2026-07-04T14:36:00.000Z"),
+  duration_ms: 100,
+  message: "Done",
+  failure_reason: null,
+  trigger: "manual_sync",
+  details: null,
+};
+
+describe("findIndexingEventsByRepo", () => {
+  it("queries without cursor for the first page", async () => {
+    const db = makeMockSql([EVENT_ROW]);
+    const rows = await findIndexingEventsByRepo(db, "p1", "r1", { limit: 51 });
+    expect(rows).toHaveLength(1);
+    expect(db).toHaveBeenCalled();
+  });
+
+  it("queries with cursor for older pages", async () => {
+    const db = makeMockSql([EVENT_ROW]);
+    const rows = await findIndexingEventsByRepo(db, "p1", "r1", {
+      limit: 51,
+      cursorStartedAt: new Date("2026-07-04T14:36:00.000Z"),
+      cursorId: "e1",
+    });
+    expect(rows).toHaveLength(1);
+    expect(db).toHaveBeenCalled();
   });
 });

@@ -34,7 +34,7 @@
     "dev": "concurrently -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run dev -w @codesage/api",
     "dev:web": "npm run dev -w @codesage/web",
-    "dev:rag": "cd apps/rag && uv run uvicorn api.main:app --host 127.0.0.1 --port 8001 --reload",
+    "dev:rag": "cd apps/rag && uv run python -m api.run --reload --host 127.0.0.1 --port 8001",
     "prepare": "husky"
   },
   "devDependencies": {

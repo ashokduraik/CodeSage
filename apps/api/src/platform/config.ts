@@ -39,6 +39,11 @@ export interface AppConfig {
    * (WEBHOOK_BASE_URL). When unset, webhook registration is skipped.
    */
   webhookBaseUrl: string;
+  /**
+   * Seconds before manual re-index is allowed while jobs are pending/running.
+   * Must match RAG `WORKER_STALE_JOB_SECONDS` (default 600).
+   */
+  workerStaleJobSeconds: number;
 }
 
 /**
@@ -74,5 +79,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     mockMode: env.MOCK_MODE === "true",
     ragBaseUrl: env.RAG_BASE_URL ?? "http://127.0.0.1:8001",
     webhookBaseUrl: env.WEBHOOK_BASE_URL ?? "",
+    workerStaleJobSeconds: Number(env.WORKER_STALE_JOB_SECONDS ?? "600"),
   };
 }

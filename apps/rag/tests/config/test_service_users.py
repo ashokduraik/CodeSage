@@ -15,6 +15,7 @@ from config.service_users import (
     is_service_user_id,
     resolve_service_user,
 )
+from config.startup import StartupConfigurationError
 from models.enums import UserRole
 
 
@@ -47,7 +48,7 @@ def test_assert_service_users_exist_raises_when_missing() -> None:
     session = MagicMock()
     session.scalars.return_value.all.return_value = []
 
-    with pytest.raises(RuntimeError, match="missing after migration"):
+    with pytest.raises(StartupConfigurationError, match="missing"):
         assert_service_users_exist(session)
 
 
@@ -59,5 +60,5 @@ def test_assert_service_users_exist_raises_on_wrong_role() -> None:
     user_webhook = MagicMock(id=WEBHOOK_HANDLER_USER_ID, role=UserRole.SYSTEM)
     session.scalars.return_value.all.return_value = [user_api, user_rag, user_webhook]
 
-    with pytest.raises(RuntimeError, match="expected system"):
+    with pytest.raises(StartupConfigurationError, match="expected system"):
         assert_service_users_exist(session)

@@ -17,6 +17,7 @@ function cfg(nodeEnv: string, logger: boolean): AppConfig {
     mockMode: false,
     ragBaseUrl: "http://127.0.0.1:8001",
     webhookBaseUrl: "",
+    workerStaleJobSeconds: 600,
   };
 }
 

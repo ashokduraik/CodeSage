@@ -1,5 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
-import { enqueueJob } from "./queue";
+import {
+  cancelPendingJobsForRepo,
+  enqueueJob,
+  findActiveJobsForRepo,
+  hasActiveJobsWithinStaleWindow,
+  isJobYoungerThanStaleThreshold,
+  SUPERSEDED_JOB_MESSAGE,
+} from "./queue";
 import { API_SYSTEM_USER_ID } from "./serviceUsers";
 import type { Sql } from "./db";
 
@@ -32,8 +39,62 @@ describe("enqueueJob", () => {
 
   it("throws when the INSERT returns an empty result set", async () => {
     const db = makeMockSql([]);
-    await expect(enqueueJob(db, "embed", { repoId: "r1", chunkIds: [] }, API_SYSTEM_USER_ID)).rejects.toThrow(
-      "Unexpected empty result",
-    );
+    await expect(
+      enqueueJob(db, "embed", { repoId: "r1", chunkIds: [] }, API_SYSTEM_USER_ID),
+    ).rejects.toThrow("Unexpected empty result");
+  });
+});
+
+describe("findActiveJobsForRepo", () => {
+  it("returns pending and running rows for a repository", async () => {
+    const rows = [
+      {
+        id: "j1",
+        job_status: "pending",
+        created_at: new Date("2026-01-01T00:00:00Z"),
+        locked_at: null,
+      },
+    ];
+    const db = makeMockSql(rows);
+    const result = await findActiveJobsForRepo(db, "repo-1");
+    expect(result).toEqual(rows);
+    expect(db).toHaveBeenCalledOnce();
+  });
+});
+
+describe("cancelPendingJobsForRepo", () => {
+  it("soft-deletes pending rows for repoId", async () => {
+    const db = makeMockSql([{ id: "j1" }, { id: "j2" }]);
+    const count = await cancelPendingJobsForRepo(db, "repo-1", API_SYSTEM_USER_ID);
+    expect(count).toBe(2);
+    expect(db).toHaveBeenCalledOnce();
+    expect(SUPERSEDED_JOB_MESSAGE).toContain("Superseded");
+  });
+});
+
+describe("re-index stale window helpers", () => {
+  it("isJobYoungerThanStaleThreshold uses created_at when locked_at is null", () => {
+    const now = Date.parse("2026-07-04T12:00:00Z");
+    const job = {
+      id: "j1",
+      job_status: "pending",
+      created_at: new Date("2026-07-04T11:55:00Z"),
+      locked_at: null,
+    };
+    expect(isJobYoungerThanStaleThreshold(job, 600, now)).toBe(true);
+    expect(isJobYoungerThanStaleThreshold(job, 60, now)).toBe(false);
+  });
+
+  it("hasActiveJobsWithinStaleWindow returns false when jobs are old enough", () => {
+    const now = Date.parse("2026-07-04T12:00:00Z");
+    const jobs = [
+      {
+        id: "j1",
+        job_status: "running",
+        created_at: new Date("2026-07-04T11:00:00Z"),
+        locked_at: new Date("2026-07-04T11:00:00Z"),
+      },
+    ];
+    expect(hasActiveJobsWithinStaleWindow(jobs, 600, now)).toBe(false);
   });
 });

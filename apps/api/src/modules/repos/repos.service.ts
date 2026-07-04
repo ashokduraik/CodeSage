@@ -1,7 +1,12 @@
 import type { Sql } from "../../platform/db";
 import { ApiError } from "../../platform/errors";
 import { encryptToken, decryptToken, parseEncryptionKey } from "../../platform/encryption";
-import { enqueueJob } from "../../platform/queue";
+import {
+  cancelPendingJobsForRepo,
+  enqueueJob,
+  findActiveJobsForRepo,
+  hasActiveJobsWithinStaleWindow,
+} from "../../platform/queue";
 import { findProjectById } from "../projects/projects.repository";
 import { probeRepo } from "./repo-probe.service";
 import { parseRepoUrl } from "./repo-url";
@@ -14,12 +19,24 @@ import {
   updateRepoWebhook,
   softDeleteRepo,
   setRepoConnecting,
+  findIndexingEventsByRepo,
   type RepoRow,
   type RepoListRow,
+  type RepoIndexingEventRow,
 } from "./repos.repository";
+import {
+  decodeIndexingEventsCursor,
+  encodeIndexingEventsCursor,
+} from "./indexing-events-cursor";
 import type { NodeApi } from "@codesage/shared-types";
 
 type CreateRepoRequest = NodeApi.components["schemas"]["CreateRepoRequest"];
+type RepoIndexingEvent = NodeApi.components["schemas"]["RepoIndexingEvent"];
+type RepoIndexingEventListResponse =
+  NodeApi.components["schemas"]["RepoIndexingEventListResponse"];
+
+const INDEXING_EVENTS_MAX_LIMIT = 50;
+const INDEXING_EVENTS_DEFAULT_LIMIT = 50;
 
 /** Converts a repository row to the public API response shape. */
 function toRepoResponse(
@@ -46,6 +63,30 @@ function toRepoResponse(
     primaryLanguage: row.primary_language ?? undefined,
     indexedFileCount,
     createdAt: row.created_at.toISOString(),
+  };
+}
+
+/** Converts a repo_indexing_events row to the public API response shape. */
+function toIndexingEventResponse(row: RepoIndexingEventRow): RepoIndexingEvent {
+  const detailsElapsed =
+    row.details && typeof row.details.elapsed_ms === "number"
+      ? row.details.elapsed_ms
+      : undefined;
+  const durationMs = row.duration_ms ?? detailsElapsed ?? undefined;
+
+  return {
+    id: row.id,
+    runId: row.run_id,
+    step: row.step as RepoIndexingEvent["step"],
+    phase: row.phase as RepoIndexingEvent["phase"],
+    startedAt: row.started_at.toISOString(),
+    durationMs: durationMs ?? undefined,
+    message: row.message,
+    failureReason: row.failure_reason ?? undefined,
+    trigger: row.trigger
+      ? (row.trigger as NonNullable<RepoIndexingEvent["trigger"]>)
+      : undefined,
+    details: row.details ?? undefined,
   };
 }
 
@@ -163,7 +204,8 @@ export async function attachRepo(
     row.webhook_enabled = true;
   }
 
-  const jobId = await enqueueJob(db, "sync", { repoId: row.id }, actorId);
+  await cancelPendingJobsForRepo(db, row.id, actorId);
+  const jobId = await enqueueJob(db, "sync", { repoId: row.id, trigger: "initial_attach" }, actorId);
   return { repo: toRepoResponse(row), jobId };
 }
 
@@ -173,23 +215,101 @@ export async function attachRepo(
  * @param db - The postgres.js SQL client.
  * @param projectId - Parent project UUID.
  * @param repoId - Repo UUID.
+ * @param actorId - Acting user UUID.
+ * @param workerStaleJobSeconds - Minimum job age before re-index is allowed (default 600).
  * @returns The enqueued sync job ID.
  * @throws {@link ApiError} 404 when the repo does not exist in the project.
+ * @throws {@link ApiError} 409 when indexing is already in progress.
  */
 export async function syncRepo(
   db: Sql,
   projectId: string,
   repoId: string,
   actorId: string,
+  workerStaleJobSeconds = 600,
 ): Promise<{ jobId: string }> {
   const row = await findRepoById(db, projectId, repoId);
   if (!row) {
     throw new ApiError(404, "NOT_FOUND", "Repo not found in this project.");
   }
 
+  const activeJobs = await findActiveJobsForRepo(db, repoId);
+  if (hasActiveJobsWithinStaleWindow(activeJobs, workerStaleJobSeconds)) {
+    throw new ApiError(
+      409,
+      "CONFLICT",
+      "Indexing already in progress; retry after 10 minutes.",
+    );
+  }
+
+  await cancelPendingJobsForRepo(db, repoId, actorId);
   await setRepoConnecting(db, repoId, actorId);
-  const jobId = await enqueueJob(db, "sync", { repoId }, actorId);
+  const jobId = await enqueueJob(db, "sync", { repoId, trigger: "manual_sync" }, actorId);
   return { jobId };
+}
+
+/**
+ * Lists indexing progress events for a repository (newest first, cursor pagination).
+ *
+ * @param db - The postgres.js SQL client.
+ * @param projectId - Parent project UUID.
+ * @param repoId - Repo UUID.
+ * @param params - Optional limit and cursor for older pages.
+ * @returns Paginated event list with nextCursor when more rows exist.
+ * @throws {@link ApiError} 404 when the repo does not exist in the project.
+ * @throws {@link ApiError} 400 when the cursor is invalid.
+ */
+export async function listRepoIndexingEvents(
+  db: Sql,
+  projectId: string,
+  repoId: string,
+  params: { limit?: number; cursor?: string } = {},
+): Promise<RepoIndexingEventListResponse> {
+  const repo = await findRepoById(db, projectId, repoId);
+  if (!repo) {
+    throw new ApiError(404, "NOT_FOUND", "Repo not found in this project.");
+  }
+
+  const requestedLimit = params.limit ?? INDEXING_EVENTS_DEFAULT_LIMIT;
+  const limit = Math.min(
+    Math.max(1, Math.floor(requestedLimit)),
+    INDEXING_EVENTS_MAX_LIMIT,
+  );
+  const fetchLimit = limit + 1;
+
+  let cursorStartedAt: Date | undefined;
+  let cursorId: string | undefined;
+  if (params.cursor) {
+    const decoded = decodeIndexingEventsCursor(params.cursor);
+    cursorStartedAt = new Date(decoded.startedAt);
+    cursorId = decoded.id;
+    if (Number.isNaN(cursorStartedAt.getTime())) {
+      throw new ApiError(400, "VALIDATION_ERROR", "Invalid cursor.");
+    }
+  }
+
+  const rows = await findIndexingEventsByRepo(db, projectId, repoId, {
+    limit: fetchLimit,
+    cursorStartedAt,
+    cursorId,
+  });
+
+  const hasMore = rows.length > limit;
+  const pageRows = hasMore ? rows.slice(0, limit) : rows;
+  const lastRow = pageRows[pageRows.length - 1];
+
+  return {
+    items: pageRows.map(toIndexingEventResponse),
+    limit,
+    hasMore,
+    nextCursor:
+      hasMore && lastRow
+        ? encodeIndexingEventsCursor({
+            startedAt: lastRow.started_at.toISOString(),
+            id: lastRow.id,
+          })
+        : null,
+  };
 }
 
 /**

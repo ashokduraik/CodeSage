@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { listRepos, attachRepo, detachRepo, probeRepoUrl, syncRepo } from "./repos.service";
+import { listRepos, attachRepo, detachRepo, probeRepoUrl, syncRepo, listRepoIndexingEvents } from "./repos.service";
 import { appendAuditLog, AUDIT_ACTIONS } from "../../platform/audit";
 import type { JwtPayload } from "../../platform/auth.plugin";
 import type { NodeApi } from "@codesage/shared-types";
@@ -15,6 +15,7 @@ import type { NodeApi } from "@codesage/shared-types";
  * - `POST /projects/:projectId/repos` — attach a repo + enqueue sync (returns 202).
  * - `DELETE /projects/:projectId/repos/:repoId` — soft-detach a repo.
  * - `POST /projects/:projectId/repos/:repoId/sync` — enqueue manual sync (returns 202).
+ * - `GET /projects/:projectId/repos/:repoId/indexing-events` — paginated indexing timeline.
  *
  * @param app - The Fastify application instance.
  */
@@ -86,8 +87,25 @@ export async function reposRoutes(app: FastifyInstance): Promise<void> {
   }>("/projects/:projectId/repos/:repoId/sync", async (request, reply) => {
     const { projectId, repoId } = request.params;
     const { sub } = request.user as JwtPayload;
-    const result = await syncRepo(app.db, projectId, repoId, sub);
+    const result = await syncRepo(
+      app.db,
+      projectId,
+      repoId,
+      sub,
+      app.config.workerStaleJobSeconds,
+    );
     await appendAuditLog(app.db, sub, AUDIT_ACTIONS.REPO_SYNC, repoId);
     return reply.status(202).send(result);
+  });
+
+  app.get<{
+    Params: { projectId: string; repoId: string };
+    Querystring: { limit?: string; cursor?: string };
+    Reply: NodeApi.components["schemas"]["RepoIndexingEventListResponse"];
+  }>("/projects/:projectId/repos/:repoId/indexing-events", async (request) => {
+    const { projectId, repoId } = request.params;
+    const limit = request.query.limit ? Number(request.query.limit) : undefined;
+    const cursor = request.query.cursor;
+    return listRepoIndexingEvents(app.db, projectId, repoId, { limit, cursor });
   });
 }

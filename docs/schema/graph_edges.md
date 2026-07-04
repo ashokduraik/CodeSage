@@ -3,7 +3,10 @@
 > **Status:** implemented  
 > **Domain:** Code knowledge (developer layer)
 
-Directed relationships between graph nodes: calls, imports, inheritance, etc. May connect nodes across repos within the same project.
+Directed edges linking `graph_nodes`: calls, imports, inheritance, route wiring, and other structural
+relationships inferred from the AST. Edges may cross file and repo boundaries within the same project,
+enabling whole-system traces (e.g. UI handler → service → database). Re-indexing replaces edges for
+a repo atomically so the graph stays consistent with the latest parsed tree.
 
 ## Columns
 

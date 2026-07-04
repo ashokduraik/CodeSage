@@ -3,7 +3,10 @@
 > **Status:** implemented  
 > **Domain:** Code knowledge (developer layer)
 
-AST-derived graph vertices: files, classes, functions, routes, and similar symbols.
+AST-derived vertices in the code knowledge graph: files, classes, functions, routes, and similar
+symbols extracted during parse. Nodes are scoped to a project and repo and keyed by a stable symbol
+identity so re-indexing can upsert rather than duplicate. They power developer-facing navigation,
+impact analysis, and inputs to LLM distillation of higher-level product knowledge.
 
 ## Columns
 

@@ -27,6 +27,7 @@ src/config/                → settings, env
 - **Stream** QA answers with **citations**; implement abstain path (NFR-7).
 - Jobs: **idempotent**, **incremental**, isolate per-file failures.
 - Use generated Pydantic models from `contracts/`.
+- **Indexing logs:** follow [`docs/rag-indexing-logs.md`](../../docs/rag-indexing-logs.md) — uniform `[RAG]` format via `log_event()`; start with `python -m api.run`.
 
 ## Don't
 

@@ -259,3 +259,71 @@ export async function softDeleteRepo(
   `;
   return rows.length > 0;
 }
+
+/** Row shape from `repo_indexing_events` for API mapping. */
+export interface RepoIndexingEventRow {
+  id: string;
+  run_id: string;
+  step: string;
+  phase: string;
+  started_at: Date;
+  duration_ms: number | null;
+  message: string;
+  failure_reason: string | null;
+  trigger: string | null;
+  details: Record<string, unknown> | null;
+}
+
+/** Parameters for cursor-paginated indexing event queries. */
+export interface FindIndexingEventsParams {
+  limit: number;
+  cursorStartedAt?: Date;
+  cursorId?: string;
+}
+
+const INDEXING_EVENT_COLUMNS = `
+  id, run_id, step, phase, started_at, duration_ms,
+  message, failure_reason, trigger, details
+`;
+
+/**
+ * Fetches indexing progress events for a repo, newest first.
+ * Fetches one extra row so the service can derive hasMore without COUNT(*).
+ *
+ * @param db - The postgres.js SQL client.
+ * @param projectId - Parent project UUID (ownership scope).
+ * @param repoId - Repo UUID.
+ * @param params - Page size and optional cursor from the previous page.
+ * @returns Matching event rows (may include one extra row for pagination).
+ */
+export async function findIndexingEventsByRepo(
+  db: Sql,
+  projectId: string,
+  repoId: string,
+  params: FindIndexingEventsParams,
+): Promise<RepoIndexingEventRow[]> {
+  const { limit, cursorStartedAt, cursorId } = params;
+
+  if (cursorStartedAt && cursorId) {
+    return db<RepoIndexingEventRow[]>`
+      SELECT ${db.unsafe(INDEXING_EVENT_COLUMNS)}
+      FROM repo_indexing_events
+      WHERE repo_id = ${repoId}
+        AND project_id = ${projectId}
+        AND status = ${ROW_STATUS.ACTIVE}
+        AND (started_at, id) < (${cursorStartedAt}, ${cursorId}::uuid)
+      ORDER BY started_at DESC, id DESC
+      LIMIT ${limit}
+    `;
+  }
+
+  return db<RepoIndexingEventRow[]>`
+    SELECT ${db.unsafe(INDEXING_EVENT_COLUMNS)}
+    FROM repo_indexing_events
+    WHERE repo_id = ${repoId}
+      AND project_id = ${projectId}
+      AND status = ${ROW_STATUS.ACTIVE}
+    ORDER BY started_at DESC, id DESC
+    LIMIT ${limit}
+  `;
+}

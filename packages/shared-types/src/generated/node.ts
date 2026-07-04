@@ -294,6 +294,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/repos/{repoId}/indexing-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List indexing progress events for a repository (newest first).
+         * @description Cursor-paginated timeline of sync/parse/embed step events for one repo. Use nextCursor to load older rows (infinite scroll).
+         */
+        get: operations["listRepoIndexingEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/repos/{repoId}/sync": {
         parameters: {
             query?: never;
@@ -572,7 +592,7 @@ export interface components {
             baseUrl?: string;
             isPrivate: boolean;
             connectionStatus: components["schemas"]["RepoConnectionStatus"];
-            /** @description Last connection/sync error when connectionStatus is error. */
+            /** @description Last indexing or connection error when connectionStatus is error (sync, parse, or embed). */
             lastError?: string;
             /**
              * Format: date-time
@@ -612,6 +632,60 @@ export interface components {
              * @description ID of the enqueued sync job.
              */
             jobId: string;
+        };
+        /**
+         * @description Indexing pipeline step.
+         * @enum {string}
+         */
+        IndexingEventStep: "sync" | "parse" | "embed";
+        /**
+         * @description Step lifecycle phase.
+         * @enum {string}
+         */
+        IndexingEventPhase: "started" | "finished" | "failed" | "skipped";
+        /**
+         * @description What caused the indexing run.
+         * @enum {string}
+         */
+        IndexingEventTrigger: "initial_attach" | "manual_sync" | "webhook_push";
+        RepoIndexingEvent: {
+            /**
+             * Format: uuid
+             * @description Event row identifier.
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @description Groups sync, parse, and embed for one indexing attempt.
+             */
+            runId: string;
+            step: components["schemas"]["IndexingEventStep"];
+            phase: components["schemas"]["IndexingEventPhase"];
+            /**
+             * Format: date-time
+             * @description Event timestamp (UTC).
+             */
+            startedAt: string;
+            /** @description Step duration; omitted on started phase. */
+            durationMs?: number;
+            /** @description Plain-English user-facing message. */
+            message: string;
+            /** @description Sanitized explanation when phase is failed. */
+            failureReason?: string;
+            trigger?: components["schemas"]["IndexingEventTrigger"];
+            /** @description Optional metrics (commit_sha, file_count, …). */
+            details?: {
+                [key: string]: unknown;
+            };
+        };
+        RepoIndexingEventListResponse: {
+            items: components["schemas"]["RepoIndexingEvent"][];
+            /** @description Page size used for this response. */
+            limit: number;
+            /** @description True when older events exist beyond this page. */
+            hasMore: boolean;
+            /** @description Pass as cursor query param to fetch the next older page. */
+            nextCursor: string | null;
         };
         ChatQueryRequest: {
             /** @description Natural-language question from the user. */
@@ -1363,6 +1437,52 @@ export interface operations {
             };
         };
     };
+    listRepoIndexingEvents: {
+        parameters: {
+            query?: {
+                /** @description Page size (capped at 50). */
+                limit?: number;
+                /** @description Opaque cursor from a previous response nextCursor field. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+                repoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated indexing events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepoIndexingEventListResponse"];
+                };
+            };
+            /** @description Invalid cursor or limit. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Repo or project not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     syncRepo: {
         parameters: {
             query?: never;
@@ -1386,6 +1506,15 @@ export interface operations {
             };
             /** @description Repo or project not found. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Indexing already in progress for this repository. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

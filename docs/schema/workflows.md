@@ -3,7 +3,11 @@
 > **Status:** planned (no migration yet)  
 > **Domain:** Derived product knowledge (end-user layer)
 
-LLM-derived business/user flows spanning one or more repos. Every row must carry confidence and source citations (NFR-7).
+LLM-distilled descriptions of business and user workflows discovered across one or more repos in a
+project — the end-user layer of product knowledge (e.g. “checkout”, “invite teammate”). Each row
+must include a confidence score and source citations back to code chunks or graph nodes (NFR-7) so
+answers can show provenance or defer when uncertain. Workflows are regenerated on re-index but can
+be overridden or refined by expert answers.
 
 ## Intended columns
 

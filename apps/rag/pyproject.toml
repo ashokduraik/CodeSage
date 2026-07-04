@@ -44,7 +44,7 @@ only-include = ["src"]
 "src/generated" = "generated"
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 addopts = "--cov=api --cov=config --cov=models --cov=repositories --cov=services --cov=workers --cov-report=term-missing --cov-fail-under=80"
 testpaths = ["tests"]
 

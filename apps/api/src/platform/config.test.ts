@@ -14,6 +14,7 @@ describe("loadConfig", () => {
     expect(cfg.encryptionKey).toBe("");
     expect(cfg.mockMode).toBe(false);
     expect(cfg.ragBaseUrl).toBe("http://127.0.0.1:8001");
+    expect(cfg.workerStaleJobSeconds).toBe(600);
   });
 
   it("reads overrides from env", () => {
@@ -25,6 +26,7 @@ describe("loadConfig", () => {
       JWT_SECRET: "supersecret",
       AUTH_TOKEN_TTL: "7200",
       TOKEN_ENC_KEY: "dGVzdC1rZXktMzItYnl0ZXMtbG9uZy1wYWQ=",
+      WORKER_STALE_JOB_SECONDS: "300",
     });
     expect(cfg.host).toBe("127.0.0.1");
     expect(cfg.port).toBe(8080);
@@ -34,6 +36,7 @@ describe("loadConfig", () => {
     expect(cfg.jwtSecret).toBe("supersecret");
     expect(cfg.jwtTtl).toBe("7200s");
     expect(cfg.encryptionKey).toBe("dGVzdC1rZXktMzItYnl0ZXMtbG9uZy1wYWQ=");
+    expect(cfg.workerStaleJobSeconds).toBe(300);
     expect(cfg.mockMode).toBe(false);
   });
 

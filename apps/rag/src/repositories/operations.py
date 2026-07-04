@@ -3,14 +3,27 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from models.enums import JobStatus
+from models.enums import JobStatus, RowStatus
 from models import AuditLog, Job
 from repositories.audit import RAG_ACTOR_ID, stamp_created, stamp_updated
+
+
+@dataclass(frozen=True)
+class FailedJobSummary:
+    """Sanitized summary of a failed job for startup warnings."""
+
+    job_type: str
+    error_message: str | None
+    repo_id: uuid.UUID | None
+
+
+STALE_JOB_ERROR_MESSAGE = "Job exceeded maximum runtime and was not completed"
 
 
 class JobRepository:
@@ -65,6 +78,152 @@ class JobRepository:
             return None
         job_id = row[0]
         return self._session.get(Job, job_id)
+
+    def reclaim_stale_running_jobs(self, stale_seconds: int, max_attempts: int) -> int:
+        """Re-queue or fail jobs stuck in ``running`` longer than ``stale_seconds``.
+
+        Jobs at or above ``max_attempts`` are marked ``failed``; others return to
+        ``pending`` for retry.
+
+        @param stale_seconds - Age in seconds after which a running job is stale.
+        @param max_attempts - Attempts threshold; at or above marks job failed.
+        @returns Number of rows updated.
+        """
+        rag_actor = str(RAG_ACTOR_ID)
+        stmt = text(
+            """
+            UPDATE jobs
+            SET job_status = CASE
+                    WHEN attempts >= :max_attempts THEN 'failed'::job_status
+                    ELSE 'pending'::job_status
+                END,
+                locked_at = NULL,
+                error_message = CASE
+                    WHEN attempts >= :max_attempts THEN :stale_error
+                    ELSE error_message
+                END,
+                updated_by = :updated_by
+            WHERE job_status = 'running'
+              AND status = 'A'
+              AND locked_at IS NOT NULL
+              AND locked_at < now() - make_interval(secs => :stale_seconds)
+            RETURNING id
+            """,
+        )
+        rows = self._session.execute(
+            stmt,
+            {
+                "stale_seconds": stale_seconds,
+                "max_attempts": max_attempts,
+                "stale_error": STALE_JOB_ERROR_MESSAGE,
+                "updated_by": rag_actor,
+            },
+        ).fetchall()
+        return len(rows)
+
+    def reclaim_orphaned_running_jobs(self) -> int:
+        """Reset all active ``running`` jobs to ``pending`` after worker restart.
+
+        MVP runs a single worker process; any ``running`` row at reclaim time is
+        orphaned because the previous process no longer holds the lock.
+
+        @returns Number of rows updated.
+        """
+        rag_actor = str(RAG_ACTOR_ID)
+        stmt = text(
+            """
+            UPDATE jobs
+            SET job_status = 'pending'::job_status,
+                locked_at = NULL,
+                updated_by = :updated_by
+            WHERE job_status = 'running'
+              AND status = 'A'
+            RETURNING id
+            """,
+        )
+        rows = self._session.execute(stmt, {"updated_by": rag_actor}).fetchall()
+        return len(rows)
+
+    def is_job_active(self, job_id: uuid.UUID) -> bool:
+        """Return True when a job row is still claimable/active.
+
+        @param job_id - Job UUID.
+        @returns True when the row exists and ``status = 'A'``.
+        """
+        job = self._session.get(Job, job_id)
+        return job is not None and job.status == RowStatus.ACTIVE
+
+    def count_pending(self) -> int:
+        """Count active jobs waiting to be claimed.
+
+        @returns Number of rows with ``job_status = pending``.
+        """
+        return self.count_by_status(JobStatus.PENDING.value)
+
+    def count_by_status(self, job_status: str) -> int:
+        """Count active jobs in a given queue state.
+
+        @param job_status - ``pending``, ``running``, ``done``, or ``failed``.
+        @returns Matching row count.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(Job)
+            .where(Job.job_status == job_status, Job.status == RowStatus.ACTIVE)
+        )
+        return int(self._session.scalar(stmt) or 0)
+
+    def summarize_pending(self) -> list[tuple[str, int]]:
+        """Return pending job counts grouped by type.
+
+        @returns ``[(job_type, count), ...]`` ordered by job type name.
+        """
+        stmt = (
+            select(Job.type, func.count())
+            .where(Job.job_status == JobStatus.PENDING, Job.status == RowStatus.ACTIVE)
+            .group_by(Job.type)
+            .order_by(Job.type)
+        )
+        return [(row[0], int(row[1])) for row in self._session.execute(stmt)]
+
+    def summarize_failed(self) -> list[tuple[str, int]]:
+        """Return failed job counts grouped by type.
+
+        @returns ``[(job_type, count), ...]`` ordered by job type name.
+        """
+        stmt = (
+            select(Job.type, func.count())
+            .where(Job.job_status == JobStatus.FAILED, Job.status == RowStatus.ACTIVE)
+            .group_by(Job.type)
+            .order_by(Job.type)
+        )
+        return [(row[0], int(row[1])) for row in self._session.execute(stmt)]
+
+    def latest_failed_summary(self, limit: int = 3) -> list[FailedJobSummary]:
+        """Return the most recent failed jobs for startup diagnostics.
+
+        @param limit - Maximum rows to return.
+        @returns Failed job summaries newest first.
+        """
+        stmt = (
+            select(Job)
+            .where(Job.job_status == JobStatus.FAILED, Job.status == RowStatus.ACTIVE)
+            .order_by(Job.updated_at.desc())
+            .limit(limit)
+        )
+        rows = list(self._session.scalars(stmt))
+        summaries: list[FailedJobSummary] = []
+        for job in rows:
+            repo_id_raw = job.payload.get("repoId") if isinstance(job.payload, dict) else None
+            repo_id = uuid.UUID(str(repo_id_raw)) if repo_id_raw else None
+            summaries.append(
+                FailedJobSummary(
+                    job_type=job.type,
+                    error_message=job.error_message,
+                    repo_id=repo_id,
+                ),
+            )
+        return summaries
 
     def mark_done(self, job_id: uuid.UUID) -> Job | None:
         """Mark a job as successfully completed.

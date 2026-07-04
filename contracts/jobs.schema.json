@@ -59,6 +59,11 @@
         "sinceSha": {
           "type": "string",
           "description": "If present, only sync changes since this commit SHA (incremental). Absent on initial sync."
+        },
+        "trigger": {
+          "type": "string",
+          "enum": ["initial_attach", "manual_sync", "webhook_push"],
+          "description": "Why this indexing run was started (set by Node on sync enqueue)."
         }
       }
     },
@@ -79,6 +84,15 @@
         "sha": {
           "type": "string",
           "description": "Current HEAD SHA at parse time."
+        },
+        "runId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Sync job UUID grouping this indexing run."
+        },
+        "trigger": {
+          "type": "string",
+          "enum": ["initial_attach", "manual_sync", "webhook_push"]
         }
       }
     },
@@ -95,6 +109,15 @@
           "type": "array",
           "items": { "type": "string", "format": "uuid" },
           "description": "IDs of code_chunks rows to embed."
+        },
+        "runId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Sync job UUID grouping this indexing run."
+        },
+        "trigger": {
+          "type": "string",
+          "enum": ["initial_attach", "manual_sync", "webhook_push"]
         }
       }
     },

@@ -3,7 +3,11 @@
 > **Status:** planned (no migration yet)  
 > **Domain:** Derived product knowledge (end-user layer)
 
-Per-page data origin and freshness: where data comes from and how it is updated.
+Per-page or per-feature data-flow summaries: where displayed data originates (API, cache, local
+state), how it is fetched or mutated, and how fresh it is expected to be. Distillation connects
+UI components to backend handlers and storage seen in the code graph so end-user answers can
+explain “where does this number come from?” Every row includes confidence and citations; ambiguous
+flows should lower confidence or spawn expert questions.
 
 ## Intended columns
 

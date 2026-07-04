@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Sql } from "../../platform/db";
 import { ApiError } from "../../platform/errors";
 import { decryptToken, parseEncryptionKey } from "../../platform/encryption";
-import { enqueueJob } from "../../platform/queue";
+import { cancelPendingJobsForRepo, enqueueJob } from "../../platform/queue";
 import { resolveServiceUser } from "../../platform/serviceUsers";
 import { findRepoByUrl } from "../repos/repos.repository";
 import { parseRepoUrl } from "../repos/repo-url";
@@ -167,8 +167,10 @@ export async function handlePushWebhook(
     return;
   }
 
+  await cancelPendingJobsForRepo(db, repo.id, resolveServiceUser("webhook"));
   await enqueueJob(db, "sync", {
     repoId: repo.id,
+    trigger: "webhook_push",
     ...(beforeSha ? { sinceSha: beforeSha } : {}),
   }, resolveServiceUser("webhook"));
 }

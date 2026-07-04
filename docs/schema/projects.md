@@ -3,7 +3,10 @@
 > **Status:** implemented  
 > **Domain:** Identity & projects
 
-A logical system under analysis (may span multiple repos). Tracks indexing pipeline state separately from row visibility.
+A logical product or codebase under analysis — one project may attach many Git repos that together
+form the knowledge base. `lifecycle_status` reflects indexing pipeline health (`active`, `indexing`,
+`indexed`, `stale`, etc.) for dashboards and gating QA. Row `status` is separate: soft-deleting a
+project hides it from lists without erasing derived knowledge until an explicit purge.
 
 ## Columns
 

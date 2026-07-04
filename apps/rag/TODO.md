@@ -15,6 +15,7 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`. All modules under `src/`
 ## config/
 - [x] Settings + env loading.
 - [x] Repo-token decryption (AES-256-GCM, matches Node).
+- [x] Indexing logs (`config/logging.py`) — plain English, stdout, redaction. See `docs/rag-indexing-logs.md`.
 
 ## models/
 - [x] ORM for migrated tables + enums.
@@ -38,4 +39,4 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`. All modules under `src/`
 
 ## Cross-cutting
 - [x] Contract codegen wired (Pydantic in `src/generated/`).
-- [ ] Full test coverage on new services in CI (local Windows numpy policy may block pgvector import).
+- [x] Structured indexing logs (stdout, beginner-friendly, full activity). See `docs/rag-indexing-logs.md`.

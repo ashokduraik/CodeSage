@@ -22,6 +22,8 @@ def rag_client() -> Iterator[TestClient]:
     session_factory = MagicMock(return_value=session_cm)
 
     with (
+        patch("api.main.validate_settings"),
+        patch("api.main.verify_database_connection"),
         patch("api.main.create_engine_from_settings", return_value=engine),
         patch("api.main.create_session_factory", return_value=session_factory),
         patch("api.main.assert_service_users_exist"),
