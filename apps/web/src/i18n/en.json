@@ -23,7 +23,8 @@
     "passwordPlaceholder": "••••••••",
     "loginButton": "Sign in",
     "loggingIn": "Signing in\u2026",
-    "loginError": "Invalid email or password. Please try again."
+    "loginError": "Invalid email or password. Please try again.",
+    "sessionExpired": "Your session has expired. Please sign in again."
   },
   "projects": {
     "title": "Projects",
@@ -107,7 +108,7 @@
       "status": {
         "connecting": "Connecting",
         "connected": "Connected",
-        "error": "Error"
+        "error": "Failed"
       }
     },
     "repoCard": {
@@ -123,12 +124,33 @@
       "deleteConfirmTitle": "Delete repository?",
       "deleteConfirmBody": "Remove {{name}} from this project? Indexed data stays in the database but the repo will no longer sync.",
       "reindexError": "Could not start re-index. Please try again.",
+      "reindexInProgress": "Indexing is already in progress. Try again in about 10 minutes.",
       "deleteError": "Could not delete repository. Please try again.",
       "status": {
         "indexing": "Indexing",
         "indexed": "Indexed",
         "connected": "Connected",
-        "error": "Error"
+        "error": "Failed"
+      },
+      "indexingLogs": "Indexing logs",
+      "indexingLogsTitle": "Indexing Logs",
+      "indexingLogsEmpty": "No indexing activity yet.",
+      "indexingLogsError": "Could not load indexing logs.",
+      "indexingLogsRetry": "Try again",
+      "indexingLogsLoadMore": "Loading more…",
+      "indexingLogsScrollHint": "Scroll down for older events",
+      "indexingLogsSteps": {
+        "sync": "Sync",
+        "clone": "Clone",
+        "fetch": "Fetch",
+        "parse": "Parse",
+        "embed": "Embed"
+      },
+      "indexingLogsPhases": {
+        "running": "Running",
+        "success": "Success",
+        "failed": "Failed",
+        "skipped": "Skipped"
       }
     }
   },

@@ -9,7 +9,7 @@ import { useAuth } from "./AuthContext";
  */
 export function LoginPage(): JSX.Element {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { login, sessionExpired } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -40,6 +40,12 @@ export function LoginPage(): JSX.Element {
         </div>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
+          {sessionExpired && (
+            <p role="alert" className="text-sm text-destructive">
+              {t("auth.sessionExpired")}
+            </p>
+          )}
+
           <div className="space-y-1">
             <label htmlFor="email" className="text-sm font-medium">
               {t("auth.emailLabel")}

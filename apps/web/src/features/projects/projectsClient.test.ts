@@ -7,10 +7,22 @@ import {
   probeRepoRequest,
   deleteProjectRequest,
   deleteRepoRequest,
+  fetchRepoIndexingEvents,
+  syncRepoRequest,
 } from "./projectsClient";
 
 vi.mock("@/shared/lib/apiClient", () => ({
   apiFetch: vi.fn(),
+  ApiClientError: class ApiClientError extends Error {
+    readonly status: number;
+    readonly code: string;
+    constructor(status: number, code: string, message: string) {
+      super(message);
+      this.name = "ApiClientError";
+      this.status = status;
+      this.code = code;
+    }
+  },
 }));
 
 import { apiFetch } from "@/shared/lib/apiClient";
@@ -107,5 +119,51 @@ describe("deleteRepoRequest", () => {
     mockFetch.mockResolvedValue(undefined);
     await deleteRepoRequest("p1", "r1");
     expect(mockFetch).toHaveBeenCalledWith("/projects/p1/repos/r1", { method: "DELETE" });
+  });
+});
+
+describe("syncRepoRequest", () => {
+  it("calls POST /projects/:projectId/repos/:repoId/sync", async () => {
+    mockFetch.mockResolvedValue({ jobId: "job-sync" });
+    const result = await syncRepoRequest("p1", "r1");
+    expect(mockFetch).toHaveBeenCalledWith("/projects/p1/repos/r1/sync", { method: "POST" });
+    expect(result.jobId).toBe("job-sync");
+  });
+
+  it("propagates ApiClientError when API returns 409", async () => {
+    const { ApiClientError } = await import("@/shared/lib/apiClient");
+    mockFetch.mockRejectedValue(
+      new ApiClientError(409, "CONFLICT", "Indexing already in progress"),
+    );
+    await expect(syncRepoRequest("p1", "r1")).rejects.toMatchObject({
+      status: 409,
+      code: "CONFLICT",
+    });
+  });
+});
+
+describe("fetchRepoIndexingEvents", () => {
+  it("builds limit and cursor query string", async () => {
+    mockFetch.mockResolvedValue({
+      items: [],
+      limit: 50,
+      hasMore: false,
+      nextCursor: null,
+    });
+    await fetchRepoIndexingEvents("p1", "r1", { limit: 50, cursor: "abc123" });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/projects/p1/repos/r1/indexing-events?limit=50&cursor=abc123",
+    );
+  });
+
+  it("calls endpoint without query when params omitted", async () => {
+    mockFetch.mockResolvedValue({
+      items: [],
+      limit: 50,
+      hasMore: false,
+      nextCursor: null,
+    });
+    await fetchRepoIndexingEvents("p1", "r1");
+    expect(mockFetch).toHaveBeenCalledWith("/projects/p1/repos/r1/indexing-events");
   });
 });

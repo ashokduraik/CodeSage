@@ -9,6 +9,7 @@
  */
 
 import { getAuthToken } from "./authTokenStorage";
+import { notifyUnauthorized } from "./unauthorizedHandler";
 
 /* istanbul ignore next -- fallback only reachable when VITE_API_BASE_URL is unset (runtime safety net; test env always provides the value) */
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api";
@@ -41,6 +42,24 @@ export class ApiClientError extends Error {
     this.status = status;
     this.code = code;
   }
+}
+
+/**
+ * Type guard for {@link ApiClientError}, including across duplicate module instances.
+ *
+ * @param error - Unknown thrown value.
+ * @returns True when the value carries API client error fields.
+ */
+export function isApiClientError(error: unknown): error is ApiClientError {
+  if (error instanceof ApiClientError) {
+    return true;
+  }
+  return (
+    typeof error === "object"
+    && error !== null
+    && (error as ApiClientError).name === "ApiClientError"
+    && typeof (error as ApiClientError).status === "number"
+  );
 }
 
 /** Options passed to {@link apiFetch}. */
@@ -101,6 +120,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       message = errBody.error?.message ?? message;
     } catch {
       // Response body was not valid JSON; use defaults above.
+    }
+    if (response.status === 401 && !skipAuth) {
+      notifyUnauthorized();
     }
     throw new ApiClientError(response.status, code, message);
   }

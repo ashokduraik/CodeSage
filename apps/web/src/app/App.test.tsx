@@ -45,6 +45,7 @@ vi.mock("@/features/auth", () => {
 const AUTHENTICATED_CTX: AuthContextValue = {
   user: { id: "u1", email: "test@example.com", role: "developer", createdAt: "2026-01-01T00:00:00.000Z" },
   isLoading: false,
+  sessionExpired: false,
   login: vi.fn(),
   logout: vi.fn(),
 };
@@ -52,6 +53,7 @@ const AUTHENTICATED_CTX: AuthContextValue = {
 const UNAUTHENTICATED_CTX: AuthContextValue = {
   user: null,
   isLoading: false,
+  sessionExpired: false,
   login: vi.fn(),
   logout: vi.fn(),
 };
@@ -59,6 +61,7 @@ const UNAUTHENTICATED_CTX: AuthContextValue = {
 const LOADING_CTX: AuthContextValue = {
   user: null,
   isLoading: true,
+  sessionExpired: false,
   login: vi.fn(),
   logout: vi.fn(),
 };

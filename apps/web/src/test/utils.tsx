@@ -27,6 +27,7 @@ function authValue(user: User | null | undefined): AuthContextValue {
   return {
     user: user ?? null,
     isLoading: false,
+    sessionExpired: false,
     login: async () => {},
     logout: () => {},
   };

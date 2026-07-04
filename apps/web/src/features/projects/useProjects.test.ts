@@ -34,6 +34,7 @@ describe("useProjects", () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
+      sessionExpired: false,
       login: vi.fn(),
       logout: vi.fn(),
     });
@@ -47,6 +48,7 @@ describe("useProjects", () => {
     mockUseAuth.mockReturnValue({
       user: MOCK_USER,
       isLoading: false,
+      sessionExpired: false,
       login: vi.fn(),
       logout: vi.fn(),
     });

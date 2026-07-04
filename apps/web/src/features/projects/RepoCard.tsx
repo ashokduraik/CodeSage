@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ExternalLink, RefreshCw, Trash2 } from "lucide-react";
+import { ExternalLink, RefreshCw, ScrollText, Trash2 } from "lucide-react";
 import { RepoProviderIcon } from "@/shared/ui/RepoProviderIcon";
 import { Button } from "@/shared/ui/button";
 import {
@@ -11,8 +11,10 @@ import {
 } from "@/shared/ui/dialog";
 import { formatRelativeTime } from "@/shared/lib";
 import { cn } from "@/shared/lib/cn";
+import { isApiClientError } from "@/shared/lib/apiClient";
 import { useSyncRepo } from "./useSyncRepo";
 import { useDeleteRepo } from "./useDeleteRepo";
+import { IndexingLogsDialog } from "./IndexingLogsDialog";
 import type { NodeApi } from "@codesage/shared-types";
 
 type Repo = NodeApi.components["schemas"]["Repo"];
@@ -49,13 +51,32 @@ const STATUS_CLASSES: Record<string, string> = {
 };
 
 /**
+ * Maps a sync mutation failure to a user-facing message.
+ *
+ * @param error - Error from {@link useSyncRepo}.
+ * @param t - i18n translate function.
+ * @returns Localized or API-provided message.
+ */
+function reindexErrorMessage(error: unknown, t: (key: string) => string): string {
+  if (isApiClientError(error) && error.status === 409) {
+    return t("projects.repoCard.reindexInProgress");
+  }
+  if (isApiClientError(error)) {
+    return error.message;
+  }
+  return t("projects.repoCard.reindexError");
+}
+
+/**
  * Rich repository card with metadata, status, and management actions.
  */
 export function RepoCard({ projectId, repo }: Props): JSX.Element {
   const { t, i18n } = useTranslation();
-  const { mutateAsync: syncAsync, isPending: isSyncing } = useSyncRepo();
+  const { mutateAsync: syncAsync, isPending: isSyncing, error: syncError, reset: resetSync } =
+    useSyncRepo();
   const { mutateAsync: deleteAsync, isPending: isDeleting } = useDeleteRepo();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(false);
   const [actionError, setActionError] = useState("");
 
   const statusKey = repoStatusKey(repo);
@@ -71,11 +92,11 @@ export function RepoCard({ projectId, repo }: Props): JSX.Element {
   }
 
   const handleReindex = async (): Promise<void> => {
-    setActionError("");
+    resetSync();
     try {
       await syncAsync({ projectId, repoId: repo.id });
     } catch {
-      setActionError(t("projects.repoCard.reindexError"));
+      // Sync errors are shown from mutation.error (syncError).
     }
   };
 
@@ -130,17 +151,29 @@ export function RepoCard({ projectId, repo }: Props): JSX.Element {
                 <p className="mt-2 text-xs text-destructive line-clamp-2">{repo.lastError}</p>
               ) : null}
               {actionError ? (
-                <p className="mt-2 text-xs text-destructive">{actionError}</p>
+                <p role="alert" className="mt-2 text-xs text-destructive">{actionError}</p>
               ) : null}
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 self-end sm:self-start">
+          <div className="flex shrink-0 flex-col items-end gap-2 self-end sm:self-start">
+            <div className="flex items-center gap-2">
+              <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isBusy}
+              onClick={() => setLogsOpen(true)}
+              className="gap-1.5"
+            >
+              <ScrollText className="h-3.5 w-3.5" />
+              {t("projects.repoCard.indexingLogs")}
+            </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={isBusy || repo.connectionStatus === "connecting"}
+              disabled={isBusy}
               onClick={() => void handleReindex()}
               className="gap-1.5"
             >
@@ -167,6 +200,12 @@ export function RepoCard({ projectId, repo }: Props): JSX.Element {
               <Trash2 className="h-3.5 w-3.5" />
               <span className="sr-only">{t("projects.repoCard.delete")}</span>
             </Button>
+            </div>
+            {syncError ? (
+              <p role="alert" className="max-w-xs text-right text-xs text-destructive">
+                {reindexErrorMessage(syncError, t)}
+              </p>
+            ) : null}
           </div>
         </div>
       </li>
@@ -194,6 +233,13 @@ export function RepoCard({ projectId, repo }: Props): JSX.Element {
           </div>
         </DialogContent>
       </Dialog>
+
+      <IndexingLogsDialog
+        open={logsOpen}
+        onOpenChange={setLogsOpen}
+        projectId={projectId}
+        repo={repo}
+      />
     </>
   );
 }

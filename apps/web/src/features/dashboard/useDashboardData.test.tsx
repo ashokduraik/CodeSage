@@ -64,6 +64,7 @@ function setupAuth(user: typeof MOCK_USER | null = MOCK_USER) {
   mockUseAuth.mockReturnValue({
     user,
     isLoading: false,
+    sessionExpired: false,
     login: vi.fn(),
     logout: vi.fn(),
   });

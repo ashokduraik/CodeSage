@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { apiFetch, ApiClientError } from "./apiClient";
+import { apiFetch, ApiClientError, isApiClientError } from "./apiClient";
 import { clearAuthToken, setAuthToken } from "./authTokenStorage";
+import { setUnauthorizedHandler } from "./unauthorizedHandler";
 
 function mockFetch(status: number, body: unknown, ok?: boolean): void {
   const isOk = ok ?? (status >= 200 && status < 300);
@@ -15,6 +16,7 @@ function mockFetch(status: number, body: unknown, ok?: boolean): void {
 afterEach(() => {
   vi.restoreAllMocks();
   clearAuthToken();
+  setUnauthorizedHandler(null);
 });
 
 beforeEach(() => {
@@ -126,6 +128,25 @@ describe("apiFetch", () => {
     expect(callArg?.body).toBeUndefined();
   });
 
+  it("calls notifyUnauthorized on 401 when auth is attached", async () => {
+    const handler = vi.fn();
+    setUnauthorizedHandler(handler);
+    setAuthToken("stored-jwt");
+    mockFetch(401, { error: { code: "UNAUTHORIZED", message: "Token expired." } }, false);
+    await expect(apiFetch("/projects")).rejects.toBeInstanceOf(ApiClientError);
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it("does not call notifyUnauthorized on 401 when skipAuth is true", async () => {
+    const handler = vi.fn();
+    setUnauthorizedHandler(handler);
+    mockFetch(401, { error: { code: "INVALID_CREDENTIALS", message: "Bad password." } }, false);
+    await expect(
+      apiFetch("/auth/login", { method: "POST", body: { email: "a", password: "b" }, skipAuth: true }),
+    ).rejects.toBeInstanceOf(ApiClientError);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("falls back to REQUEST_ERROR code and statusText when error body has no code or message", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
@@ -148,5 +169,23 @@ describe("ApiClientError", () => {
     expect(err.code).toBe("UNAUTHORIZED");
     expect(err.message).toBe("Token expired.");
     expect(err).toBeInstanceOf(Error);
+  });
+});
+
+describe("isApiClientError", () => {
+  it("returns true for ApiClientError instances", () => {
+    const err = new ApiClientError(409, "CONFLICT", "Indexing already in progress");
+    expect(isApiClientError(err)).toBe(true);
+  });
+
+  it("returns true for duck-typed ApiClientError objects", () => {
+    const err = new ApiClientError(409, "CONFLICT", "Indexing already in progress");
+    const plain = { name: err.name, status: err.status, code: err.code, message: err.message };
+    expect(isApiClientError(plain)).toBe(true);
+  });
+
+  it("returns false for unrelated errors", () => {
+    expect(isApiClientError(new Error("nope"))).toBe(false);
+    expect(isApiClientError(null)).toBe(false);
   });
 });

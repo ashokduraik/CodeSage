@@ -27,6 +27,7 @@ describe("AdminRoute", () => {
     const value: AuthContextValue = {
       user: null,
       isLoading: true,
+      sessionExpired: false,
       login: async () => {},
       logout: () => {},
     };

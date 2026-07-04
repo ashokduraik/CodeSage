@@ -3,6 +3,7 @@ import { cleanup, render, screen, act, waitFor, fireEvent } from "@testing-libra
 import "@/i18n";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { ApiClientError } from "@/shared/lib/apiClient";
+import { notifyUnauthorized } from "@/shared/lib/unauthorizedHandler";
 import {
   clearAuthToken,
   getAuthToken,
@@ -35,12 +36,13 @@ const MOCK_USER = {
 
 /** Minimal consumer that exposes context state via DOM. */
 function TestConsumer() {
-  const { user, isLoading, login, logout } = useAuth();
+  const { user, isLoading, sessionExpired, login, logout } = useAuth();
   return (
     <div>
       <span data-testid="loading">{String(isLoading)}</span>
       <span data-testid="user">{user?.email ?? "null"}</span>
       <span data-testid="token">{getAuthToken() ?? "null"}</span>
+      <span data-testid="sessionExpired">{String(sessionExpired)}</span>
       <button onClick={() => void login("u@test.com", "pass123")}>login</button>
       <button onClick={logout}>logout</button>
     </div>
@@ -83,7 +85,7 @@ describe("AuthProvider — session restore", () => {
     expect(mockFetch).toHaveBeenCalledWith("/users/me");
   });
 
-  it("clears the stored token when the session restore call fails (expired token)", async () => {
+  it("clears the stored token and sets sessionExpired when restore returns 401", async () => {
     setAuthToken("expired-jwt");
     mockFetch.mockRejectedValueOnce(new ApiClientError(401, "UNAUTHORIZED", "Token expired."));
     render(
@@ -94,17 +96,41 @@ describe("AuthProvider — session restore", () => {
     await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
     expect(getAuthToken()).toBeNull();
     expect(screen.getByTestId("user").textContent).toBe("null");
+    expect(screen.getByTestId("sessionExpired").textContent).toBe("true");
   });
 });
 
-describe("AuthProvider — login", () => {
-  it("stores the token in localStorage and sets the user after a successful login", async () => {
+describe("AuthProvider — unauthorized handler", () => {
+  it("invalidates the session when notifyUnauthorized is called", async () => {
+    setAuthToken("stored-jwt");
+    mockFetch.mockResolvedValueOnce(MOCK_USER);
     render(
       <AuthProvider>
         <TestConsumer />
       </AuthProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
+    await waitFor(() =>
+      expect(screen.getByTestId("user").textContent).toBe("user@example.com"),
+    );
+    act(() => {
+      notifyUnauthorized();
+    });
+    await waitFor(() => expect(screen.getByTestId("user").textContent).toBe("null"));
+    expect(getAuthToken()).toBeNull();
+    expect(screen.getByTestId("sessionExpired").textContent).toBe("true");
+  });
+});
+
+describe("AuthProvider — login", () => {
+  it("stores the token in localStorage and sets the user after a successful login", async () => {
+    setAuthToken("expired-jwt");
+    mockFetch.mockRejectedValueOnce(new ApiClientError(401, "UNAUTHORIZED", "Token expired."));
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("sessionExpired").textContent).toBe("true"));
     mockFetch.mockResolvedValueOnce({ token: "new-jwt", user: MOCK_USER });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "login" }));
@@ -113,6 +139,7 @@ describe("AuthProvider — login", () => {
       expect(screen.getByTestId("user").textContent).toBe("user@example.com"),
     );
     expect(getAuthToken()).toBe("new-jwt");
+    expect(screen.getByTestId("sessionExpired").textContent).toBe("false");
     expect(mockFetch).toHaveBeenCalledWith("/auth/login", {
       method: "POST",
       body: { email: "u@test.com", password: "pass123" },

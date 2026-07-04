@@ -18,6 +18,7 @@ function renderLoginPage(authOverride: Partial<AuthContextValue> = {}): ReturnTy
   const value: AuthContextValue = {
     user: null,
     isLoading: false,
+    sessionExpired: false,
     login: loginMock,
     logout: vi.fn(),
     ...authOverride,
@@ -76,6 +77,13 @@ describe("LoginPage", () => {
       expect(screen.getByRole("alert")).toBeTruthy(),
     );
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("shows a session-expired alert when sessionExpired is true", () => {
+    renderLoginPage({ sessionExpired: true });
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Your session has expired. Please sign in again.",
+    );
   });
 
   it("disables the submit button while submitting", async () => {

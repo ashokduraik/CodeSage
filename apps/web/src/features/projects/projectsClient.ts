@@ -9,6 +9,11 @@ type CreateRepoRequest = NodeApi.components["schemas"]["CreateRepoRequest"];
 type ProbeRepoRequest = NodeApi.components["schemas"]["ProbeRepoRequest"];
 type ProbeRepoResponse = NodeApi.components["schemas"]["ProbeRepoResponse"];
 type SyncRepoResponse = NodeApi.components["schemas"]["SyncRepoResponse"];
+type RepoIndexingEventListResponse =
+  NodeApi.components["schemas"]["RepoIndexingEventListResponse"];
+
+/** Default page size for indexing logs infinite scroll. */
+export const INDEXING_LOGS_PAGE_SIZE = 50;
 
 /**
  * Fetches the list of projects from the Node API.
@@ -86,6 +91,32 @@ export async function deleteRepoRequest(projectId: string, repoId: string): Prom
 }
 
 /**
+ * Fetches a cursor page of indexing progress events for a repository.
+ * @param projectId - Parent project UUID.
+ * @param repoId - Repo UUID.
+ * @param params - Optional limit and cursor for older pages.
+ * @returns Paginated indexing events (newest first).
+ */
+export async function fetchRepoIndexingEvents(
+  projectId: string,
+  repoId: string,
+  params: { limit?: number; cursor?: string } = {},
+): Promise<RepoIndexingEventListResponse> {
+  const search = new URLSearchParams();
+  if (params.limit !== undefined) {
+    search.set("limit", String(params.limit));
+  }
+  if (params.cursor) {
+    search.set("cursor", params.cursor);
+  }
+  const query = search.toString();
+  const suffix = query ? `?${query}` : "";
+  return apiFetch<RepoIndexingEventListResponse>(
+    `/projects/${projectId}/repos/${repoId}/indexing-events${suffix}`,
+  );
+}
+
+/**
  * Soft-deletes a project and detaches all of its repositories.
  * @param projectId - Project UUID.
  */
@@ -96,4 +127,12 @@ export async function deleteProjectRequest(projectId: string): Promise<void> {
 /** React Query key for repos belonging to a project. */
 export function reposQueryKey(projectId: string): readonly ["projects", string, "repos"] {
   return ["projects", projectId, "repos"];
+}
+
+/** React Query key for indexing events on one repo. */
+export function repoIndexingEventsQueryKey(
+  projectId: string,
+  repoId: string,
+): readonly ["projects", string, "repos", string, "indexing-events"] {
+  return ["projects", projectId, "repos", repoId, "indexing-events"];
 }

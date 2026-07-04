@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { reposQueryKey, syncRepoRequest } from "./projectsClient";
+import { reposQueryKey, repoIndexingEventsQueryKey, syncRepoRequest } from "./projectsClient";
 import type { NodeApi } from "@codesage/shared-types";
 
 type SyncRepoResponse = NodeApi.components["schemas"]["SyncRepoResponse"];
@@ -20,6 +20,9 @@ export function useSyncRepo() {
     mutationFn: ({ projectId, repoId }) => syncRepoRequest(projectId, repoId),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: reposQueryKey(variables.projectId) });
+      void queryClient.invalidateQueries({
+        queryKey: repoIndexingEventsQueryKey(variables.projectId, variables.repoId),
+      });
     },
   });
 }

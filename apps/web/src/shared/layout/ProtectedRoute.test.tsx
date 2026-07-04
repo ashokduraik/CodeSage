@@ -18,6 +18,7 @@ function renderWithAuth(auth: Partial<AuthContextValue>, initialPath = "/protect
   const value: AuthContextValue = {
     user: null,
     isLoading: false,
+    sessionExpired: false,
     login: vi.fn(),
     logout: vi.fn(),
     ...auth,

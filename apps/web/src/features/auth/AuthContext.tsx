@@ -6,12 +6,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { apiFetch } from "@/shared/lib/apiClient";
+import { apiFetch, ApiClientError } from "@/shared/lib/apiClient";
 import {
   clearAuthToken,
   getAuthToken,
   setAuthToken,
 } from "@/shared/lib/authTokenStorage";
+import { setUnauthorizedHandler } from "@/shared/lib/unauthorizedHandler";
 import type { NodeApi } from "@codesage/shared-types";
 
 type User = NodeApi.components["schemas"]["User"];
@@ -23,6 +24,8 @@ export interface AuthContextValue {
   user: User | null;
   /** Whether the initial session restore from localStorage is still in progress. */
   isLoading: boolean;
+  /** True when the user was redirected to login because their JWT expired. */
+  sessionExpired: boolean;
   /**
    * Authenticates with email + password. Stores the token in localStorage.
    * @throws {@link ApiClientError} on invalid credentials or network failure.
@@ -43,6 +46,19 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(() => getAuthToken() !== null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  const invalidateSession = useCallback((): void => {
+    clearAuthToken();
+    setUser(null);
+    setSessionExpired(true);
+  }, []);
+
+  // Register global 401 handler before session restore runs.
+  useEffect(() => {
+    setUnauthorizedHandler(invalidateSession);
+    return () => setUnauthorizedHandler(null);
+  }, [invalidateSession]);
 
   // Restore session from localStorage on mount when a token is present.
   useEffect(() => {
@@ -54,11 +70,15 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       .then((u) => {
         setUser(u);
       })
-      .catch(() => {
-        clearAuthToken();
+      .catch((err: unknown) => {
+        if (err instanceof ApiClientError && err.status === 401) {
+          invalidateSession();
+        } else {
+          clearAuthToken();
+        }
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [invalidateSession]);
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     const res = await apiFetch<LoginResponse>("/auth/login", {
@@ -68,15 +88,17 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     });
     setAuthToken(res.token);
     setUser(res.user);
+    setSessionExpired(false);
   }, []);
 
   const logout = useCallback((): void => {
     clearAuthToken();
     setUser(null);
+    setSessionExpired(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, sessionExpired, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
