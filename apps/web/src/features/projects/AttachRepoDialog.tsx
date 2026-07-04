@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, GitBranch, Loader2 } from "lucide-react";
 import { useAttachRepo } from "./useAttachRepo";
@@ -25,8 +25,23 @@ interface Props {
 
 /**
  * Multi-step modal for connecting a repository (probe → optional token → confirm).
+ * Form state lives in a child that unmounts when closed so fields reset without an effect.
  */
 export function AttachRepoDialog({ open, projectId, onClose }: Props): JSX.Element {
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      {open ? <AttachRepoDialogContent projectId={projectId} onClose={onClose} /> : null}
+    </Dialog>
+  );
+}
+
+function AttachRepoDialogContent({
+  projectId,
+  onClose,
+}: {
+  projectId: string;
+  onClose: () => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const { mutateAsync: attachAsync, isPending: isAttaching } = useAttachRepo();
   const { mutateAsync: probeAsync, isPending: isProbing } = useProbeRepo();
@@ -38,18 +53,6 @@ export function AttachRepoDialog({ open, projectId, onClose }: Props): JSX.Eleme
   const [selectedBranch, setSelectedBranch] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open) {
-      setStep(STEPS.URL);
-      setRepoUrl("");
-      setToken("");
-      setProbe(null);
-      setSelectedBranch("");
-      setDescription("");
-      setError("");
-    }
-  }, [open]);
 
   const runProbe = async (url: string, authToken?: string): Promise<void> => {
     setError("");
@@ -117,8 +120,7 @@ export function AttachRepoDialog({ open, projectId, onClose }: Props): JSX.Eleme
   const isBusy = isProbing || isAttaching;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent closeLabel={t("common.close")} className="sm:max-w-md">
+    <DialogContent closeLabel={t("common.close")} className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t("projects.attachDialog.title")}</DialogTitle>
         </DialogHeader>
@@ -288,8 +290,7 @@ export function AttachRepoDialog({ open, projectId, onClose }: Props): JSX.Eleme
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+    </DialogContent>
   );
 }
 
