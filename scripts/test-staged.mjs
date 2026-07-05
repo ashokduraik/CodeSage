@@ -1,79 +1,55 @@
 #!/usr/bin/env node
-// Runs related tests only for staged changes (no coverage gate).
+// Runs colocated / directly staged tests only (no coverage gate).
 //
 // Usage:
 //   node scripts/test-staged.mjs
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import {
   getStagedFiles,
+  groupStagedByWorkspace,
   hasRagCodeChanges,
   REPO_ROOT,
+  resolveJsTestFilesForStaged,
   resolvePythonTestsForStaged,
   spawnCommand,
   TS_FILE,
-  WORKSPACES,
-  workspacesToTest,
 } from "./lib/staged-files.mjs";
 
 const stagedFiles = getStagedFiles();
 const ragRoot = join(REPO_ROOT, "apps/rag");
 
 /**
- * Runs vitest related for staged TS files in a workspace.
- * @param {typeof WORKSPACES[number]} entry
- * @param {string[]} repoRelativeFiles paths under this workspace or shared-types for dependents
+ * Runs vitest on explicit test files for a workspace.
+ * @param {import("./lib/staged-files.mjs").WORKSPACES[number]} entry
+ * @param {string[]} workspaceRelativeTests paths relative to workspace cwd
  * @returns {number}
  */
-function runVitestRelated(entry, repoRelativeFiles) {
+function runVitestFiles(entry, workspaceRelativeTests) {
   const workspaceRoot = join(REPO_ROOT, entry.cwd);
-  const relatedPaths = repoRelativeFiles.map((file) => {
-    if (file.startsWith(entry.prefix)) {
-      return file.slice(entry.prefix.length);
-    }
-
-    return relative(workspaceRoot, join(REPO_ROOT, file)).replace(/\\/g, "/");
-  });
 
   console.log(
-    `test (staged): ${entry.workspace} vitest related (${relatedPaths.length} file(s))`,
+    `test (staged): ${entry.workspace} vitest run (${workspaceRelativeTests.length} file(s))`,
   );
   return spawnCommand(
     "npx",
-    ["vitest", "related", "--run", ...relatedPaths],
+    ["vitest", "run", "--passWithNoTests", ...workspaceRelativeTests],
     { cwd: workspaceRoot },
   );
 }
 
-const testWorkspaces = workspacesToTest(stagedFiles);
-const sharedTypesEntry = WORKSPACES.find(
-  (entry) => entry.workspace === "@codesage/shared-types",
-);
-const sharedTypesStaged = sharedTypesEntry
-  ? stagedFiles.filter(
-      (file) => file.startsWith(sharedTypesEntry.prefix) && TS_FILE.test(file),
-    )
-  : [];
+const jsGroups = groupStagedByWorkspace(stagedFiles, TS_FILE);
 
-for (const entry of testWorkspaces) {
-  const ownFiles = stagedFiles.filter(
-    (file) => file.startsWith(entry.prefix) && TS_FILE.test(file),
-  );
+for (const { entry, files } of jsGroups) {
+  const testFiles = resolveJsTestFilesForStaged(files, entry);
 
-  /** @type {string[]} */
-  let relatedFiles = [...ownFiles];
-
-  if (
-    entry.workspace !== "@codesage/shared-types" &&
-    sharedTypesStaged.length > 0
-  ) {
-    relatedFiles = [...relatedFiles, ...sharedTypesStaged];
-  }
-
-  if (relatedFiles.length === 0) {
+  if (testFiles.length === 0) {
+    console.log(
+      `test (staged): ${entry.workspace} — no colocated tests for staged files, skipping`,
+    );
     continue;
   }
 
-  const status = runVitestRelated(entry, relatedFiles);
+  const status = runVitestFiles(entry, testFiles);
   if (status !== 0) {
     process.exit(status);
   }

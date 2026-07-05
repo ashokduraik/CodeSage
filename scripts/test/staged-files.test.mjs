@@ -7,10 +7,11 @@ import {
   hasRagCodeChanges,
   LINTABLE_FILE,
   REPO_ROOT,
+  resolveJsTestFilesForStaged,
   resolvePythonTestCandidates,
   resolvePythonTestsForStaged,
   TS_FILE,
-  workspacesToTest,
+  WORKSPACES,
   workspacesToTypecheck,
 } from "../lib/staged-files.mjs";
 
@@ -63,13 +64,41 @@ describe("workspacesToTypecheck", () => {
   });
 });
 
-describe("workspacesToTest", () => {
-  it("mirrors typecheck workspace selection for TS files", () => {
-    const entries = workspacesToTest(["apps/web/src/main.tsx"]);
-    assert.deepEqual(
-      entries.map((entry) => entry.workspace),
-      ["@codesage/web"],
+describe("resolveJsTestFilesForStaged", () => {
+  it("resolves colocated test files for staged source", () => {
+    const webEntry = WORKSPACES.find((entry) => entry.workspace === "@codesage/web");
+    assert.ok(webEntry);
+
+    const tests = resolveJsTestFilesForStaged(
+      ["apps/web/src/features/projects/ProjectsPage.tsx"],
+      webEntry,
     );
+
+    assert.deepEqual(tests, ["src/features/projects/ProjectsPage.test.tsx"]);
+  });
+
+  it("runs staged test files directly", () => {
+    const webEntry = WORKSPACES.find((entry) => entry.workspace === "@codesage/web");
+    assert.ok(webEntry);
+
+    const tests = resolveJsTestFilesForStaged(
+      ["apps/web/src/features/chat/Chat.test.tsx"],
+      webEntry,
+    );
+
+    assert.deepEqual(tests, ["src/features/chat/Chat.test.tsx"]);
+  });
+
+  it("does not expand to unrelated tests for shared UI changes", () => {
+    const webEntry = WORKSPACES.find((entry) => entry.workspace === "@codesage/web");
+    assert.ok(webEntry);
+
+    const tests = resolveJsTestFilesForStaged(
+      ["apps/web/src/shared/ui/dialog.tsx"],
+      webEntry,
+    );
+
+    assert.deepEqual(tests, []);
   });
 });
 
@@ -141,14 +170,13 @@ describe("resolvePythonTestsForStaged", () => {
     assert.ok(targets.includes("tests/services/test_retrieval.py"));
   });
 
-  it("falls back to area tests when no candidate file exists", () => {
+  it("returns no targets when no matching test file exists", () => {
     const targets = resolvePythonTestsForStaged(
       ["apps/rag/src/services/nonexistent_module/foo.py"],
       ragRoot,
     );
 
-    assert.ok(targets.length > 0);
-    assert.ok(targets.every((target) => target.startsWith("tests/services/")));
+    assert.deepEqual(targets, []);
   });
 });
 

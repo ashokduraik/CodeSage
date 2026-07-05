@@ -9,4 +9,5 @@ export {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "./dialog";

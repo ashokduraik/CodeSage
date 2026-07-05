@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -128,35 +128,47 @@ export function workspacesToTypecheck(stagedFiles) {
 }
 
 /**
- * Resolves npm workspaces that should run related JS tests for staged paths.
- * @param {string[]} stagedFiles
- * @returns {typeof WORKSPACES[number][]}
+ * Resolves colocated vitest files for staged TS paths within one workspace.
+ * Only runs tests that mirror staged source/test files — no import-graph expansion.
+ * @param {string[]} stagedFiles repo-relative staged paths
+ * @param {typeof WORKSPACES[number]} entry
+ * @param {string} [workspaceRoot]
+ * @returns {string[]} test paths relative to the workspace directory
  */
-export function workspacesToTest(stagedFiles) {
-  /** @type {Map<string, typeof WORKSPACES[number]>} */
-  const targets = new Map();
+export function resolveJsTestFilesForStaged(
+  stagedFiles,
+  entry,
+  workspaceRoot = join(REPO_ROOT, entry.cwd),
+) {
+  /** @type {Set<string>} */
+  const tests = new Set();
 
   for (const file of stagedFiles) {
-    if (!TS_FILE.test(file)) {
+    if (!file.startsWith(entry.prefix) || !TS_FILE.test(file)) {
       continue;
     }
 
-    for (const entry of WORKSPACES) {
-      if (!file.startsWith(entry.prefix)) {
-        continue;
-      }
+    const rel = file.slice(entry.prefix.length);
 
-      targets.set(entry.workspace, entry);
-      for (const dependentName of entry.dependents ?? []) {
-        const dependent = WORKSPACES.find((w) => w.workspace === dependentName);
-        if (dependent) {
-          targets.set(dependent.workspace, dependent);
-        }
+    if (/\.test\.(ts|tsx)$/.test(rel)) {
+      tests.add(rel);
+      continue;
+    }
+
+    if (!/\.tsx?$/.test(rel)) {
+      continue;
+    }
+
+    const stem = rel.replace(/\.tsx?$/, "");
+    for (const suffix of [".test.ts", ".test.tsx"]) {
+      const candidate = `${stem}${suffix}`;
+      if (existsSync(join(workspaceRoot, candidate))) {
+        tests.add(candidate);
       }
     }
   }
 
-  return [...targets.values()];
+  return [...tests].sort();
 }
 
 /**
@@ -259,30 +271,6 @@ export function resolvePythonTestCandidates(stagedSourcePath) {
 }
 
 /**
- * Lists pytest files in an apps/rag tests area directory (area fallback).
- * @param {string} area e.g. "services", "workers"
- * @param {string} ragRoot absolute path to apps/rag
- * @returns {string[]} paths relative to apps/rag
- */
-export function listAreaTestFiles(area, ragRoot) {
-  const areaDir = join(ragRoot, "tests", area);
-  if (!existsSync(areaDir)) {
-    return [];
-  }
-
-  /** @type {string[]} */
-  const files = [];
-
-  for (const entry of readdirSync(areaDir, { withFileTypes: true })) {
-    if (entry.isFile() && entry.name.startsWith("test_") && entry.name.endsWith(".py")) {
-      files.push(relative(ragRoot, join(areaDir, entry.name)).replace(/\\/g, "/"));
-    }
-  }
-
-  return files.sort();
-}
-
-/**
  * Resolves pytest targets (paths relative to apps/rag) for staged RAG paths.
  * @param {string[]} stagedFiles repo-relative staged paths
  * @param {string} [ragRoot]
@@ -307,16 +295,8 @@ export function resolvePythonTestsForStaged(stagedFiles, ragRoot = join(REPO_ROO
       existsSync(join(ragRoot, candidate)),
     );
 
-    if (existing.length > 0) {
-      for (const candidate of existing) {
-        targets.add(candidate);
-      }
-      continue;
-    }
-
-    const area = file.slice(RAG_SRC_PREFIX.length).split("/")[0] ?? "";
-    for (const fallback of listAreaTestFiles(area, ragRoot)) {
-      targets.add(fallback);
+    for (const candidate of existing) {
+      targets.add(candidate);
     }
   }
 
