@@ -51,6 +51,7 @@ def _parser_for_suffix(suffix: str) -> Parser | None:
     """Return a cached Parser for the given extension.
 
     @param suffix - Lowercase extension including the dot.
+    @returns Configured parser or ``None`` when the extension is unsupported.
     """
     language = _language_for_suffix(suffix)
     if language is None:
@@ -60,7 +61,12 @@ def _parser_for_suffix(suffix: str) -> Parser | None:
 
 
 def _node_name(node: Node, source: bytes) -> str:
-    """Best-effort symbol name from an AST node."""
+    """Best-effort symbol name from an AST node.
+
+    @param node - tree-sitter node (function, class, or method).
+    @param source - Original file bytes for slice extraction.
+    @returns Declared identifier or the node type when unnamed.
+    """
     name_node = node.child_by_field_name("name")
     if name_node is not None:
         return source[name_node.start_byte : name_node.end_byte].decode("utf-8", errors="replace")
@@ -84,6 +90,8 @@ def extract_symbol_spans(content: str, file_path: str) -> list[SymbolSpan]:
 
     source = content.encode("utf-8")
     tree = parser.parse(source)
+    # When the file has syntax errors, symbol boundaries are unreliable. Return empty so
+    # ``chunk_source`` falls back to line-window splitting instead of bad AST chunks.
     if tree.root_node.has_error:
         return []
 
@@ -100,6 +108,8 @@ def extract_symbol_spans(content: str, file_path: str) -> list[SymbolSpan]:
     cursor = QueryCursor(query)
     spans: list[SymbolSpan] = []
 
+    # The tree-sitter query intentionally matches top-level declarations only. Nested inner
+    # functions and anonymous callbacks are covered by the line-window fallback in chunker.
     for _pattern_index, captures in cursor.matches(tree.root_node):
         for capture_name, nodes in captures.items():
             if capture_name not in {"fn", "cls", "method"}:

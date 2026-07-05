@@ -39,14 +39,18 @@ def handle_sync_job(
     payload: dict[str, Any],
     exec_ctx: JobExecutionContext,
 ) -> None:
-    """Run the sync job: git clone/fetch, detect changed files, enqueue parse.
+    """Run Step 1/3 of the indexing pipeline: download or update the Git repository.
 
-    @param session - Open SQLAlchemy session (caller commits).
-    @param settings - Application settings.
-    @param payload - SyncPayload matching `contracts/jobs.schema.json`.
-    @param exec_ctx - Job execution context for progress recording.
-    @raises ValueError when payload is invalid or repo is missing.
-    @raises RuntimeError when git sync fails.
+    Clones on first attach or fetches on subsequent syncs, determines which source files
+    changed since the last index, and enqueues a parse job when there is work to do.
+    Updates repo connection status and project lifecycle so the UI reflects progress.
+
+    @param session - Open SQLAlchemy session; the worker commits after the handler returns.
+    @param settings - Application settings including clone directory and encryption key.
+    @param payload - SyncPayload matching ``contracts/jobs.schema.json``.
+    @param exec_ctx - Run grouping and progress recorder shared with parse/embed steps.
+    @raises ValueError when the payload is invalid or the repo row is missing.
+    @raises RuntimeError when a git command fails.
     """
     repo_id_raw = payload.get("repoId")
     if not repo_id_raw:
@@ -97,6 +101,13 @@ def handle_sync_job(
         log_event(logger, logging.INFO, "Using stored credentials for private repository")
 
     def list_files() -> list[str]:
+        """List indexable source files in the on-disk worktree after git sync completes.
+
+        Called by ``sync_repository`` after clone/fetch so incremental diffs can be
+        intersected with files we actually parse. Respects the configured max file size.
+
+        @returns Relative paths of source files eligible for the parse step.
+        """
         scan = scan_indexable_files(worktree, settings.sync_max_file_bytes)
         if scan.skipped_large_count > 0:
             log_event(
@@ -188,6 +199,8 @@ def handle_sync_job(
                 },
             )
         else:
+            # A newer sync superseded this job while we were cloning. Do not enqueue parse
+            # for stale file lists — the newer job will drive the next pipeline step.
             log_event(
                 logger,
                 logging.INFO,
@@ -216,11 +229,20 @@ def create_sync_handler(
     """Build a sync handler bound to settings and a session factory.
 
     @param settings - Application settings.
-    @param session_factory - SQLAlchemy session factory.
+    @param session_factory - SQLAlchemy session factory (unused; kept for handler signature parity).
     @returns Callable accepting a sync payload dict and execution context.
     """
 
     def _handler(payload: dict[str, Any], exec_ctx: JobExecutionContext, session: Session) -> None:
+        """Thin adapter invoked by the job dispatcher for ``sync`` jobs.
+
+        Binds application settings into ``handle_sync_job`` so the dispatcher can treat
+        all job types with the same ``(payload, exec_ctx, session)`` signature.
+
+        @param payload - SyncPayload matching ``contracts/jobs.schema.json``.
+        @param exec_ctx - Job execution context for progress recording and run grouping.
+        @param session - Open SQLAlchemy session; the worker commits after return.
+        """
         handle_sync_job(session, settings, payload, exec_ctx)
 
     return _handler

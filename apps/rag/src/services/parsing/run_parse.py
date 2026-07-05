@@ -38,13 +38,17 @@ def handle_parse_job(
     payload: dict[str, Any],
     exec_ctx: JobExecutionContext,
 ) -> None:
-    """Parse listed files into code_chunks and enqueue embedding.
+    """Run Step 2/3 of the indexing pipeline: read changed files and create code chunks.
 
-    @param session - Open SQLAlchemy session (caller commits).
-    @param settings - Application settings.
-    @param payload - ParsePayload matching `contracts/jobs.schema.json`.
-    @param exec_ctx - Job execution context for progress recording.
-    @raises ValueError when payload is invalid or repo is missing.
+    For each file listed in the parse payload, deletes old chunks, extracts an AST graph,
+    splits the file into searchable sections, and enqueues an embed job when sections exist.
+    Progress events and logs use the same project/repo context as sync and embed.
+
+    @param session - Open SQLAlchemy session; the worker commits after the handler returns.
+    @param settings - Application settings including the on-disk clone root path.
+    @param payload - ParsePayload matching ``contracts/jobs.schema.json``.
+    @param exec_ctx - Run grouping and progress recorder shared with sync/embed steps.
+    @raises ValueError when the payload is invalid or the repo row is missing.
     """
     repo_id_raw = payload.get("repoId")
     files = payload.get("files")
@@ -87,6 +91,8 @@ def handle_parse_job(
             files_skipped += 1
             continue
         log_event(logger, logging.DEBUG, f"Reading file: {rel_path}")
+        # Incremental sync re-parses the same path when content changes. Remove old chunks
+        # first so we never leave orphaned rows or duplicate sections for one file.
         chunks_repo.delete_by_repo_file(repo_id, rel_path)
         text = file_path.read_text(encoding="utf-8", errors="replace")
         graph_result = persist_file_graph(
@@ -169,6 +175,8 @@ def handle_parse_job(
                 {**downstream, "chunkIds": new_chunk_ids},
             )
         else:
+            # A newer sync superseded this parse job. Skip embed enqueue so vectors are not
+            # built for chunks that belong to an outdated indexing run.
             log_event(
                 logger,
                 logging.INFO,
@@ -187,9 +195,23 @@ def create_parse_handler(
     settings: Settings,
     session_factory: sessionmaker[Session],
 ):
-    """Build a parse handler bound to settings and a session factory."""
+    """Build a parse handler bound to settings and a session factory.
+
+    @param settings - Application settings.
+    @param session_factory - SQLAlchemy session factory (unused; kept for handler signature parity).
+    @returns Callable accepting a parse payload dict and execution context.
+    """
 
     def _handler(payload: dict[str, Any], exec_ctx: JobExecutionContext, session: Session) -> None:
+        """Thin adapter invoked by the job dispatcher for ``parse`` jobs.
+
+        Binds application settings into ``handle_parse_job`` so the dispatcher can treat
+        all job types with the same ``(payload, exec_ctx, session)`` signature.
+
+        @param payload - ParsePayload matching ``contracts/jobs.schema.json``.
+        @param exec_ctx - Job execution context for progress recording and run grouping.
+        @param session - Open SQLAlchemy session; the worker commits after return.
+        """
         handle_parse_job(session, settings, payload, exec_ctx)
 
     return _handler

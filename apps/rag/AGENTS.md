@@ -21,6 +21,10 @@ src/config/                → settings, env
 
 ## Do
 
+- **Document every function and class** with a docstring: start with 2–4 plain-English
+  sentences (purpose, when to call, domain context), then `@param` / `@returns` / `@raises`
+  as full sentences. Add inline **why** comments (1–3 sentences each) on non-obvious
+  control flow. See `.cursor/rules/python-docstrings-rag.mdc`.
 - Keep **routes thin** in `src/api/`; **job handlers thin** in `src/workers/`.
 - Put **all business logic** in `src/services/`.
 - Use **repositories** for DB access; **models** for ORM shapes only.

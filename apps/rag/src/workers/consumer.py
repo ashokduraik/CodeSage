@@ -89,6 +89,8 @@ def _build_execution_context(session: Session, job: object) -> JobExecutionConte
         job_id=job.id,
         job_type=job.type,
         run_id=resolve_run_id(job.type, payload, job.id),
+        # Only store triggers we recognize in the UI and audit trail. Unknown legacy
+        # strings are dropped to None rather than persisting invalid enum values.
         trigger=trigger if trigger in {"initial_attach", "manual_sync", "webhook_push"} else None,
         project_id=project_id,
         repo_id=repo_id,
@@ -136,13 +138,18 @@ def _handle_job_failure(
     unsupported: bool = False,
     recorder: IndexingProgressRecorder | None = None,
 ) -> None:
-    """Mark job failed, update repo status, and emit clear failure logs.
+    """Record a failed job and update related repo status without losing the primary failure.
 
-    @param work_session - Session used for persistence updates.
-    @param settings - Application settings.
-    @param job - Claimed job instance.
-    @param exc - Raised exception or synthetic error.
-    @param unsupported - When True, use a fixed unsupported-type explanation.
+    Marks the job row failed, writes a sanitized explanation, updates repo connection
+    status when the payload references a repo, and emits a progress event for the UI.
+    Secondary persistence errors are isolated so the job failure itself is never lost.
+
+    @param work_session - SQLAlchemy session used for all failure persistence writes.
+    @param settings - Application settings passed through to ``explain_failure``.
+    @param job - The claimed job instance that raised or represents the failure.
+    @param exc - The original exception, or a placeholder for unsupported job types.
+    @param unsupported - When ``True``, use a fixed message instead of ``explain_failure``.
+    @param recorder - Optional progress recorder for repo indexing timeline events.
     """
     exec_ctx = _build_execution_context(work_session, job)
     step_num, step_name = job_step(job.type)
@@ -189,6 +196,9 @@ def _handle_job_failure(
                 )
             work_session.commit()
     except Exception as secondary:
+        # The job row is already marked failed and committed above. If updating repo
+        # status or progress events fails, roll back only those secondary writes so
+        # the primary failure record is not lost.
         work_session.rollback()
         log_failure(
             logger,
@@ -198,13 +208,19 @@ def _handle_job_failure(
 
 
 def process_next_job(session_factory: sessionmaker[Session], settings: Settings) -> bool:
-    """Claim and execute one pending job when available.
+    """Claim and run one job from the Postgres queue, if any work is pending.
 
-    @param session_factory - SQLAlchemy session factory.
-    @param settings - Application settings.
-    @returns True when a job was processed, False when the queue was empty.
+    Reclaims orphaned and stale jobs before claiming the next pending row. Uses two
+    database sessions: a short one for claim/reclaim, and a longer one for handler
+    execution, progress events, and completion or failure persistence.
+
+    @param session_factory - SQLAlchemy session factory shared with the HTTP app.
+    @param settings - Application settings (stale thresholds, handler config).
+    @returns ``True`` when a job was claimed and processed; ``False`` when the queue was empty.
     """
     handlers = build_job_handlers(settings, session_factory)
+    # Use a short-lived session only to reclaim stale jobs and atomically claim the next one.
+    # Handler work runs in a separate session so claim/commit boundaries stay clean.
     session = session_factory()
     try:
         jobs = JobRepository(session)
@@ -237,6 +253,8 @@ def process_next_job(session_factory: sessionmaker[Session], settings: Settings)
         step_num, step_name = job_step(job.type)
         started = time.monotonic()
 
+        # Handler session spans the full job: progress events, handler side effects,
+        # and final mark_done or rollback if the job was superseded mid-flight.
         work_session = session_factory()
         recorder: IndexingProgressRecorder | None = None
         try:
@@ -268,6 +286,8 @@ def process_next_job(session_factory: sessionmaker[Session], settings: Settings)
 
             job_repo = JobRepository(work_session)
             if not job_repo.is_job_active(job.id):
+                # A newer sync for the same repo soft-deleted this job while we worked.
+                # Roll back handler writes (chunks, enqueue) so stale results never land.
                 work_session.rollback()
                 log_event(
                     logger,
@@ -276,6 +296,8 @@ def process_next_job(session_factory: sessionmaker[Session], settings: Settings)
                 )
             else:
                 if not exec_ctx.step_completed and exec_ctx.repo_id is not None:
+                    # Some handlers finish without calling the progress recorder. Emit a
+                    # synthetic "finished" event so the UI timeline is never blank.
                     elapsed_ms = max(1, int((time.monotonic() - started) * 1000))
                     recorder.record_finished(
                         f"Step {step_num}/3 {step_name} completed for {label}",

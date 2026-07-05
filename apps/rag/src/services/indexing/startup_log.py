@@ -47,6 +47,8 @@ def log_startup_queue_state(
     session = session_factory()
     try:
         jobs = JobRepository(session)
+        # If the previous process crashed mid-job, rows stay ``running`` forever. Reclaim
+        # them at startup using the same logic as the worker loop before we log queue state.
         orphaned = jobs.reclaim_orphaned_running_jobs()
         if orphaned > 0:
             session.commit()

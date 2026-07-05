@@ -20,6 +20,8 @@ def fake_embedding(text: str, dimension: int) -> list[float]:
     """
     digest = hashlib.sha256(text.encode("utf-8")).digest()
     values: list[float] = []
+    # SHA-256 yields 32 bytes — not enough for 768-dim vectors. Re-hash the digest in a
+    # loop so local dev and CI get deterministic, repeatable pseudo-embeddings per text.
     while len(values) < dimension:
         for byte in digest:
             values.append((byte / 255.0) * 2.0 - 1.0)

@@ -72,16 +72,20 @@ def sync_repository(
     since_sha: str | None,
     list_files: Callable[[], list[str]],
 ) -> GitSyncResult:
-    """Clone or update a repository and determine files to (re)parse.
+    """Clone or update a repository and decide which files need re-parsing.
 
-    @param repo_url - HTTPS clone URL.
-    @param branch - Branch to checkout.
-    @param worktree - Local clone directory.
-    @param token - Optional deploy token for private repos.
-    @param since_sha - Previous indexed SHA for incremental diff; `None` on first sync.
-    @param list_files - Callable returning indexable relative paths after sync.
-    @returns HEAD SHA and relative file paths requiring parse.
-    @raises RuntimeError when git commands fail.
+    On first attach performs a shallow clone; on later runs fetches and hard-resets to
+    match the remote branch. Compares against ``since_sha`` when provided to produce an
+    incremental file list; otherwise scans the full worktree.
+
+    @param repo_url - HTTPS clone URL (token injected separately when private).
+    @param branch - Branch name to checkout after fetch or clone.
+    @param worktree - Local directory where the clone is stored on disk.
+    @param token - Optional deploy token for private repositories.
+    @param since_sha - Last indexed commit for incremental diff; ``None`` on first sync.
+    @param list_files - Callable returning indexable relative paths after sync completes.
+    @returns HEAD SHA and the relative paths that should be sent to the parse step.
+    @raises RuntimeError when any git subprocess exits with a non-zero status.
     """
     authed_url = build_authenticated_url(repo_url, token)
     is_update = is_existing_clone(worktree)
@@ -89,6 +93,8 @@ def sync_repository(
         log_event(logger, logging.INFO, "Fetching latest changes from remote")
         _run_git(["fetch", "--depth", "1", "origin", branch], cwd=worktree)
         _run_git(["checkout", branch], cwd=worktree)
+        # After a shallow fetch the local branch may diverge from remote. Hard reset
+        # guarantees the worktree matches origin exactly so file diffs are trustworthy.
         _run_git(["reset", "--hard", f"origin/{branch}"], cwd=worktree)
     else:
         log_event(logger, logging.INFO, "Cloning repository (first sync)")
@@ -114,6 +120,8 @@ def sync_repository(
         diff = _run_git(["diff", "--name-only", since_sha, head_sha], cwd=worktree)
         changed = [line.strip() for line in diff.stdout.splitlines() if line.strip()]
         all_indexable = set(list_files())
+        # Git diff lists every changed path including deletes and non-source files.
+        # Keep only paths we actually index so parse jobs stay focused and cheap.
         changed_files = sorted(path for path in changed if path in all_indexable)
         log_event(
             logger,
@@ -121,6 +129,8 @@ def sync_repository(
             f"{len(changed_files)} files changed since last index",
         )
     else:
+        # No prior indexed commit, or HEAD did not move — scan the full worktree so
+        # first-time attach and no-op syncs still produce a correct file list.
         changed_files = list_files()
         log_event(logger, logging.INFO, "Full index — scanning all source files")
     return GitSyncResult(head_sha=head_sha, changed_files=changed_files)

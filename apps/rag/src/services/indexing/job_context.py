@@ -69,6 +69,8 @@ def resolve_trigger(
     if job_type != "sync":
         return None
 
+    # Older jobs omit an explicit trigger field. Infer from who enqueued the job and
+    # whether the payload carries a sinceSha hint from a webhook push event.
     if job_created_by == WEBHOOK_HANDLER_USER_ID:
         return "webhook_push"
     if payload.get("sinceSha"):

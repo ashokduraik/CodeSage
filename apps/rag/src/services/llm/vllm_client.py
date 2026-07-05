@@ -57,6 +57,8 @@ def stream_vllm_answer(
                 try:
                     data = json.loads(payload)
                 except json.JSONDecodeError:
+                    # vLLM occasionally emits partial SSE frames or keep-alive lines.
+                    # Skip bad JSON rather than failing the whole answer stream.
                     continue
                 choices = data.get("choices", [])
                 if not choices:
@@ -66,4 +68,6 @@ def stream_vllm_answer(
                 if content:
                     yield content
     except httpx.HTTPError:
+        # When vLLM is down or times out, still return grounded excerpts from retrieval.
+        # Product rule (NFR-7): never invent an answer — cite indexed code or abstain.
         yield from _fallback_answer(context_blocks)

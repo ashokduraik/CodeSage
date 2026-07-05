@@ -30,14 +30,25 @@ class RagQueryBody(BaseModel):
 def rag_query(request: Request, body: RagQueryBody) -> StreamingResponse:
     """Stream a grounded answer or abstain response as Server-Sent Events.
 
-    @param request - FastAPI request (provides app state/settings).
-    @param body - Validated query payload.
-    @returns SSE stream of RagAnswerChunk JSON objects.
+    Retrieves relevant code chunks, optionally calls vLLM, and streams JSON chunks back
+    to the Node API proxy. Every answer path must cite sources or abstain (NFR-7).
+
+    @param request - FastAPI request carrying app state (settings, session factory).
+    @param body - Validated query payload from ``contracts/openapi.rag.yaml``.
+    @returns An SSE ``StreamingResponse`` of ``RagAnswerChunk`` JSON objects.
     """
     settings = request.app.state.settings
     session_factory = request.app.state.session_factory
 
     def event_stream() -> Iterator[str]:
+        """Bridge the QA service generator into an SSE byte stream for FastAPI.
+
+        FastAPI's ``StreamingResponse`` expects an iterator of strings; this closure
+        forwards each serialized chunk from ``stream_rag_answer`` without buffering
+        the full answer in memory.
+
+        @yields Serialized ``RagAnswerChunk`` JSON strings, one per SSE event.
+        """
         yield from stream_rag_answer(
             settings,
             session_factory,

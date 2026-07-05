@@ -39,6 +39,8 @@ def build_neighbor_expansion_query(
 
     reachable = anchor.cte(name="reachable", recursive=True)
 
+    # Follow outgoing edges only, and stop at max_depth. Without the depth guard a dense
+    # call graph could expand to the entire project during a single QA retrieval query.
     recursive = (
         select(
             GraphEdge.dst_id.label("node_id"),

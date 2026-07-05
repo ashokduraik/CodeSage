@@ -33,10 +33,14 @@ def mark_repo_indexing_failed(
 
 
 def recompute_project_lifecycle(session: Session, project_id: uuid.UUID) -> None:
-    """Set project lifecycle from aggregate repo connection/index state.
+    """Derive the project-level indexing status from all attached repositories.
 
-    @param session - Active SQLAlchemy session (caller commits).
-    @param project_id - Project UUID to reconcile.
+    A project may have multiple repos with different connection and index states. This
+    function aggregates those rows into a single ``ProjectStatus`` the UI can display
+    (active, indexing, indexed, or error).
+
+    @param session - Active SQLAlchemy session; the caller commits after updates.
+    @param project_id - Project UUID whose lifecycle should be reconciled.
     """
     repos = RepoRepository(session)
     projects = ProjectRepository(session)
@@ -53,10 +57,13 @@ def recompute_project_lifecycle(session: Session, project_id: uuid.UUID) -> None
     all_indexed = all(repo.last_indexed_at is not None for repo in active_repos)
     has_error = RepoConnectionStatus.ERROR.value in statuses
 
+    # Every repo has been indexed at least once and none are in error — the project is
+    # ready for code questions across all attached repositories.
     if all_indexed and RepoConnectionStatus.CONNECTED.value in statuses and not has_error:
         projects.update_status(project_id, ProjectStatus.INDEXED)
         return
 
+    # At least one repo is mid-sync — show INDEXING even if others already finished.
     if RepoConnectionStatus.CONNECTING.value in statuses:
         projects.update_status(project_id, ProjectStatus.INDEXING)
         return
@@ -66,6 +73,8 @@ def recompute_project_lifecycle(session: Session, project_id: uuid.UUID) -> None
             RepoConnectionStatus.CONNECTING.value in statuses
             or any(repo.last_indexed_at is None for repo in active_repos)
         )
+        # If some repos failed but others are still syncing or never indexed, stay INDEXING.
+        # Only flip the whole project to ERROR when every repo failed and none are progressing.
         if still_progressing:
             projects.update_status(project_id, ProjectStatus.INDEXING)
         elif statuses == {RepoConnectionStatus.ERROR.value}:

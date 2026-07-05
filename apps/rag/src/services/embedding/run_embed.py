@@ -44,13 +44,17 @@ def handle_embed_job(
     payload: dict[str, Any],
     exec_ctx: JobExecutionContext,
 ) -> None:
-    """Embed the requested code chunks and mark the project indexed when complete.
+    """Run Step 3/3 of the indexing pipeline: vectorize code chunks for semantic search.
 
-    @param session - Open SQLAlchemy session (caller commits).
-    @param settings - Application settings.
-    @param payload - EmbedPayload matching `contracts/jobs.schema.json`.
-    @param exec_ctx - Job execution context for progress recording.
-    @raises ValueError when payload is invalid or repo is missing.
+    Calls the embedding service (or a dev placeholder) for the batch of chunk ids in the
+    payload. When every chunk for the repo has a vector, marks the project indexed and
+    reconciles lifecycle status across all repos in the project.
+
+    @param session - Open SQLAlchemy session; the worker commits after the handler returns.
+    @param settings - Application settings including TEI URL and embedding dimension.
+    @param payload - EmbedPayload matching ``contracts/jobs.schema.json``.
+    @param exec_ctx - Job execution context for progress recording and run grouping.
+    @raises ValueError when the payload is invalid or the repo row is missing.
     """
     repo_id_raw = payload.get("repoId")
     chunk_ids_raw = payload.get("chunkIds")
@@ -108,6 +112,8 @@ def handle_embed_job(
 
     remaining = chunks_repo.list_unembedded(repo_id, limit=10_000)
     if remaining:
+        # Parse may enqueue multiple embed jobs when chunk count exceeds batch size.
+        # Do not mark the project INDEXED until every chunk row has a stored vector.
         log_event(
             logger,
             logging.INFO,
@@ -124,6 +130,8 @@ def handle_embed_job(
         )
         return
 
+    # Every chunk for this repo now has an embedding vector. Promote project status,
+    # stamp the repo as index-complete, and reconcile siblings (multi-repo projects).
     projects.update_status(repo.project_id, ProjectStatus.INDEXED)
     repos.mark_index_complete(repo_id)
     recompute_project_lifecycle(session, repo.project_id)
@@ -154,9 +162,23 @@ def create_embed_handler(
     settings: Settings,
     session_factory: sessionmaker[Session],
 ):
-    """Build an embed handler bound to settings and a session factory."""
+    """Build an embed handler bound to settings and a session factory.
+
+    @param settings - Application settings.
+    @param session_factory - SQLAlchemy session factory (unused; kept for handler signature parity).
+    @returns Callable accepting an embed payload dict and execution context.
+    """
 
     def _handler(payload: dict[str, Any], exec_ctx: JobExecutionContext, session: Session) -> None:
+        """Thin adapter invoked by the job dispatcher for ``embed`` jobs.
+
+        Binds application settings into ``handle_embed_job`` so the dispatcher can treat
+        all job types with the same ``(payload, exec_ctx, session)`` signature.
+
+        @param payload - EmbedPayload matching ``contracts/jobs.schema.json``.
+        @param exec_ctx - Job execution context for progress recording and run grouping.
+        @param session - Open SQLAlchemy session; the worker commits after return.
+        """
         handle_embed_job(session, settings, payload, exec_ctx)
 
     return _handler

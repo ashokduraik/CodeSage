@@ -23,13 +23,23 @@ _logger = get_indexing_logger()
 
 
 def create_app() -> FastAPI:
-    """Create the FastAPI app with a background job-consumer thread."""
+    """Create and configure the FastAPI application for the RAG service.
+
+    Validates settings and database connectivity before any HTTP traffic is accepted.
+    A background daemon thread polls the Postgres job queue for indexing work
+    (sync → parse → embed) for the lifetime of the process.
+
+    @returns Configured FastAPI instance with health check and ``/rag/query`` routes.
+    """
     settings = _settings
+    # Catch misconfiguration at startup — operators should see a clear boot failure,
+    # not a 500 on the first real request after deploy.
     validate_settings(settings)
     engine = create_engine_from_settings(settings)
     verify_database_connection(settings, engine)
     session_factory = create_session_factory(engine)
     with session_factory() as session:
+        # Jobs are stamped with RAG service-user ids; those rows must exist before enqueue.
         assert_service_users_exist(session)
 
     stop_event = threading.Event()
@@ -37,7 +47,16 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        """Manage the background indexing worker for the lifetime of the HTTP server.
+
+        Starts the job consumer when uvicorn boots and signals it to stop on shutdown.
+        Logs queue state once at startup so operators can see pending or failed work.
+
+        @yields Control to the running FastAPI app between startup and shutdown hooks.
+        """
         nonlocal worker_thread
+        # Run the worker in a daemon thread so the process can exit when uvicorn stops.
+        # A non-daemon thread would keep the interpreter alive after the server shuts down.
         worker_thread = threading.Thread(
             target=run_worker_loop,
             args=(settings, stop_event),
@@ -54,8 +73,11 @@ def create_app() -> FastAPI:
         yield
         stop_event.set()
         if worker_thread is not None:
+            # Give the worker up to five seconds to finish its current job after stop_event.
+            # We do not wait indefinitely — a hung handler must not block process exit.
             worker_thread.join(timeout=5)
         log_event(_logger, logging.INFO, "RAG service shutting down")
+        # Return SQLAlchemy pool connections to Postgres after the worker thread is stopped.
         engine.dispose()
 
     app = FastAPI(title="CodeSage RAG", version="0.1.0", lifespan=lifespan)
@@ -64,6 +86,13 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
+        """Answer load-balancer and orchestrator liveness probes.
+
+        Intentionally does not hit the database — probes should stay cheap and must not
+        fail when Postgres is momentarily unreachable during a rolling restart.
+
+        @returns A small JSON object with service name and ``ok`` status.
+        """
         return {"status": "ok", "service": "rag"}
 
     app.include_router(query_router)
@@ -74,7 +103,16 @@ _app: FastAPI | None = None
 
 
 def __getattr__(name: str) -> FastAPI:
-    """Lazy-load the ASGI app so importing ``create_app`` in tests skips DB checks."""
+    """Lazy-load the module-level ASGI app on first access.
+
+    Tests import ``create_app`` directly and build a fresh app without triggering
+    database validation. Production uvicorn imports ``api.main:app``, which is created
+    here on first attribute access.
+
+    @param name - Attribute name requested on this module.
+    @returns The singleton FastAPI application.
+    @raises AttributeError when ``name`` is not ``app``.
+    """
     if name == "app":
         global _app
         if _app is None:

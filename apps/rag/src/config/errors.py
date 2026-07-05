@@ -17,12 +17,16 @@ def explain_failure(
     job_type: str,
     settings: Settings | None = None,
 ) -> str:
-    """Translate an exception into a user-facing failure explanation.
+    """Turn a raw exception into plain English for logs, job rows, and the UI.
 
-    @param exc - Raised exception from a job handler.
-    @param job_type - Queue job discriminator (sync, parse, embed, …).
-    @param settings - Application settings for host-specific hints.
-    @returns Sanitized plain-English explanation with optional fix hint.
+    Indexing failures surface in many places — worker logs, ``jobs.error_message``,
+    and repo connection status. This function maps common failure modes (encryption
+    mismatch, DNS errors, TEI outages, git failures) to actionable explanations.
+
+    @param exc - The exception raised inside a job handler or worker loop.
+    @param job_type - Queue job discriminator (sync, parse, embed, worker, …).
+    @param settings - Optional settings used to tailor hints (e.g. TEI hostname).
+    @returns A sanitized, user-facing explanation string with a fix hint when possible.
     """
     raw = str(exc)
     lowered = raw.lower()
@@ -37,9 +41,12 @@ def explain_failure(
     if "repo not found" in lowered:
         return "Repository was detached or deleted — retry after re-attaching"
 
+    # Network and DNS failures are checked first because embed and sync jobs often
+    # surface them as generic connection errors that need a clearer user-facing hint.
     if "getaddrinfo failed" in lowered or "connecterror" in name.lower():
         return _explain_connect_failure(raw, settings)
 
+    # Embedding failures get TEI-specific wording before we fall through to git messages.
     if "tei embed failed" in lowered or (
         job_type == "embed" and "embed" in lowered and "failed" in lowered
     ):
@@ -65,6 +72,8 @@ def _explain_connect_failure(raw: str, settings: Settings | None) -> str:
     """
     if settings is not None and settings.tei_base_url:
         host = urlparse(settings.tei_base_url).hostname or ""
+        # Hostnames like ``tei`` or ``rag`` resolve inside Docker Compose but not when
+        # developers run ``uv run`` on the host — suggest localhost or placeholder mode.
         if host and (_is_docker_hostname(host) or host in raw):
             return _tei_unreachable_message(host)
 

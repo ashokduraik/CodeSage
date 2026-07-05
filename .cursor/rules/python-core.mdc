@@ -21,3 +21,5 @@ All application code under `src/` only. Tests in `apps/rag/tests/`.
 - **Single datastore = PostgreSQL**; no new data system without an ADR.
 - **Ground + confidence** on derived artifacts; abstain rather than hallucinate.
 - Type hints everywhere; Pydantic from `contracts/`; colocated `test_*.py`.
+- **Docstrings + WHY comments:** every function/method/class (including nested closures)
+  and non-obvious control flow — see `python-docstrings-rag.mdc`.
