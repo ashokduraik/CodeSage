@@ -22,6 +22,7 @@ from services.indexing.progress_messages import (
 )
 from services.indexing.progress_recorder import IndexingProgressRecorder
 from services.indexing.failure_status import recompute_project_lifecycle
+from services.indexing.xrepo_enqueue import maybe_enqueue_xrepo
 
 logger = get_indexing_logger()
 
@@ -143,6 +144,12 @@ def handle_embed_job(
     projects.update_status(repo.project_id, ProjectStatus.INDEXED)
     repos.mark_index_complete(repo_id, sha=indexed_sha)
     recompute_project_lifecycle(session, repo.project_id)
+    if maybe_enqueue_xrepo(session, repo.project_id):
+        log_event(
+            logger,
+            logging.INFO,
+            f"Queued cross-repo linking for project {repo.project_id}",
+        )
     recorder.record_finished(
         finished_embed_message(
             ctx,

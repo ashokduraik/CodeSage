@@ -53,6 +53,10 @@ def test_retrieve_code_chunks_returns_matches(monkeypatch: pytest.MonkeyPatch) -
         "services.retrieval.search.similarity_search",
         lambda *a, **k: [(chunk, 0.2)],
     )
+    monkeypatch.setattr(
+        "services.retrieval.search.augment_matches_with_graph",
+        lambda session, settings, *, project_id, matches: matches,
+    )
     matches = retrieve_code_chunks(
         MagicMock(),
         Settings(),

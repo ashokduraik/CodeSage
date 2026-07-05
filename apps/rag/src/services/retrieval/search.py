@@ -10,6 +10,7 @@ from config import Settings
 from models import CodeChunk
 from repositories import ProjectRepository, similarity_search
 from services.embedding.tei_client import EmbeddingClient
+from services.retrieval.graph_expand import augment_matches_with_graph
 
 
 def retrieve_code_chunks(
@@ -36,12 +37,18 @@ def retrieve_code_chunks(
 
     client = EmbeddingClient(settings)
     query_vector = client.embed_texts([question])[0]
-    return similarity_search(
+    matches = similarity_search(
         session,
         project_id=project_id,
         query_embedding=query_vector,
         limit=settings.retrieval_top_k,
         repo_ids=repo_ids,
+    )
+    return augment_matches_with_graph(
+        session,
+        settings,
+        project_id=project_id,
+        matches=matches,
     )
 
 

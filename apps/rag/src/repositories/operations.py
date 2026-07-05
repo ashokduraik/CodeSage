@@ -199,6 +199,27 @@ class JobRepository:
         )
         return [(row[0], int(row[1])) for row in self._session.execute(stmt)]
 
+    def has_active_job(self, job_type: str, *, project_id: uuid.UUID) -> bool:
+        """Return True when a pending or running job already exists for a project.
+
+        Used to deduplicate project-scoped jobs such as ``xrepo`` and ``distill``.
+
+        @param job_type - Job discriminator string.
+        @param project_id - Project UUID stored in ``payload.projectId``.
+        @returns Whether an active queue row already targets the project.
+        """
+        stmt = select(Job).where(
+            Job.type == job_type,
+            Job.status == RowStatus.ACTIVE,
+            Job.job_status.in_((JobStatus.PENDING, JobStatus.RUNNING)),
+        )
+        project_key = str(project_id)
+        for job in self._session.scalars(stmt):
+            payload = job.payload
+            if isinstance(payload, dict) and str(payload.get("projectId")) == project_key:
+                return True
+        return False
+
     def latest_failed_summary(self, limit: int = 3) -> list[FailedJobSummary]:
         """Return the most recent failed jobs for startup diagnostics.
 

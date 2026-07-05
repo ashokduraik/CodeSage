@@ -39,6 +39,47 @@ class GraphNodeRepository:
         stmt = select(GraphNode).where(GraphNode.repo_id == repo_id)
         return list(self._session.scalars(stmt))
 
+    def list_by_project(self, project_id: uuid.UUID) -> list[GraphNode]:
+        """List all graph nodes scoped to a project.
+
+        @param project_id - Project UUID.
+        @returns Node rows for the project.
+        """
+        stmt = select(GraphNode).where(GraphNode.project_id == project_id)
+        return list(self._session.scalars(stmt))
+
+    def list_by_project_and_kinds(
+        self,
+        project_id: uuid.UUID,
+        *,
+        kinds: tuple[str, ...],
+    ) -> list[GraphNode]:
+        """List project-scoped nodes filtered by kind.
+
+        @param project_id - Project UUID.
+        @param kinds - Node kind values to include.
+        @returns Matching node rows ordered by repo and file path.
+        """
+        stmt = (
+            select(GraphNode)
+            .where(GraphNode.project_id == project_id, GraphNode.kind.in_(kinds))
+            .order_by(GraphNode.repo_id, GraphNode.file_path, GraphNode.name)
+        )
+        return list(self._session.scalars(stmt))
+
+    def list_by_repo_file(self, repo_id: uuid.UUID, file_path: str) -> list[GraphNode]:
+        """List nodes belonging to one file within a repository.
+
+        @param repo_id - Repo UUID.
+        @param file_path - Repo-relative path.
+        @returns Node rows for the file.
+        """
+        stmt = select(GraphNode).where(
+            GraphNode.repo_id == repo_id,
+            GraphNode.file_path == file_path,
+        )
+        return list(self._session.scalars(stmt))
+
     def add(self, node: GraphNode) -> GraphNode:
         """Persist a new graph node.
 
@@ -117,6 +158,31 @@ class GraphEdgeRepository:
         result = self._session.execute(stmt)
         return result.rowcount
 
+    def delete_cross_repo_by_kind(self, project_id: uuid.UUID, *, kind: str) -> int:
+        """Remove cross-repo edges of a given kind before re-linking.
+
+        @param project_id - Project UUID.
+        @param kind - Edge kind to delete (e.g. ``http_call``).
+        @returns Number of rows deleted.
+        """
+        nodes_repo = GraphNodeRepository(self._session)
+        node_repo_by_id = {
+            node.id: node.repo_id for node in nodes_repo.list_by_project(project_id)
+        }
+        deleted = 0
+        for edge in self.list_by_project(project_id):
+            if edge.kind != kind:
+                continue
+            src_repo = node_repo_by_id.get(edge.src_id)
+            dst_repo = node_repo_by_id.get(edge.dst_id)
+            if src_repo is None or dst_repo is None or src_repo == dst_repo:
+                continue
+            self._session.delete(edge)
+            deleted += 1
+        if deleted:
+            self._session.flush()
+        return deleted
+
 
 class CodeChunkRepository:
     """Data access for `code_chunks`."""
@@ -143,6 +209,19 @@ class CodeChunkRepository:
         @returns Chunk rows.
         """
         stmt = select(CodeChunk).where(CodeChunk.repo_id == repo_id)
+        return list(self._session.scalars(stmt))
+
+    def list_by_repo_file(self, repo_id: uuid.UUID, file_path: str) -> list[CodeChunk]:
+        """List all chunks for one file within a repository.
+
+        @param repo_id - Repo UUID.
+        @param file_path - Repo-relative path.
+        @returns Chunk rows for the file.
+        """
+        stmt = select(CodeChunk).where(
+            CodeChunk.repo_id == repo_id,
+            CodeChunk.file_path == file_path,
+        )
         return list(self._session.scalars(stmt))
 
     def list_unembedded(self, repo_id: uuid.UUID, limit: int = 100) -> list[CodeChunk]:

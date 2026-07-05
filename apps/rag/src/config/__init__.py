@@ -50,6 +50,9 @@ class Settings(BaseSettings):
 
     retrieval_top_k: int = 8
     retrieval_max_distance: float = 0.55
+    retrieval_graph_enabled: bool = True
+    retrieval_graph_max_depth: int = 2
+    retrieval_graph_max_extra_chunks: int = 4
     sync_max_file_bytes: int = 512_000
 
 

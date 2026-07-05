@@ -3,8 +3,10 @@
 Single Python deployable for MVP. **All application code lives under `src/`**; project root holds
 config, tests, and docs only.
 
-> **Status:** **Phase 1 started** — `config/`, `models/`, and `repositories/` implemented with
-> ≥ 80%-coverage tests; `api/` + `workers/` skeleton in place. Business modules land in `services/`.
+> **Status:** **Phases 1–2 implemented in `services/`** — indexing pipeline (`sync` → `parse` →
+> `embed` → `xrepo`), developer RAG with citations + abstain, and cross-repo graph linking.
+> Layers `config/`, `models/`, `repositories/`, `api/`, and `workers/` are wired with ≥ 80%
+> test coverage. Phases 3+ (webhooks, distillation, expert loop) are not started.
 
 Setup (deps, env, tests): root [`README.md`](../../README.md) — `npm run setup`, `npm run sync:python`,
 `npm run test:python`.
@@ -16,15 +18,20 @@ Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from t
 | Variable | Default | Used today | Purpose |
 |---|---|---|---|
 | `DATABASE_URL` | `postgresql://codesage:change-me@localhost:5432/codesage` | yes | SQLAlchemy connection string. |
-| `REPO_CLONE_DIR` | `/var/codesage/repos` | yes | Where `sync` jobs clone repositories (Phase 3+). |
+| `REPO_CLONE_DIR` | `/var/codesage/repos` | yes | Where `sync` jobs clone repositories. |
 | `EMBEDDING_DIMENSION` | `1024` | yes | pgvector column width; must match the TEI model. |
 | `RAG_PORT` | `8001` | Docker only | Host port mapping in Compose (not read by app yet). |
 | `WORKER_IDLE_SECONDS` | `10` | yes | Sleep between polls when the `jobs` queue is empty. |
 | `LOG_LEVEL` | `info` | yes | Indexing log verbosity (`info` or `debug` for per-file detail). |
 | `WORKER_POLL_SECONDS` | `2` | no | Reserved; consumer uses `WORKER_IDLE_SECONDS` today. |
 | `WORKER_CONCURRENCY` | `2` | planned | Max parallel heavy jobs (Phase 3). |
-| `VLLM_BASE_URL`, `VLLM_MODEL` | see `.env.example` | planned | LLM inference (Phase 1+). |
-| `TEI_BASE_URL`, `TEI_EMBED_MODEL` | see `.env.example` | planned | Embeddings (Phase 1+). |
+| `VLLM_BASE_URL`, `VLLM_MODEL` | see `.env.example` | yes | LLM inference (excerpt fallback when unset). |
+| `TEI_BASE_URL`, `TEI_EMBED_MODEL` | see `.env.example` | yes | Embeddings (deterministic dev fallback when unset). |
+| `RETRIEVAL_TOP_K` | `8` | yes | Vector search result count. |
+| `RETRIEVAL_MAX_DISTANCE` | `0.55` | yes | Abstain when best match exceeds this cosine distance. |
+| `RETRIEVAL_GRAPH_ENABLED` | `true` | yes | Expand QA retrieval along cross-repo `http_call` edges. |
+| `RETRIEVAL_GRAPH_MAX_DEPTH` | `2` | yes | Max graph hops from vector hit seeds. |
+| `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS` | `4` | yes | Max additional chunks added via graph expansion. |
 
 For a local database matching the defaults, start Postgres from the repo root:
 
@@ -85,25 +92,26 @@ The RAG process is a single deployable: HTTP API and background worker run toget
 | **Entry file** | `src/api/run.py` (dev) / `src/api/main.py` (app) — `npm run dev:rag` |
 | **Worker start** | FastAPI `lifespan` in `create_app()` spawns a daemon thread → `workers/worker.py` → `workers/consumer.py`. |
 | **Queue table** | `jobs` — not `repos`. Worker claims the oldest `job_status = 'pending'` row (`ORDER BY created_at`, `FOR UPDATE SKIP LOCKED`). |
-| **How a repo is indexed** | API attach enqueues `sync` `{ repoId }` → worker runs `sync` → enqueues `parse` → enqueues `embed`. |
+| **How a repo is indexed** | API attach enqueues `sync` `{ repoId }` → worker runs `sync` → `parse` → `embed`. Multi-repo projects also enqueue `xrepo` when every repo finishes embedding. |
 | **Poll frequency** | Processes jobs back-to-back while the queue has work. When empty, sleeps `WORKER_IDLE_SECONDS` (default **10 s**). |
 | **Orphan reclaim** | On startup and before each claim, `reclaim_orphaned_running_jobs()` resets active `running` → `pending` (previous worker died). |
 | **Stale reclaim** | `reclaim_stale_running_jobs()` after `WORKER_STALE_JOB_SECONDS` (default **600 s**) during normal operation. |
 | **Failed jobs** | Never auto-requeued; startup logs them as history only. |
 | **Manual re-index** | API returns **409** when active jobs for the repo are younger than `WORKER_STALE_JOB_SECONDS`; then cancels pending jobs and enqueues a fresh sync. |
 
-Indexing pipeline (per file):
+Indexing pipeline (per file, then project-level linking):
 
 1. **sync** — clone to `REPO_CLONE_DIR/<repo_id>/`, list indexable `.ts`/`.js` files.
-2. **parse** — tree-sitter chunking → `code_chunks` + `graph_nodes` / `graph_edges`.
-3. **embed** — write vectors to `code_chunks.embedding`; mark project indexed when complete.
+2. **parse** — tree-sitter chunking → `code_chunks` + `graph_nodes` / `graph_edges` (symbols + HTTP/route API signals).
+3. **embed** — write vectors to `code_chunks.embedding`; mark repo index-complete when all chunks embedded.
+4. **xrepo** (multi-repo only) — match `http_call` nodes to `route` nodes across repos; write cross-repo edges.
 
 Verify progress:
 
 ```sql
-SELECT id, type, job_status, error_message, created_at, finished_at
+SELECT id, type, job_status, error_message, created_at
 FROM jobs
-WHERE payload->>'repoId' = '<repo_id>'
+WHERE payload->>'repoId' = '<repo_id>' OR payload->>'projectId' = '<project_id>'
 ORDER BY created_at;
 ```
 
@@ -123,6 +131,7 @@ lines. Logs never contain tokens, passwords, or source code.
 | 1/3 | `sync` | Downloading the repository |
 | 2/3 | `parse` | Reading and splitting source files into code sections |
 | 3/3 | `embed` | Making code sections searchable |
+| — | `xrepo` | Linking frontend API calls to backend routes (multi-repo projects) |
 
 ### Glossary
 
@@ -131,6 +140,7 @@ lines. Logs never contain tokens, passwords, or source code.
 | `sync` | Downloading repository |
 | `parse` | Reading source files |
 | `embed` | Making code searchable |
+| `xrepo` | Linking repos in a project (cross-repo graph) |
 | code section | A chunk of source used for search |
 | commit | Short git revision id (7 characters) |
 | symbols | Functions/classes found in a file |
@@ -208,7 +218,10 @@ tests/
 ```
 
 Tests exercise the **public surface** of each layer; they do not require GPU, vLLM, TEI, or a
-live database for the current Phase 0/1 scaffold.
+live database for unit tests (mocks and SQLite/in-memory patterns where applicable).
+
+Phase plans: [`../../docs/plans/phase-1-mvp-code-qa.md`](../../docs/plans/phase-1-mvp-code-qa.md) ·
+[`../../docs/plans/phase-2-multi-repo.md`](../../docs/plans/phase-2-multi-repo.md).
 
 ## Project layout
 
@@ -217,7 +230,7 @@ apps/rag/
 ├── src/                # ★ all Python code
 │   ├── api/            # HTTP — FastAPI app, routes (thin)
 │   ├── workers/        # Background jobs — Procrastinate consumer loop
-│   ├── services/       # Business logic — parsing, retrieval, LLM, distill, …
+│   ├── services/       # Business logic — parsing, graph, xrepo, retrieval, LLM, distill, …
 │   ├── models/         # ORM — SQLAlchemy tables, enums
 │   ├── repositories/   # Data access — repos, session, pgvector/graph queries
 │   └── config/         # Settings and env

@@ -115,7 +115,8 @@ See [`AGENTS.md`](./AGENTS.md) before editing.
 Expert answers are treated as authoritative: they outrank LLM-inferred values and survive
 re-indexing. Full roadmap and phase details:
 [`docs/final-solution.md`](./docs/final-solution.md) ·
-[`docs/plans/phase-1-mvp-code-qa.md`](./docs/plans/phase-1-mvp-code-qa.md).
+[`docs/plans/phase-1-mvp-code-qa.md`](./docs/plans/phase-1-mvp-code-qa.md) ·
+[`docs/plans/phase-2-multi-repo.md`](./docs/plans/phase-2-multi-repo.md).
 
 ---
 
@@ -211,6 +212,7 @@ Start at [`docs/README.md`](./docs/README.md).
 | [`docs/development-workflow.md`](./docs/development-workflow.md) | Branching, testing, review, Definition of Done |
 | [`docs/tech-learning-guide.md`](./docs/tech-learning-guide.md) | Onboarding: each technology explained for newcomers |
 | [`docs/plans/phase-1-mvp-code-qa.md`](./docs/plans/phase-1-mvp-code-qa.md) | Phase 1 milestones and build order |
+| [`docs/plans/phase-2-multi-repo.md`](./docs/plans/phase-2-multi-repo.md) | Phase 2 multi-repo linking and cross-repo graph resolver |
 | [`docs/adr/`](./docs/adr/README.md) | Architecture Decision Records |
 
 Each deployable also has local docs: `README.md`, `PLAN.md`, `TODO.md`, `AGENTS.md`.

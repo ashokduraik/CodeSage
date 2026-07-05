@@ -15,8 +15,8 @@ impact analysis, and inputs to LLM distillation of higher-level product knowledg
 | `id` | `uuid` | NO | `gen_random_uuid()` | Primary key |
 | `project_id` | `uuid` | NO | — | FK → `projects.id`; project scope |
 | `repo_id` | `uuid` | NO | — | FK → `repos.id`; source repo |
-| `kind` | `text` | NO | — | Node type, e.g. `file`, `class`, `function`, `route` |
-| `name` | `text` | NO | — | Symbol or file name |
+| `kind` | `text` | NO | — | Node type: `file`, AST symbol kinds, `http_call` (client API call), `route` (Express route) |
+| `name` | `text` | NO | — | Symbol/file name, or `METHOD /path` for `http_call` / `route` nodes |
 | `file_path` | `text` | YES | — | Repo-relative file path when applicable |
 | `span` | `jsonb` | YES | — | Source location, e.g. start/end line and column |
 | `created_at` | `timestamptz` | NO | `now()` | Row creation time (UTC) |

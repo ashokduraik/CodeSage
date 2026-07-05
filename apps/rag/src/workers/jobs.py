@@ -7,7 +7,7 @@ enqueue/consume code can validate payloads early.
 
 from typing import Final
 
-JOB_TYPES: Final[tuple[str, ...]] = ("sync", "parse", "embed")
+JOB_TYPES: Final[tuple[str, ...]] = ("sync", "parse", "embed", "xrepo")
 
 
 def is_known_job(job_type: str) -> bool:

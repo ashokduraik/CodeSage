@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from models import GraphEdge, GraphNode
 from repositories import GraphEdgeRepository, GraphNodeRepository
+from services.graph.api_signals import ApiSignal, extract_api_signals
 from services.parsing.tree_sitter_parser import SymbolSpan, extract_symbol_spans
 
 
@@ -18,6 +19,7 @@ class FileGraphResult:
 
     node_count: int
     edge_count: int
+    api_signal_count: int = 0
 
 
 def persist_file_graph(
@@ -67,7 +69,41 @@ def persist_file_graph(
         )
         edge_count += 1
 
-    return FileGraphResult(node_count=1 + len(symbols), edge_count=edge_count)
+    api_signals = extract_api_signals(content, file_path)
+    for signal in api_signals:
+        signal_node = nodes_repo.add(_signal_to_node(project_id, repo_id, file_path, signal))
+        edges_repo.add(
+            GraphEdge(
+                project_id=project_id,
+                src_id=file_node.id,
+                dst_id=signal_node.id,
+                kind="contains",
+            ),
+        )
+        edge_count += 1
+
+    return FileGraphResult(
+        node_count=1 + len(symbols) + len(api_signals),
+        edge_count=edge_count,
+        api_signal_count=len(api_signals),
+    )
+
+
+def _signal_to_node(
+    project_id: uuid.UUID,
+    repo_id: uuid.UUID,
+    file_path: str,
+    signal: ApiSignal,
+) -> GraphNode:
+    """Build a GraphNode ORM instance from an extracted HTTP/route signal."""
+    return GraphNode(
+        project_id=project_id,
+        repo_id=repo_id,
+        kind=signal.kind,
+        name=signal.key,
+        file_path=file_path,
+        span={"startLine": signal.start_line, "endLine": signal.end_line},
+    )
 
 
 def _symbol_to_node(

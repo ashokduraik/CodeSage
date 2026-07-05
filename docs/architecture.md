@@ -51,9 +51,9 @@ drift. It is defined **once** in `contracts/` and **types are generated**, never
 Flow: **edit `contracts/` → run codegen → TS types land in `packages/shared-types`, Pydantic
 models land in `apps/rag/` (when generated).** See [`development-workflow.md`](./development-workflow.md).
 
-> `contracts/`, `db/`, `deploy/`, and `scripts/` are now scaffolded with READMEs and
-> **placeholder skeletons only** (no implementation code). See each folder's `README.md`; the
-> real contracts/migrations/compose/scripts are filled in during Phase 0.
+> `contracts/` is the single source of truth; types are **generated** into `packages/shared-types`
+> (TS) and `apps/rag/src/generated/` (Pydantic). See each folder's `README.md` and
+> [`development-workflow.md`](./development-workflow.md) §3.
 
 ## 5. Two knowledge layers
 
@@ -68,11 +68,13 @@ questions get an honest "unknown" and may raise an expert question.
 ## 6. Key runtime flows (summary)
 
 - **Initial index:** clone → enumerate/filter files → tree-sitter parse (nodes/edges) →
-  AST-aware chunk → TEI embed → store; record `last_indexed_sha`.
+  extract HTTP/route API signals → AST-aware chunk → TEI embed → store; record
+  `last_indexed_sha`. When all repos in a multi-repo project finish embedding, enqueue
+  **`xrepo`** to link frontend HTTP calls ↔ backend routes (cross-repo `graph_edges`).
 - **Incremental freshness:** webhook/cron enqueues job → `git diff` vs SHA → re-parse/re-embed
-  changed files → mark touched derived artifacts stale → re-distill only those.
-- **Cross-repo linking:** match frontend HTTP calls ↔ Express routes ↔ IAM calls; confident →
-  cross-repo edge, low-confidence → expert question.
+  changed files → mark touched derived artifacts stale → re-distill only those (Phase 3+).
+- **Cross-repo linking (Phase 2):** `xrepo` job matches `http_call` nodes to `route` nodes by
+  method + path across repos; QA retrieval expands vector hits along those edges.
 - **Distillation:** walk graph from entrypoints → LLM produces workflows/pages/perms/data-flows
   with citations + confidence.
 - **QA serving:** route → retrieve → assemble grounded prompt → stream answer + citations.

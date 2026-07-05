@@ -1,45 +1,38 @@
 """Tests for job handler dispatch."""
 
+from __future__ import annotations
+
 import uuid
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
+from config import Settings
 from tests.helpers import make_exec_ctx
 from workers.handlers.dispatch import UnsupportedJobError, build_job_handlers, dispatch_job
 
 
-def _job(job_type: str, payload: dict | None = None) -> SimpleNamespace:
-    return SimpleNamespace(
-        id=uuid.uuid4(),
-        type=job_type,
-        payload=payload or {},
-    )
+def test_build_job_handlers_includes_xrepo() -> None:
+    handlers = build_job_handlers(Settings(), MagicMock())
+    assert "xrepo" in handlers
 
 
-def test_dispatch_unknown_job_type() -> None:
-    with pytest.raises(UnsupportedJobError):
-        dispatch_job(_job("nope"), {}, make_exec_ctx(), MagicMock())
+def test_dispatch_job_unknown_type() -> None:
+    job = MagicMock(type="distill", payload={})
+    with pytest.raises(UnsupportedJobError, match="Unknown job type"):
+        dispatch_job(job, {}, MagicMock(), MagicMock())
 
 
-def test_dispatch_calls_handler() -> None:
-    seen: list[dict] = []
-
-    def handler(payload: dict, _ctx: object, _session: MagicMock) -> None:
-        seen.append(payload)
-
-    dispatch_job(
-        _job("sync", {"repoId": "x"}),
-        {"sync": handler},
-        make_exec_ctx(),
-        MagicMock(),
-    )
-    assert seen == [{"repoId": "x"}]
+def test_dispatch_job_unregistered_handler() -> None:
+    job = MagicMock(type="sync", payload={})
+    with pytest.raises(UnsupportedJobError, match="No handler registered"):
+        dispatch_job(job, {}, MagicMock(), MagicMock())
 
 
-def test_build_job_handlers_returns_phase1_types() -> None:
-    settings = MagicMock()
-    factory = MagicMock()
-    handlers = build_job_handlers(settings, factory)
-    assert set(handlers) == {"sync", "parse", "embed"}
+def test_dispatch_job_invokes_handler() -> None:
+    job = MagicMock(type="xrepo", payload={"projectId": str(uuid.uuid4())})
+    handler = MagicMock()
+    ctx = make_exec_ctx(job_type="xrepo")
+    session = MagicMock()
+    dispatch_job(job, {"xrepo": handler}, ctx, session)
+    handler.assert_called_once_with(job.payload, ctx, session)

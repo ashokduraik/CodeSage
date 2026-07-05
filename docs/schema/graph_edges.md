@@ -16,7 +16,7 @@ a repo atomically so the graph stays consistent with the latest parsed tree.
 | `project_id` | `uuid` | NO | — | FK → `projects.id`; project scope |
 | `src_id` | `uuid` | NO | — | FK → `graph_nodes.id`; edge source |
 | `dst_id` | `uuid` | NO | — | FK → `graph_nodes.id`; edge target |
-| `kind` | `text` | NO | — | Edge type, e.g. `calls`, `imports`, `extends` |
+| `kind` | `text` | NO | — | Edge type: `contains` (file → symbol/signal), `http_call` (cross-repo client → route) |
 | `created_at` | `timestamptz` | NO | `now()` | Row creation time (UTC) |
 | `updated_at` | `timestamptz` | NO | `now()` | Last row update (UTC); set by `BEFORE UPDATE` trigger |
 | `created_by` | `uuid` | NO | — | FK → `users.id`; actor who created the row |

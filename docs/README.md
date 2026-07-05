@@ -19,6 +19,8 @@ This folder is the single home for all project documentation. Start here.
 | [`schema/`](./schema/README.md) | **Per-table column reference** — one file per table. |
 | [`development-workflow.md`](./development-workflow.md) | How we work: branching, contracts-first codegen, testing, review, Definition of Done. |
 | [`plans/phase-1-mvp-code-qa.md`](./plans/phase-1-mvp-code-qa.md) | **Phase 1 plan** — MVP code QA milestones and build order. |
+| [`plans/phase-2-multi-repo.md`](./plans/phase-2-multi-repo.md) | **Phase 2 plan** — multi-repo linking and cross-repo graph resolver. |
+| [`plans/phase-2-e2e.md`](./plans/phase-2-e2e.md) | **Phase 2 E2E plan** — fixtures, seed, Playwright assertions. |
 | [`tech-learning-guide.md`](./tech-learning-guide.md) | **Onboarding:** each technology in the stack — what to learn and how CodeSage uses it. |
 | [`adr/`](./adr/README.md) | Architecture Decision Records — one file per locked decision, with context + consequences. |
 
@@ -40,8 +42,13 @@ Each deployable/package documents itself locally. Each folder carries four files
 3. `architecture.md` + `data-model.md` + `schema/` → understand the moving parts.
 4. The `AGENTS.md` of the component you are about to touch.
 5. `development-workflow.md` → understand how to ship a change safely.
+6. The relevant phase plan in `docs/plans/` when working on roadmap milestones.
 
-> **Status:** **Phase 0 (Foundation) is implemented and verified** — the monorepo builds,
-> migrations apply, `api`/`rag` serve `/health`, and all workspaces have ≥ 80%-coverage tests.
-> See the root [`README.md`](../README.md) Quickstart. Later phases add auth/CRUD, indexing,
-> distillation, and end-user QA per [`final-solution.md`](./final-solution.md) §12.
+> **Status (implementation):**
+> - **Phase 0 (Foundation)** — monorepo, migrations, auth skeleton, Compose, CI, ≥ 80% tests.
+> - **Phase 1 (MVP code QA)** — sync → parse → embed → developer RAG with citations + abstain; SSE chat proxy.
+> - **Phase 2 (Multi-repo)** — API signal extraction, `xrepo` cross-repo linker, graph-augmented retrieval.
+> - **Phases 3–7** — freshness webhooks, distillation, expert loop, end-user QA, hardening (see [`final-solution.md`](./final-solution.md) §12).
+>
+> Manual/E2E verification of phase exit criteria may still be open — see each plan's Definition of Done.
+> Quickstart: root [`README.md`](../README.md).

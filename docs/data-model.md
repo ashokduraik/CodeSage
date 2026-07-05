@@ -31,7 +31,7 @@ Postgres covers everything the MVP needs, eliminating extra services:
 | Table | Purpose | Column reference |
 |---|---|---|
 | `code_chunks` | RAG retrieval units + vectors | [`schema/code_chunks.md`](./schema/code_chunks.md) |
-| `graph_nodes` | Files / classes / functions / routes | [`schema/graph_nodes.md`](./schema/graph_nodes.md) |
+| `graph_nodes` | Files / symbols / HTTP API signals | [`schema/graph_nodes.md`](./schema/graph_nodes.md) |
 | `graph_edges` | Calls / imports / callers | [`schema/graph_edges.md`](./schema/graph_edges.md) |
 
 ### 2.3 Derived product knowledge (end-user layer)

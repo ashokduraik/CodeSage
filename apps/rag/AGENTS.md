@@ -26,7 +26,7 @@ src/config/                → settings, env
   as full sentences. Add inline **why** comments (1–3 sentences each) on non-obvious
   control flow. See `.cursor/rules/python-docstrings-rag.mdc`.
 - Keep **routes thin** in `src/api/`; **job handlers thin** in `src/workers/`.
-- Put **all business logic** in `src/services/`.
+- Put **all business logic** in `src/services/` (`sync`, `parse`, `embed`, `xrepo`, `retrieval`, `qa`, …).
 - Use **repositories** for DB access; **models** for ORM shapes only.
 - **Stream** QA answers with **citations**; implement abstain path (NFR-7).
 - Jobs: **idempotent**, **incremental**, isolate per-file failures.

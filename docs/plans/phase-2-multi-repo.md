@@ -1,0 +1,75 @@
+# Phase 2 — Multi-repo linking
+
+Implementation plan per [`final-solution.md` §12](../final-solution.md).
+
+**Exit criteria:** A workflow/graph query spans frontend → backend → IAM (cross-repo
+`graph_edges` connect HTTP client calls to route handlers; developer QA retrieval expands
+across those links).
+
+**Out of scope for Phase 2:** webhooks/cron freshness (Phase 3), distillation (Phase 4),
+expert loop (Phase 5), end-user product QA (Phase 6).
+
+---
+
+## Milestones
+
+### M1 — API signal extraction during parse
+
+| Task | Module | Deliverables |
+|---|---|---|
+| Regex extractors for `fetch`, `axios`, Angular `HttpClient`, Express routes | `services/graph/api_signals.py` | `http_call` + `route` graph nodes |
+| Persist signals during parse | `services/graph/extract.py` | Nodes linked to file via `contains` edges |
+
+**Done when:** Parsed repos contain `http_call` and `route` nodes with normalized `METHOD /path` names.
+
+### M2 — Cross-repo link resolver (`xrepo` job)
+
+| Task | Module | Deliverables |
+|---|---|---|
+| Match calls ↔ routes across repos | `services/xrepo/link_resolver.py` | Cross-repo `http_call` edges |
+| Job handler + worker dispatch | `services/xrepo/run_xrepo.py`, `workers/handlers/dispatch.py` | `xrepo` consumer registered |
+| Enqueue when all repos indexed | `services/indexing/xrepo_enqueue.py` | Auto-queue from embed completion |
+
+**Done when:** Two-repo project produces cross-repo edges after indexing; job is idempotent.
+
+### M3 — Graph-augmented retrieval
+
+| Task | Module | Deliverables |
+|---|---|---|
+| Expand vector hits via `http_call` edges | `services/retrieval/graph_expand.py` | Chunks from linked repos in QA context |
+| Tunables | `config/__init__.py` | `retrieval_graph_*` settings |
+
+**Done when:** A question seeded in the frontend repo retrieves backend route/chunk citations.
+
+---
+
+## Definition of Done (Phase 2)
+
+- [ ] Exit criteria met on a multi-repo test project (manual or E2E).
+- [x] Shapes from `contracts/` (`XrepoPayload` in `jobs.schema.json`).
+- [x] `xrepo` job handler idempotent; deduped enqueue per project.
+- [x] Graph expansion enabled for developer QA path.
+- [x] Tests ≥ 80% (line + branch) on touched packages.
+- [x] `TODO.md` / `PLAN.md` updated in `apps/rag`.
+- [x] `.env.example` documents retrieval + graph expansion tunables (`RETRIEVAL_GRAPH_*`).
+
+---
+
+## Verification (manual / E2E)
+
+1. Attach frontend + backend repos to one project; wait for indexing on both.
+2. Confirm an `xrepo` job runs (`payload.projectId` set) after the second repo embeds.
+3. Query `graph_edges` for cross-repo rows with `kind = 'http_call'`.
+4. Ask a developer question that spans repos — answer citations should include files from both.
+
+See also [`phase-1-mvp-code-qa.md`](./phase-1-mvp-code-qa.md) for single-repo QA setup.
+
+**E2E plan:** [`phase-2-e2e.md`](./phase-2-e2e.md) — fixtures, seed script, Playwright spec, CI strategy.
+
+---
+
+## References
+
+- [`final-solution.md` §6.3](../final-solution.md) — cross-repo linking
+- [`intermediate-solution.md` §7](../intermediate-solution.md) — multi-repo handling
+- Phase 1 plan: [`phase-1-mvp-code-qa.md`](./phase-1-mvp-code-qa.md)

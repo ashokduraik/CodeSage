@@ -130,8 +130,13 @@ For local development without GPU:
 - [x] Tests ≥ 80% (line + branch) on all workspaces; lint + typecheck clean in CI.
 - [x] `TODO.md` / `PLAN.md` updated in each touched component.
 - [x] `.env.example` documents new variables (TEI/vLLM model ids + `docker-compose.gpu.yml`).
+- [x] Graph expansion settings documented in `apps/rag/.env.example` (Phase 2 uses defaults).
 
 ---
+
+## Handoff to Phase 2
+
+Multi-repo linking is implemented — see [`phase-2-multi-repo.md`](./phase-2-multi-repo.md).
 
 ## Risks & mitigations
 

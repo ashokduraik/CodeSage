@@ -13,6 +13,7 @@ from services.embedding.run_embed import create_embed_handler
 from services.indexing.job_context import JobExecutionContext
 from services.parsing.run_parse import create_parse_handler
 from services.sync.run_sync import create_sync_handler
+from services.xrepo.run_xrepo import create_xrepo_handler
 from workers.jobs import is_known_job
 
 
@@ -27,7 +28,7 @@ def build_job_handlers(
     settings: Settings,
     session_factory: sessionmaker[Session],
 ) -> dict[str, HandlerFn]:
-    """Create the Phase 1 handler map keyed by job type.
+    """Create the Phase 1–2 handler map keyed by job type.
 
     @param settings - Application settings.
     @param session_factory - SQLAlchemy session factory.
@@ -37,6 +38,7 @@ def build_job_handlers(
         "sync": create_sync_handler(settings, session_factory),
         "parse": create_parse_handler(settings, session_factory),
         "embed": create_embed_handler(settings, session_factory),
+        "xrepo": create_xrepo_handler(settings, session_factory),
     }
 
 

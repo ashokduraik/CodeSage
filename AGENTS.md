@@ -52,4 +52,5 @@ migration + update `docs/data-model.md` and `docs/schema/<table>.md` if schema c
 
 - API/job shapes → `contracts/` + `docs/architecture.md` §4.
 - Data shapes → `docs/data-model.md` + `docs/schema/`.
+- Phase sequencing & exit criteria → `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-multi-repo.md`, … (see `docs/final-solution.md` §12).
 - *Why* something is the way it is → `docs/adr/`.

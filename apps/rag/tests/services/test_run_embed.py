@@ -58,6 +58,7 @@ def test_handle_embed_job_updates_vectors_and_marks_indexed(
     monkeypatch.setattr("services.embedding.run_embed.RepoRepository", lambda s: mock_repos)
     monkeypatch.setattr("services.embedding.run_embed.ProjectRepository", lambda s: mock_projects)
     monkeypatch.setattr("services.embedding.run_embed.CodeChunkRepository", lambda s: mock_chunks)
+    monkeypatch.setattr("services.embedding.run_embed.maybe_enqueue_xrepo", lambda *a, **k: False)
     monkeypatch.setattr(
         "services.embedding.run_embed.EmbeddingClient",
         lambda settings: SimpleNamespace(embed_texts=lambda texts: [[0.1, 0.2]]),
@@ -74,6 +75,41 @@ def test_handle_embed_job_updates_vectors_and_marks_indexed(
     mock_repos.mark_index_complete.assert_called_once_with(repo_id, sha=None)
     assert "Step 3/3 finished" in caplog.text
     assert "Indexing complete" in caplog.text
+
+
+def test_handle_embed_job_enqueues_xrepo_when_ready(monkeypatch) -> None:
+    repo_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    chunk_id = uuid.uuid4()
+    row = SimpleNamespace(id=chunk_id, content="export {}", repo_id=repo_id)
+    repo = SimpleNamespace(id=repo_id, project_id=project_id)
+
+    mock_repos = MagicMock()
+    mock_repos.get_by_id.return_value = repo
+    mock_chunks = MagicMock()
+    mock_chunks.get_by_id.return_value = row
+    mock_chunks.list_unembedded.return_value = []
+    enqueue_called: list[uuid.UUID] = []
+
+    monkeypatch.setattr("services.embedding.run_embed.RepoRepository", lambda s: mock_repos)
+    monkeypatch.setattr("services.embedding.run_embed.ProjectRepository", lambda s: MagicMock())
+    monkeypatch.setattr("services.embedding.run_embed.CodeChunkRepository", lambda s: mock_chunks)
+    monkeypatch.setattr(
+        "services.embedding.run_embed.EmbeddingClient",
+        lambda settings: SimpleNamespace(embed_texts=lambda texts: [[0.1, 0.2]]),
+    )
+    monkeypatch.setattr(
+        "services.embedding.run_embed.maybe_enqueue_xrepo",
+        lambda session, pid: enqueue_called.append(pid) or True,
+    )
+
+    handle_embed_job(
+        MagicMock(),
+        Settings(),
+        {"repoId": str(repo_id), "chunkIds": [str(chunk_id)]},
+        make_exec_ctx(job_type="embed", repo_id=repo_id, project_id=project_id),
+    )
+    assert enqueue_called == [project_id]
 
 
 def test_handle_embed_job_missing_chunk_raises() -> None:
