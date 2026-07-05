@@ -131,8 +131,8 @@ Do not block PR CI on Phase 2 E2E until L1 helper + fixtures are committed.
 
 ## Definition of Done (E2E)
 
-- [ ] Fixture repos committed under `tests/e2e/fixtures/`.
-- [ ] Seed script produces indexed multi-repo project idempotently.
+- [x] Fixture repos committed under `tests/e2e/fixtures/`.
+- [x] Seed script (`npm run test:e2e:seed`) — attach + poll until indexed.
 - [ ] L1 assertions automated (jobs + graph_edges).
 - [ ] `phase2-multi-repo.spec.ts` passes locally with `E2E_*` env set.
 - [ ] Phase 2 plan DoD checkbox checked: exit criteria met.
@@ -142,10 +142,10 @@ Do not block PR CI on Phase 2 E2E until L1 helper + fixtures are committed.
 
 ## Build order
 
-1. Commit fixture source trees + README in `tests/e2e/fixtures/`.
-2. Seed script (attach + poll).
+1. [x] Commit fixture source trees + README in `tests/e2e/fixtures/`.
+2. [x] Seed script (attach + poll) — `npm run test:e2e:seed`.
 3. L1 SQL/API assertions script.
-4. Playwright L3 tests wired to `E2E_MULTI_REPO_PROJECT_ID`.
+4. Playwright L3 tests wired to `E2E_MULTI_REPO_PROJECT_ID` (scaffold in `phase2-multi-repo.spec.ts`).
 5. Optional nightly CI workflow.
 
 ---

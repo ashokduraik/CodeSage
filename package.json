@@ -31,6 +31,7 @@
     "test:js": "npm run test --workspaces --if-present",
     "test:python": "cd apps/rag && uv run pytest",
     "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
+    "test:e2e:seed": "node tests/e2e/scripts/seed-multi-repo-project.mjs",
     "test": "npm run test:js && npm run test:python",
     "test:staged": "node scripts/test-staged.mjs",
     "test:scripts": "node --test scripts/test/*.test.mjs",

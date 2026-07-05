@@ -22,13 +22,11 @@ Tests **skip** when `E2E_BASE_URL` is unset (CI unit jobs stay fast).
 
 ## Phase 2 setup
 
-See [`docs/plans/phase-2-e2e.md`](../docs/plans/phase-2-e2e.md) for fixture repos, seed script, and assertions.
-
-After seeding:
+See [`docs/plans/phase-2-e2e.md`](../docs/plans/phase-2-e2e.md). Publish fixture repos (one-time), then:
 
 ```bash
-export E2E_MULTI_REPO_PROJECT_ID=<uuid>
-export E2E_MULTI_REPO_FRONTEND_PATH=src/api.ts
-export E2E_MULTI_REPO_BACKEND_PATH=src/routes.ts
-npm run test:e2e
+export E2E_API_URL=http://localhost:3000/api
+export E2E_FRONTEND_REPO_URL=https://github.com/your-org/codesage-e2e-frontend.git
+export E2E_BACKEND_REPO_URL=https://github.com/your-org/codesage-e2e-backend.git
+npm run test:e2e:seed
 ```
