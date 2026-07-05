@@ -18,19 +18,21 @@ function renderLayout() {
 afterEach(cleanup);
 
 describe("AppLayout", () => {
-  it("renders the routed child via the outlet", () => {
+  it("renders the routed child via the outlet", async () => {
     renderLayout();
-    expect(screen.getByText("child content")).toBeTruthy();
+    expect(await screen.findByText("child content")).toBeTruthy();
   });
 
-  it("opens and closes the mobile navigation drawer", () => {
+  it("opens and closes the mobile navigation drawer", async () => {
     renderLayout();
     expect(screen.queryByRole("button", { name: "Close navigation menu" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
-    expect(screen.getAllByRole("button", { name: "Close navigation menu" }).length).toBeGreaterThan(0);
+    fireEvent.click(await screen.findByRole("button", { name: "Open navigation menu" }));
+    expect((await screen.findAllByRole("button", { name: "Close navigation menu" })).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Close navigation menu" })[0] as HTMLElement);
+    fireEvent.click(
+      (await screen.findAllByRole("button", { name: "Close navigation menu" }))[0] as HTMLElement,
+    );
     expect(screen.queryByRole("button", { name: "Close navigation menu" })).toBeNull();
   });
 });

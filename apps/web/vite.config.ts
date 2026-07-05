@@ -22,6 +22,11 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
     globals: false,
+    // jsdom + React + parallel workers can exceed the 5s default on cold imports.
+    testTimeout: 15_000,
+    hookTimeout: 15_000,
+    teardownTimeout: 15_000,
+    setupFiles: ["src/test/setup.ts"],
     // Pin VITE_ env vars so tests are independent of the developer's local .env file.
     env: {
       VITE_API_BASE_URL: "/api",

@@ -211,7 +211,11 @@ export function RepoCard({ projectId, repo }: Props): JSX.Element {
       </li>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent closeLabel={t("common.close")} className="sm:max-w-sm">
+        <DialogContent
+          aria-describedby={undefined}
+          closeLabel={t("common.close")}
+          className="sm:max-w-sm"
+        >
           <DialogHeader>
             <DialogTitle>{t("projects.repoCard.deleteConfirmTitle")}</DialogTitle>
           </DialogHeader>

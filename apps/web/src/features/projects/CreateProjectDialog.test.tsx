@@ -29,10 +29,10 @@ describe("CreateProjectDialog", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("renders the form when open", () => {
+  it("renders the form when open", async () => {
     render(<CreateProjectDialog open onClose={vi.fn()} />);
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.getByLabelText(/name/i)).toBeTruthy();
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(await screen.findByLabelText(/name/i)).toBeTruthy();
   });
 
   it("calls onClose when Cancel is clicked", () => {

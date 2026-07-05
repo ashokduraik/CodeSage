@@ -6,11 +6,11 @@ import { Sidebar } from "./Sidebar";
 afterEach(cleanup);
 
 describe("Sidebar", () => {
-  it("renders the brand and navigation entries", () => {
+  it("renders the brand and navigation entries", async () => {
     renderWithRouter(<Sidebar />, { route: "/" });
-    expect(screen.getByText("CodeSage")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Dashboard" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Chat" })).toBeTruthy();
+    expect(await screen.findByText("CodeSage")).toBeTruthy();
+    expect(await screen.findByRole("link", { name: "Dashboard" })).toBeTruthy();
+    expect(await screen.findByRole("link", { name: "Chat" })).toBeTruthy();
   });
 
   it("marks the dashboard link active on the root route", () => {

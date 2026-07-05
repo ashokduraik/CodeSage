@@ -184,7 +184,14 @@ npm run dev:web               # http://localhost:5173
 npm run dev:rag               # http://localhost:8001/health
 npm run codegen:check         # fail if contracts/ and generated types drift
 npm run lint                  # ESLint all JS workspaces
+npm run lint:staged           # ESLint staged files only (pre-commit)
+npm run test:staged           # related tests for staged files only (pre-commit)
 ```
+
+**Pre-commit (Husky)** runs staged-only checks: `lint:staged`, `typecheck:staged`, and
+`test:staged` (fast related tests, no coverage gate). Before pushing, run the full gates
+locally — `npm run lint`, `npm run typecheck`, and `npm test` — same as CI.
+
 
 On Linux/macOS: `make setup`, `make test`, `make up`, `make migrate` — see [`Makefile`](./Makefile).
 

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { act, cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement, ReactNode } from "react";
 import "@/i18n";
@@ -59,6 +59,11 @@ function renderRepoCard(ui: ReactElement): ReturnType<typeof render> {
   return render(ui, { wrapper: Wrapper });
 }
 
+beforeEach(() => {
+  mockDeleteAsync.mockReset();
+  mockSyncRepoRequest.mockReset();
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -70,28 +75,32 @@ describe("RepoCard", () => {
     renderRepoCard(<RepoCard projectId="p1" repo={REPO} />);
 
     fireEvent.click(screen.getByRole("button", { name: /^Delete$/i }));
+    await screen.findByText(/Remove org\/repo from this project/i);
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText(/Remove org\/repo from this project/i)).toBeTruthy();
 
-    fireEvent.click(within(dialog).getByRole("button", { name: /^Delete$/i }));
-
-    await waitFor(() => {
-      expect(mockDeleteAsync).toHaveBeenCalledWith({ projectId: "p1", repoId: "r1" });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: /^Delete$/i }));
     });
-  });
+
+    expect(mockDeleteAsync).toHaveBeenCalledWith({ projectId: "p1", repoId: "r1" });
+  }, 10_000);
 
   it("shows an error when soft detach fails", async () => {
     mockDeleteAsync.mockRejectedValue(new Error("API error"));
     renderRepoCard(<RepoCard projectId="p1" repo={REPO} />);
 
     fireEvent.click(screen.getByRole("button", { name: /^Delete$/i }));
+    await screen.findByText(/Remove org\/repo from this project/i);
     const dialog = screen.getByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: /^Delete$/i }));
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: /^Delete$/i }));
+    });
 
     await waitFor(() => {
       expect(screen.getByText(/Could not delete repository/i)).toBeTruthy();
     });
-  });
+  }, 10_000);
 
   it("renders indexed status badge when lastIndexedAt is set", () => {
     renderRepoCard(<RepoCard projectId="p1" repo={REPO} />);

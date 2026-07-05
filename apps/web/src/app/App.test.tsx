@@ -87,7 +87,7 @@ afterEach(cleanup);
 describe("App", () => {
   it("renders the dashboard inside the app layout at the root route (authenticated)", async () => {
     renderApp("/");
-    expect(screen.getAllByText("CodeSage").length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("CodeSage")).length).toBeGreaterThan(0);
     expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeTruthy();
   });
 

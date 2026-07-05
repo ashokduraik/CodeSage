@@ -1,0 +1,161 @@
+import assert from "node:assert/strict";
+import { join } from "node:path";
+import { describe, it } from "node:test";
+import {
+  groupStagedByWorkspace,
+  hasContractChanges,
+  hasRagCodeChanges,
+  LINTABLE_FILE,
+  REPO_ROOT,
+  resolvePythonTestCandidates,
+  resolvePythonTestsForStaged,
+  TS_FILE,
+  workspacesToTest,
+  workspacesToTypecheck,
+} from "../lib/staged-files.mjs";
+
+describe("groupStagedByWorkspace", () => {
+  it("groups lintable files by npm workspace", () => {
+    const groups = groupStagedByWorkspace(
+      [
+        "apps/api/src/foo.ts",
+        "apps/web/src/App.tsx",
+        "apps/api/src/bar.ts",
+        "README.md",
+      ],
+      LINTABLE_FILE,
+    );
+
+    assert.equal(groups.length, 2);
+    assert.deepEqual(
+      groups.find((g) => g.entry.workspace === "@codesage/api")?.files,
+      ["apps/api/src/foo.ts", "apps/api/src/bar.ts"],
+    );
+    assert.deepEqual(
+      groups.find((g) => g.entry.workspace === "@codesage/web")?.files,
+      ["apps/web/src/App.tsx"],
+    );
+  });
+
+  it("returns an empty list when no files match the extension", () => {
+    const groups = groupStagedByWorkspace(["README.md", "docs/foo.md"], LINTABLE_FILE);
+    assert.deepEqual(groups, []);
+  });
+});
+
+describe("workspacesToTypecheck", () => {
+  it("includes dependents when shared-types changes", () => {
+    const workspaces = workspacesToTypecheck([
+      "packages/shared-types/src/index.ts",
+      "README.md",
+    ]);
+
+    assert.deepEqual(workspaces.sort(), [
+      "@codesage/api",
+      "@codesage/shared-types",
+      "@codesage/web",
+    ]);
+  });
+
+  it("typechecks only the touched workspace for local TS changes", () => {
+    const workspaces = workspacesToTypecheck(["apps/api/src/routes.ts"]);
+    assert.deepEqual(workspaces, ["@codesage/api"]);
+  });
+});
+
+describe("workspacesToTest", () => {
+  it("mirrors typecheck workspace selection for TS files", () => {
+    const entries = workspacesToTest(["apps/web/src/main.tsx"]);
+    assert.deepEqual(
+      entries.map((entry) => entry.workspace),
+      ["@codesage/web"],
+    );
+  });
+});
+
+describe("hasContractChanges", () => {
+  it("detects staged contract edits", () => {
+    assert.equal(hasContractChanges(["contracts/openapi.node.yaml"]), true);
+    assert.equal(hasContractChanges(["README.md"]), false);
+  });
+});
+
+describe("hasRagCodeChanges", () => {
+  it("detects staged Python source or test files", () => {
+    assert.equal(
+      hasRagCodeChanges(["apps/rag/src/services/retrieval/search.py"]),
+      true,
+    );
+    assert.equal(
+      hasRagCodeChanges(["apps/rag/tests/services/test_retrieval.py"]),
+      true,
+    );
+    assert.equal(hasRagCodeChanges(["apps/rag/README.md"]), false);
+  });
+});
+
+describe("resolvePythonTestCandidates", () => {
+  it("builds mirror and parent-dir candidate paths", () => {
+    const candidates = resolvePythonTestCandidates(
+      "apps/rag/src/services/retrieval/search.py",
+    );
+
+    assert.ok(candidates.includes("tests/services/retrieval/test_search.py"));
+    assert.ok(candidates.includes("tests/services/test_search.py"));
+    assert.ok(candidates.includes("tests/services/test_retrieval_search.py"));
+    assert.ok(candidates.includes("tests/services/test_retrieval.py"));
+  });
+
+  it("builds graph module candidates", () => {
+    const candidates = resolvePythonTestCandidates(
+      "apps/rag/src/services/graph/extract.py",
+    );
+
+    assert.ok(candidates.includes("tests/services/test_graph_extract.py"));
+    assert.ok(candidates.includes("tests/services/test_extract.py"));
+  });
+
+  it("returns an empty list for non-RAG paths", () => {
+    assert.deepEqual(resolvePythonTestCandidates("apps/api/src/index.ts"), []);
+  });
+});
+
+describe("resolvePythonTestsForStaged", () => {
+  const ragRoot = join(REPO_ROOT, "apps/rag");
+
+  it("runs staged test files directly", () => {
+    const targets = resolvePythonTestsForStaged(
+      ["apps/rag/tests/workers/test_dispatch.py"],
+      ragRoot,
+    );
+
+    assert.deepEqual(targets, ["tests/workers/test_dispatch.py"]);
+  });
+
+  it("resolves existing tests for staged source files", () => {
+    const targets = resolvePythonTestsForStaged(
+      ["apps/rag/src/services/retrieval/search.py"],
+      ragRoot,
+    );
+
+    assert.ok(targets.includes("tests/services/test_retrieval.py"));
+  });
+
+  it("falls back to area tests when no candidate file exists", () => {
+    const targets = resolvePythonTestsForStaged(
+      ["apps/rag/src/services/nonexistent_module/foo.py"],
+      ragRoot,
+    );
+
+    assert.ok(targets.length > 0);
+    assert.ok(targets.every((target) => target.startsWith("tests/services/")));
+  });
+});
+
+describe("TS_FILE", () => {
+  it("matches TypeScript and TSX paths", () => {
+    assert.match("apps/api/src/foo.ts", TS_FILE);
+    assert.match("apps/web/src/App.tsx", TS_FILE);
+    assert.doesNotMatch("apps/api/src/foo.js", TS_FILE);
+  });
+});
