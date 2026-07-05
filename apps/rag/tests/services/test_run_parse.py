@@ -90,6 +90,38 @@ def test_handle_parse_job_chunks_and_enqueues_embed(
     assert "Skipped 1 files" in caplog.text
 
 
+def test_handle_parse_job_skips_path_outside_worktree(
+    tmp_path: Path,
+    monkeypatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    repo_id = uuid.uuid4()
+    worktree = tmp_path / str(repo_id)
+    worktree.mkdir()
+    outside = tmp_path / "secret.ts"
+    outside.write_text("secret", encoding="utf-8")
+
+    repo = SimpleNamespace(id=repo_id, project_id=uuid.uuid4())
+    mock_repos = MagicMock()
+    mock_repos.get_by_id.return_value = repo
+    mock_chunks = MagicMock()
+    mock_jobs = MagicMock()
+
+    monkeypatch.setattr("services.parsing.run_parse.RepoRepository", lambda s: mock_repos)
+    monkeypatch.setattr("services.parsing.run_parse.CodeChunkRepository", lambda s: mock_chunks)
+    monkeypatch.setattr("services.parsing.run_parse.JobRepository", lambda s: mock_jobs)
+    monkeypatch.setattr("services.parsing.run_parse.resolve_indexing_context", lambda s, r: None)
+
+    handle_parse_job(
+        MagicMock(),
+        Settings(repo_clone_dir=str(tmp_path)),
+        {"repoId": str(repo_id), "files": ["../secret.ts"], "sha": "abc"},
+        make_exec_ctx(job_type="parse", repo_id=repo_id, project_id=repo.project_id),
+    )
+    mock_chunks.delete_by_repo_file.assert_not_called()
+    assert "Skipped 1 files" in caplog.text
+
+
 def test_handle_parse_job_skips_embed_enqueue_when_superseded(
     tmp_path: Path,
     monkeypatch,

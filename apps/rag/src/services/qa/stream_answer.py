@@ -114,6 +114,9 @@ def stream_rag_answer(
             question=question,
             repo_ids=repo_ids,
         )
+    except ValueError as exc:
+        yield _chunk_event("abstain", content=str(exc))
+        return
     finally:
         session.close()
 

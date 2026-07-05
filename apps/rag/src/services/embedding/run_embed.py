@@ -79,7 +79,13 @@ def handle_embed_job(
 
     chunk_ids = [uuid.UUID(str(item)) for item in chunk_ids_raw]
     rows = [chunks_repo.get_by_id(chunk_id) for chunk_id in chunk_ids]
-    valid_rows = [row for row in rows if row is not None]
+    valid_rows = []
+    for chunk_id, row in zip(chunk_ids, rows, strict=True):
+        if row is None:
+            raise ValueError(f"Chunk not found: {chunk_id}")
+        if row.repo_id != repo_id:
+            raise ValueError(f"Chunk {chunk_id} does not belong to repo {repo_id}")
+        valid_rows.append(row)
     if not valid_rows:
         log_event(
             logger,
@@ -132,8 +138,10 @@ def handle_embed_job(
 
     # Every chunk for this repo now has an embedding vector. Promote project status,
     # stamp the repo as index-complete, and reconcile siblings (multi-repo projects).
+    commit_sha = payload.get("sha")
+    indexed_sha = commit_sha if isinstance(commit_sha, str) and commit_sha else None
     projects.update_status(repo.project_id, ProjectStatus.INDEXED)
-    repos.mark_index_complete(repo_id)
+    repos.mark_index_complete(repo_id, sha=indexed_sha)
     recompute_project_lifecycle(session, repo.project_id)
     recorder.record_finished(
         finished_embed_message(

@@ -27,7 +27,7 @@ from services.indexing.progress_messages import (
 )
 from services.indexing.progress_recorder import IndexingProgressRecorder
 from services.parsing.chunker import chunk_source
-from services.sync.paths import repo_worktree_path
+from services.sync.paths import repo_worktree_path, resolve_worktree_file
 
 logger = get_indexing_logger()
 
@@ -86,47 +86,62 @@ def handle_parse_job(
     total_sections = 0
 
     for rel_path in valid_files:
-        file_path = worktree / rel_path
-        if not file_path.is_file():
+        file_path = resolve_worktree_file(worktree, rel_path)
+        if file_path is None:
             files_skipped += 1
             continue
-        log_event(logger, logging.DEBUG, f"Reading file: {rel_path}")
-        # Incremental sync re-parses the same path when content changes. Remove old chunks
-        # first so we never leave orphaned rows or duplicate sections for one file.
-        chunks_repo.delete_by_repo_file(repo_id, rel_path)
-        text = file_path.read_text(encoding="utf-8", errors="replace")
-        graph_result = persist_file_graph(
-            session,
-            project_id=repo.project_id,
-            repo_id=repo_id,
-            file_path=rel_path,
-            content=text,
-        )
-        file_sections = 0
-        for part in chunk_source(text, file_path=rel_path):
-            row = chunks_repo.add(
+        try:
+            log_event(logger, logging.DEBUG, f"Reading file: {rel_path}")
+            # Incremental sync re-parses the same path when content changes. Remove old chunks
+            # first so we never leave orphaned rows or duplicate sections for one file.
+            chunks_repo.delete_by_repo_file(repo_id, rel_path)
+            text = file_path.read_text(encoding="utf-8", errors="replace")
+            graph_result = persist_file_graph(
+                session,
                 project_id=repo.project_id,
                 repo_id=repo_id,
                 file_path=rel_path,
-                span=part.span,
-                content=part.content,
-                symbol_refs=part.symbol_refs,
+                content=text,
             )
-            new_chunk_ids.append(str(row.id))
-            file_sections += 1
-        symbol_count = max(graph_result.edge_count, 0)
-        log_event(
-            logger,
-            logging.DEBUG,
-            f"File done: {rel_path} — {file_sections} code sections, {symbol_count} symbols",
-        )
-        files_read += 1
-        total_sections += file_sections
-        if should_log_parse_milestone(files_read, len(valid_files)):
+            file_sections = 0
+            for part in chunk_source(text, file_path=rel_path):
+                row = chunks_repo.add(
+                    project_id=repo.project_id,
+                    repo_id=repo_id,
+                    file_path=rel_path,
+                    span=part.span,
+                    content=part.content,
+                    symbol_refs=part.symbol_refs,
+                )
+                new_chunk_ids.append(str(row.id))
+                file_sections += 1
+            symbol_count = max(graph_result.edge_count, 0)
             log_event(
                 logger,
-                logging.INFO,
-                parse_progress_message(files_read, len(valid_files)),
+                logging.DEBUG,
+                f"File done: {rel_path} — {file_sections} code sections, {symbol_count} symbols",
+            )
+            files_read += 1
+            total_sections += file_sections
+            if should_log_parse_milestone(files_read, len(valid_files)):
+                log_event(
+                    logger,
+                    logging.INFO,
+                    parse_progress_message(files_read, len(valid_files)),
+                )
+        except OSError as exc:
+            files_skipped += 1
+            log_event(
+                logger,
+                logging.WARNING,
+                f"Could not read {rel_path} for {context_label}: {exc}",
+            )
+        except Exception as exc:
+            files_skipped += 1
+            log_event(
+                logger,
+                logging.ERROR,
+                f"Failed to parse {rel_path} for {context_label}: {exc}",
             )
 
     if files_skipped > 0:
@@ -149,6 +164,10 @@ def handle_parse_job(
     }
     if trigger:
         downstream["trigger"] = trigger
+
+    commit_sha = payload.get("sha")
+    if isinstance(commit_sha, str) and commit_sha:
+        downstream["sha"] = commit_sha
 
     if new_chunk_ids:
         log_event(

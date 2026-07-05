@@ -147,10 +147,10 @@ def handle_sync_job(
         log_event(logger, logging.INFO, f"Repository connection status → error for {context_label}")
         raise
 
-    repos.update_head_sha(repo_id, result.head_sha)
     repos.update_connection_status(repo_id, RepoConnectionStatus.CONNECTED)
     log_event(logger, logging.INFO, f"Repository connection status → connected for {context_label}")
 
+    # Do not update last_indexed_sha here — only after embed completes (see mark_index_complete).
     finish_action = "repository updated" if is_update else "repository download complete"
     log_event(
         logger,

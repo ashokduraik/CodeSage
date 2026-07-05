@@ -79,6 +79,28 @@ def scan_indexable_files(root: Path, max_file_bytes: int) -> FileScanResult:
     return FileScanResult(paths=sorted(found), skipped_large_count=skipped_large)
 
 
+def resolve_worktree_file(worktree: Path, rel_path: str) -> Path | None:
+    """Resolve a relative path safely inside a repository worktree.
+
+    Rejects path traversal (``../``) and missing files so parse jobs cannot read
+    arbitrary filesystem paths outside the clone directory.
+
+    @param worktree - Repository clone root on disk.
+    @param rel_path - Relative path from the job payload.
+    @returns Resolved file path when safe and present, otherwise ``None``.
+    """
+    if not rel_path or rel_path.startswith("/") or ".." in Path(rel_path).parts:
+        return None
+    try:
+        resolved = (worktree / rel_path).resolve()
+        base = worktree.resolve()
+    except OSError:
+        return None
+    if not resolved.is_relative_to(base) or not resolved.is_file():
+        return None
+    return resolved
+
+
 def list_indexable_files(root: Path, max_file_bytes: int) -> list[str]:
     """Walk a clone directory and return relative paths of indexable source files.
 

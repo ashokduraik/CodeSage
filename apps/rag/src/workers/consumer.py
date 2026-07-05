@@ -173,6 +173,9 @@ def _handle_job_failure(
     )
     log_failure(logger, summary, failure_exc)
 
+    # Discard partial handler writes (chunks, enqueues) before persisting failure state.
+    work_session.rollback()
+
     JobRepository(work_session).mark_failed(job.id, error_message=explanation)
     work_session.commit()
 
@@ -287,8 +290,10 @@ def process_next_job(session_factory: sessionmaker[Session], settings: Settings)
             job_repo = JobRepository(work_session)
             if not job_repo.is_job_active(job.id):
                 # A newer sync for the same repo soft-deleted this job while we worked.
-                # Roll back handler writes (chunks, enqueue) so stale results never land.
+                # Roll back handler writes, then clear the stale ``running`` queue state.
                 work_session.rollback()
+                job_repo.mark_done(job.id)
+                work_session.commit()
                 log_event(
                     logger,
                     logging.INFO,

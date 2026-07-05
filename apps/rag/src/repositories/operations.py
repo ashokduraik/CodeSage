@@ -215,7 +215,12 @@ class JobRepository:
         summaries: list[FailedJobSummary] = []
         for job in rows:
             repo_id_raw = job.payload.get("repoId") if isinstance(job.payload, dict) else None
-            repo_id = uuid.UUID(str(repo_id_raw)) if repo_id_raw else None
+            repo_id: uuid.UUID | None = None
+            if repo_id_raw:
+                try:
+                    repo_id = uuid.UUID(str(repo_id_raw))
+                except ValueError:
+                    repo_id = None
             summaries.append(
                 FailedJobSummary(
                     job_type=job.type,

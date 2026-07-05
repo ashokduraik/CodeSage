@@ -23,11 +23,6 @@ def test_dispatch_unknown_job_type() -> None:
         dispatch_job(_job("nope"), {}, make_exec_ctx(), MagicMock())
 
 
-def test_dispatch_unimplemented_known_type() -> None:
-    with pytest.raises(UnsupportedJobError, match="No handler"):
-        dispatch_job(_job("distill"), {"sync": lambda p, c, s: None}, make_exec_ctx(), MagicMock())
-
-
 def test_dispatch_calls_handler() -> None:
     seen: list[dict] = []
 

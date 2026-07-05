@@ -21,6 +21,25 @@ def test_stream_abstains_for_end_user_audience() -> None:
     assert any('"abstain"' in event for event in events)
 
 
+def test_stream_abstains_when_project_missing(monkeypatch) -> None:
+    session = MagicMock()
+    session_factory = MagicMock(return_value=session)
+    monkeypatch.setattr(
+        "services.qa.stream_answer.retrieve_code_chunks",
+        lambda *a, **k: (_ for _ in ()).throw(ValueError("Project not found: x")),
+    )
+    events = list(
+        stream_rag_answer(
+            Settings(),
+            session_factory,
+            question="how?",
+            project_id=uuid.uuid4(),
+            audience="developer",
+        ),
+    )
+    assert any("Project not found" in event for event in events)
+
+
 def test_stream_abstains_without_matches(monkeypatch) -> None:
     session = MagicMock()
     session_factory = MagicMock(return_value=session)

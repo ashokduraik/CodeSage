@@ -117,17 +117,27 @@ def sync_repository(
     log_event(logger, logging.INFO, f"Repository at commit {short_commit(head_sha)}")
 
     if since_sha and since_sha != head_sha:
-        diff = _run_git(["diff", "--name-only", since_sha, head_sha], cwd=worktree)
-        changed = [line.strip() for line in diff.stdout.splitlines() if line.strip()]
-        all_indexable = set(list_files())
-        # Git diff lists every changed path including deletes and non-source files.
-        # Keep only paths we actually index so parse jobs stay focused and cheap.
-        changed_files = sorted(path for path in changed if path in all_indexable)
-        log_event(
-            logger,
-            logging.INFO,
-            f"{len(changed_files)} files changed since last index",
-        )
+        try:
+            diff = _run_git(["diff", "--name-only", since_sha, head_sha], cwd=worktree)
+            changed = [line.strip() for line in diff.stdout.splitlines() if line.strip()]
+            all_indexable = set(list_files())
+            # Git diff lists every changed path including deletes and non-source files.
+            # Keep only paths we actually index so parse jobs stay focused and cheap.
+            changed_files = sorted(path for path in changed if path in all_indexable)
+            log_event(
+                logger,
+                logging.INFO,
+                f"{len(changed_files)} files changed since last index",
+            )
+        except RuntimeError:
+            # Shallow clones may lack ``since_sha`` objects — fall back to a full scan.
+            log_event(
+                logger,
+                logging.WARNING,
+                "Incremental diff unavailable — scanning all indexable source files",
+            )
+            changed_files = list_files()
+            log_event(logger, logging.INFO, "Full index — scanning all source files")
     else:
         # No prior indexed commit, or HEAD did not move — scan the full worktree so
         # first-time attach and no-op syncs still produce a correct file list.

@@ -11,6 +11,7 @@ from services.sync.paths import (
     is_indexable_file,
     list_indexable_files,
     repo_worktree_path,
+    resolve_worktree_file,
     scan_indexable_files,
     should_skip_dir,
 )
@@ -81,6 +82,51 @@ def test_list_indexable_files_skips_large_files(tmp_path: Path) -> None:
     assert files == []
     scan = scan_indexable_files(tmp_path, max_file_bytes=5)
     assert scan.skipped_large_count == 1
+
+
+def test_resolve_worktree_file_rejects_traversal(tmp_path: Path) -> None:
+    worktree = tmp_path / "repo"
+    worktree.mkdir()
+    (worktree / "safe.ts").write_text("ok", encoding="utf-8")
+    outside = tmp_path / "outside.ts"
+    outside.write_text("secret", encoding="utf-8")
+
+    assert resolve_worktree_file(worktree, "safe.ts") == (worktree / "safe.ts").resolve()
+    assert resolve_worktree_file(worktree, "../outside.ts") is None
+    assert resolve_worktree_file(worktree, "../../etc/passwd") is None
+
+
+def test_sync_repository_diff_fallback_on_shallow_history(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path | None = None) -> object:
+        calls.append(args)
+        if args[:2] == ["diff", "--name-only"]:
+            raise RuntimeError("git diff failed: bad object")
+        class Result:
+            stdout = "sha2\n"
+            returncode = 0
+
+        if args[:2] == ["rev-parse", "HEAD"]:
+            Result.stdout = "sha2\n"
+        return Result()
+
+    monkeypatch.setattr("services.sync.git_ops._run_git", fake_run)
+    worktree = tmp_path / "repo"
+    worktree.mkdir()
+    (worktree / ".git").mkdir()
+    result = sync_repository(
+        repo_url="https://example.com/r.git",
+        branch="main",
+        worktree=worktree,
+        token=None,
+        since_sha="sha1",
+        list_files=lambda: ["a.ts"],
+    )
+    assert result.changed_files == ["a.ts"]
 
 
 def test_sync_repository_clone_logs(

@@ -119,9 +119,15 @@ def test_repo_update_last_indexed_sha_missing() -> None:
 
 def test_repo_delete() -> None:
     session = MagicMock()
-    result = MagicMock()
-    result.rowcount = 1
-    session.execute.return_value = result
+    repo_row = Repo(
+        project_id=uuid.uuid4(),
+        repo_url="https://x",
+        provider=RepoProvider.GITHUB,
+        status=RowStatus.ACTIVE,
+    )
+    session.get.return_value = repo_row
 
     repo = RepoRepository(session)
     assert repo.delete(uuid.uuid4()) is True
+    assert repo_row.status == RowStatus.DELETED
+    session.flush.assert_called_once()

@@ -97,7 +97,7 @@ def test_handle_sync_job_enqueues_parse(monkeypatch, caplog: pytest.LogCaptureFi
         {"repoId": str(repo_id)},
         make_exec_ctx(job_type="sync", repo_id=repo_id, project_id=project_id),
     )
-    mock_repos.update_head_sha.assert_called_once_with(repo_id, "abc")
+    mock_repos.update_head_sha.assert_not_called()
     mock_repos.update_connection_status.assert_called_once()
     mock_jobs.enqueue.assert_called_once()
     assert mock_jobs.enqueue.call_args[0][0] == "parse"

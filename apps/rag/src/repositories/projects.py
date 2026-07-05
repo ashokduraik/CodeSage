@@ -6,7 +6,7 @@ import re
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from models.enums import ProjectStatus, RepoConnectionStatus, RowStatus
@@ -139,15 +139,21 @@ class RepoRepository:
         self._session.flush()
         return repo
 
-    def mark_index_complete(self, repo_id: uuid.UUID) -> Repo | None:
-        """Stamp ``last_indexed_at`` when all chunks for a repo are embedded.
+    def mark_index_complete(self, repo_id: uuid.UUID, *, sha: str | None = None) -> Repo | None:
+        """Stamp indexing completion when all chunks for a repo are embedded.
+
+        Updates ``last_indexed_at`` and, when provided, ``last_indexed_sha`` so incremental
+        git diffs only advance after a fully successful sync → parse → embed run.
 
         @param repo_id - Repo UUID.
+        @param sha - Git HEAD SHA from the indexing run (optional for legacy payloads).
         @returns Updated repo or `None` if not found.
         """
         repo = self.get_by_id(repo_id)
         if repo is None:
             return None
+        if sha is not None:
+            repo.last_indexed_sha = sha
         repo.last_indexed_at = datetime.now(UTC)
         stamp_updated(repo)
         self._session.flush()
@@ -197,11 +203,15 @@ class RepoRepository:
         return repo
 
     def delete(self, repo_id: uuid.UUID) -> bool:
-        """Delete a repo row.
+        """Soft-delete a repo row (user-facing detach).
 
         @param repo_id - Repo UUID.
-        @returns `True` when a row was deleted.
+        @returns ``True`` when an active row was tombstoned, ``False`` when missing or already deleted.
         """
-        stmt = delete(Repo).where(Repo.id == repo_id)
-        result = self._session.execute(stmt)
-        return result.rowcount > 0
+        repo = self.get_by_id(repo_id)
+        if repo is None:
+            return False
+        repo.status = RowStatus.DELETED
+        stamp_updated(repo)
+        self._session.flush()
+        return True

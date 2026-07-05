@@ -114,6 +114,7 @@ def test_process_next_job_marks_failed_on_error(caplog: pytest.LogCaptureFixture
                             factory,
                             Settings(tei_base_url="http://tei:8080"),
                         ) is True
+    work_session.rollback.assert_called()
     mark_failed.assert_called_once()
     assert "Job failed" in caplog.text
     assert "embed" in caplog.text
@@ -233,7 +234,7 @@ def test_process_next_job_skips_mark_done_when_job_superseded(
                 ):
                     assert process_next_job(factory, Settings()) is True
 
-    jobs_work.mark_done.assert_not_called()
+    jobs_work.mark_done.assert_called_once_with(job.id)
     assert "superseded" in caplog.text
 
 

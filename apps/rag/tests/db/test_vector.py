@@ -23,6 +23,8 @@ def test_build_similarity_query_compiles() -> None:
         stmt.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}),
     )
     assert "code_chunks" in compiled
+    assert "repos" in compiled
+    assert "status" in compiled
     assert "cosine_distance" in compiled.lower() or "<=>" in compiled
 
 

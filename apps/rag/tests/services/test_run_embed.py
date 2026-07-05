@@ -45,7 +45,7 @@ def test_handle_embed_job_updates_vectors_and_marks_indexed(
     repo_id = uuid.uuid4()
     project_id = uuid.uuid4()
     chunk_id = uuid.uuid4()
-    row = SimpleNamespace(id=chunk_id, content="export {}")
+    row = SimpleNamespace(id=chunk_id, content="export {}", repo_id=repo_id)
     repo = SimpleNamespace(id=repo_id, project_id=project_id)
 
     mock_repos = MagicMock()
@@ -71,12 +71,12 @@ def test_handle_embed_job_updates_vectors_and_marks_indexed(
     )
     mock_chunks.update_embedding.assert_called_once()
     mock_projects.update_status.assert_called_once()
-    mock_repos.mark_index_complete.assert_called_once_with(repo_id)
+    mock_repos.mark_index_complete.assert_called_once_with(repo_id, sha=None)
     assert "Step 3/3 finished" in caplog.text
     assert "Indexing complete" in caplog.text
 
 
-def test_handle_embed_job_no_valid_chunks_returns_early(monkeypatch) -> None:
+def test_handle_embed_job_missing_chunk_raises() -> None:
     repo_id = uuid.uuid4()
     repo = SimpleNamespace(id=repo_id, project_id=uuid.uuid4())
     mock_repos = MagicMock()
@@ -84,17 +84,16 @@ def test_handle_embed_job_no_valid_chunks_returns_early(monkeypatch) -> None:
     mock_chunks = MagicMock()
     mock_chunks.get_by_id.return_value = None
 
-    monkeypatch.setattr("services.embedding.run_embed.RepoRepository", lambda s: mock_repos)
-    monkeypatch.setattr("services.embedding.run_embed.ProjectRepository", lambda s: MagicMock())
-    monkeypatch.setattr("services.embedding.run_embed.CodeChunkRepository", lambda s: mock_chunks)
-
-    handle_embed_job(
-        MagicMock(),
-        Settings(),
-        {"repoId": str(repo_id), "chunkIds": [str(uuid.uuid4())]},
-        make_exec_ctx(job_type="embed", repo_id=repo_id, project_id=repo.project_id),
-    )
-    mock_chunks.update_embedding.assert_not_called()
+    with patch("services.embedding.run_embed.RepoRepository", lambda s: mock_repos):
+        with patch("services.embedding.run_embed.ProjectRepository", lambda s: MagicMock()):
+            with patch("services.embedding.run_embed.CodeChunkRepository", lambda s: mock_chunks):
+                with pytest.raises(ValueError, match="Chunk not found"):
+                    handle_embed_job(
+                        MagicMock(),
+                        Settings(),
+                        {"repoId": str(repo_id), "chunkIds": [str(uuid.uuid4())]},
+                        make_exec_ctx(job_type="embed", repo_id=repo_id),
+                    )
 
 
 def test_handle_embed_job_no_valid_chunks_logs_skip(
@@ -105,12 +104,10 @@ def test_handle_embed_job_no_valid_chunks_logs_skip(
     repo = SimpleNamespace(id=repo_id, project_id=uuid.uuid4())
     mock_repos = MagicMock()
     mock_repos.get_by_id.return_value = repo
-    mock_chunks = MagicMock()
-    mock_chunks.get_by_id.return_value = None
 
     monkeypatch.setattr("services.embedding.run_embed.RepoRepository", lambda s: mock_repos)
     monkeypatch.setattr("services.embedding.run_embed.ProjectRepository", lambda s: MagicMock())
-    monkeypatch.setattr("services.embedding.run_embed.CodeChunkRepository", lambda s: mock_chunks)
+    monkeypatch.setattr("services.embedding.run_embed.CodeChunkRepository", lambda s: MagicMock())
     monkeypatch.setattr(
         "services.embedding.run_embed.resolve_indexing_context",
         lambda session, rid: IndexingContext(
@@ -123,7 +120,7 @@ def test_handle_embed_job_no_valid_chunks_logs_skip(
     handle_embed_job(
         MagicMock(),
         Settings(),
-        {"repoId": str(repo_id), "chunkIds": [str(uuid.uuid4())]},
+        {"repoId": str(repo_id), "chunkIds": []},
         make_exec_ctx(job_type="embed", repo_id=repo_id, project_id=repo.project_id),
     )
     assert "Step 3/3 skipped" in caplog.text

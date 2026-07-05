@@ -83,7 +83,7 @@ class IndexingProgressRecorder:
         self._insert(
             phase="finished",
             message=message,
-            started_at=datetime.now(UTC),
+            started_at=self._step_started_at or datetime.now(UTC),
             duration_ms=self._elapsed_ms(),
             details=details,
         )
@@ -100,7 +100,7 @@ class IndexingProgressRecorder:
         self._insert(
             phase="skipped",
             message=message,
-            started_at=datetime.now(UTC),
+            started_at=self._step_started_at or datetime.now(UTC),
             duration_ms=self._elapsed_ms(),
             details=details,
         )
@@ -116,7 +116,7 @@ class IndexingProgressRecorder:
         self._insert(
             phase="failed",
             message=message,
-            started_at=datetime.now(UTC),
+            started_at=self._step_started_at or datetime.now(UTC),
             duration_ms=self._elapsed_ms(),
             failure_reason=failure_reason,
             details=None,

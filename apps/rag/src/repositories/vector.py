@@ -8,7 +8,8 @@ from collections.abc import Sequence
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
-from models import CodeChunk
+from models import CodeChunk, Repo
+from models.enums import RowStatus
 
 
 def build_similarity_query(
@@ -31,9 +32,12 @@ def build_similarity_query(
     distance = CodeChunk.embedding.cosine_distance(query_embedding).label("distance")
     stmt = (
         select(CodeChunk, distance)
+        .join(Repo, CodeChunk.repo_id == Repo.id)
         .where(
             CodeChunk.project_id == project_id,
             CodeChunk.embedding.is_not(None),
+            CodeChunk.status == RowStatus.ACTIVE,
+            Repo.status == RowStatus.ACTIVE,
         )
         .order_by(distance)
         .limit(limit)
