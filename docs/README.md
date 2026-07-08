@@ -20,7 +20,7 @@ This folder is the single home for all project documentation. Start here.
 | [`development-workflow.md`](./development-workflow.md) | How we work: branching, contracts-first codegen, testing, review, Definition of Done. |
 | [`plans/phase-1-mvp-code-qa.md`](./plans/phase-1-mvp-code-qa.md) | **Phase 1 plan** — MVP code QA milestones and build order. |
 | [`plans/phase-2-multi-repo.md`](./plans/phase-2-multi-repo.md) | **Phase 2 plan** — multi-repo linking and cross-repo graph resolver. |
-| [`plans/phase-2-e2e.md`](./plans/phase-2-e2e.md) | **Phase 2 E2E plan** — fixtures, seed, Playwright assertions. |
+| [`plans/phase-2-e2e.md`](./plans/phase-2-e2e.md) | **Phase 2 E2E** — UI onboarding journey, public/private repo attach, env preflight. |
 | [`tech-learning-guide.md`](./tech-learning-guide.md) | **Onboarding:** each technology in the stack — what to learn and how CodeSage uses it. |
 | [`adr/`](./adr/README.md) | Architecture Decision Records — one file per locked decision, with context + consequences. |
 

@@ -26,6 +26,7 @@ htmlcov/
 # Test / build artifacts
 playwright-report/
 test-results/
+tests/e2e/.e2e-state.json
 
 # OS / editor
 .DS_Store

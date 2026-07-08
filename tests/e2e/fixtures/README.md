@@ -1,6 +1,8 @@
 # E2E fixture repos
 
-Minimal frontend + backend sources for Phase 2 cross-repo linking (`GET /api/login`).
+Minimal frontend + backend sources for **future** Phase 2 cross-repo graph/chat E2E (`GET /api/login` linking).
+
+**Not used** for current onboarding tests — public attach uses built-in default (`octocat/Hello-World`); private attach uses `E2E_PRIVATE_REPO_URL` in [`tests/e2e/.env`](../.env.example).
 
 ## Layout
 
@@ -9,7 +11,7 @@ Minimal frontend + backend sources for Phase 2 cross-repo linking (`GET /api/log
 | `frontend/src/api.ts` | `axios.get('/api/login')` → `http_call` graph node |
 | `backend/src/routes.ts` | `app.get('/api/login', …)` → `route` graph node |
 
-## Publish (one-time)
+## Publish (one-time, when graph E2E is added)
 
 CodeSage attach requires hosted Git URLs. Mirror each folder to its own repo:
 
@@ -26,25 +28,12 @@ git remote add origin https://github.com/your-org/codesage-e2e-backend.git
 git push -u origin main
 ```
 
-## Seed a project
+## Configure and run onboarding E2E
 
-With the stack running (`api` + `rag` + `db`):
-
-```bash
-export E2E_API_URL=http://localhost:3000/api
-export E2E_FRONTEND_REPO_URL=https://github.com/your-org/codesage-e2e-frontend.git
-export E2E_BACKEND_REPO_URL=https://github.com/your-org/codesage-e2e-backend.git
-export E2E_GITHUB_TOKEN=ghp_...   # if private
-
-node tests/e2e/scripts/seed-multi-repo-project.mjs
-```
-
-Prints `E2E_MULTI_REPO_PROJECT_ID` when both repos are indexed. Then run Playwright:
+Add **private** repo URL and token to [`tests/e2e/.env`](../.env.example). Public attach uses built-in default.
 
 ```bash
-export E2E_BASE_URL=http://localhost:5173
-export E2E_MULTI_REPO_PROJECT_ID=<uuid>
 npm run test:e2e
 ```
 
-See [`docs/plans/phase-2-e2e.md`](../../../docs/plans/phase-2-e2e.md).
+See [`workflows.md`](../workflows.md), [`docs/plans/phase-2-e2e.md`](../../../docs/plans/phase-2-e2e.md), and [`tests/e2e/README.md`](../README.md).

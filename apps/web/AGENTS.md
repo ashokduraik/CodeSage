@@ -10,6 +10,8 @@ Local rules for the React frontend. Root [`/AGENTS.md`](../../AGENTS.md) also ap
 - Put stateful/data logic in **hooks**; keep components presentational.
 - Render **citations** wherever an answer is displayed; handle the "unknown" answer path.
 - One component/hook per file; descriptive names; colocated `*.test.tsx`.
+- Cross-service project/repo flows are covered in [`tests/e2e/`](../../tests/e2e/) (journey specs); keep
+  unit tests colocated here for dialogs and hooks.
 
 ## Don't
 

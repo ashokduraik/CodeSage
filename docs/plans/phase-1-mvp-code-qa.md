@@ -123,7 +123,7 @@ For local development without GPU:
 
 ## Definition of Done (Phase 1)
 
-- [ ] Exit criteria met on a single test repo (manual or E2E in `tests/e2e/` — run with `E2E_BASE_URL` set).
+- [ ] Exit criteria met on a single test repo (E2E journey #3 in [`workflows.md`](../../tests/e2e/workflows.md) — `npm run test:e2e` with stack up).
 - [x] All shapes from `contracts/`; codegen drift check passes.
 - [x] Node never blocks on heavy work (sync/parse/embed/query stay in Python).
 - [x] Answers include citations; abstain path works (NFR-7).

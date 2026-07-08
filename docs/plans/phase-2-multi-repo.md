@@ -57,6 +57,10 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 
 ## Verification (manual / E2E)
 
+**Automated (onboarding):** [`tests/e2e/web/journey-project-onboarding.spec.ts`](../../tests/e2e/web/journey-project-onboarding.spec.ts) — create project, attach public + private repos via UI, repo actions, dashboard. Run: `npm run test:e2e` (see [`tests/e2e/README.md`](../../tests/e2e/README.md)).
+
+**Manual (cross-repo graph / QA — exit criteria):**
+
 1. Attach frontend + backend repos to one project; wait for indexing on both.
 2. Confirm an `xrepo` job runs (`payload.projectId` set) after the second repo embeds.
 3. Query `graph_edges` for cross-repo rows with `kind = 'http_call'`.
@@ -64,7 +68,7 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 
 See also [`phase-1-mvp-code-qa.md`](./phase-1-mvp-code-qa.md) for single-repo QA setup.
 
-**E2E plan:** [`phase-2-e2e.md`](./phase-2-e2e.md) — fixtures, seed script, Playwright spec, CI strategy.
+**E2E plan:** [`phase-2-e2e.md`](./phase-2-e2e.md) — journey catalog, env model, planned chat/citations journey.
 
 ---
 

@@ -29,7 +29,7 @@ A self-hosted, codebase-aware QA platform. See [`docs/README.md`](./docs/README.
   internals stay private. This is what makes large-codebase edits safe for an agent.
 - **TypeScript everywhere on the JS side** (web + api); typed Python (type hints + Pydantic).
 - **Tests colocated:** `*.test.ts` next to TS code, `test_*.py` next to Python code; cross-service
-  tests in `tests/e2e/`.
+  tests in `tests/e2e/` (see [`tests/e2e/AGENTS.md`](./tests/e2e/AGENTS.md)).
 - **Comments explain *why*, not *what*.** No narration comments.
 
 ## Trust & safety rules (product-critical)
@@ -53,4 +53,5 @@ migration + update `docs/data-model.md` and `docs/schema/<table>.md` if schema c
 - API/job shapes → `contracts/` + `docs/architecture.md` §4.
 - Data shapes → `docs/data-model.md` + `docs/schema/`.
 - Phase sequencing & exit criteria → `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-multi-repo.md`, … (see `docs/final-solution.md` §12).
+- E2E journeys & env → [`tests/e2e/workflows.md`](./tests/e2e/workflows.md), [`tests/e2e/README.md`](./tests/e2e/README.md).
 - *Why* something is the way it is → `docs/adr/`.

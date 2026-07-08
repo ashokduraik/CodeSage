@@ -179,6 +179,7 @@ Individual targets:
 ```bash
 npm run test:js               # JS tests only
 npm run test:python           # Python tests only
+npm run test:e2e              # Playwright journeys (stack + tests/e2e/.env — see tests/e2e/README.md)
 npm run dev:api               # http://localhost:3000/health
 npm run dev:web               # http://localhost:5173
 npm run dev:rag               # http://localhost:8001/health
@@ -220,6 +221,7 @@ Start at [`docs/README.md`](./docs/README.md).
 | [`docs/tech-learning-guide.md`](./docs/tech-learning-guide.md) | Onboarding: each technology explained for newcomers |
 | [`docs/plans/phase-1-mvp-code-qa.md`](./docs/plans/phase-1-mvp-code-qa.md) | Phase 1 milestones and build order |
 | [`docs/plans/phase-2-multi-repo.md`](./docs/plans/phase-2-multi-repo.md) | Phase 2 multi-repo linking and cross-repo graph resolver |
+| [`tests/e2e/README.md`](./tests/e2e/README.md) | E2E Playwright journeys (UI onboarding, public + private repo attach) |
 | [`docs/adr/`](./docs/adr/README.md) | Architecture Decision Records |
 
 Each deployable also has local docs: `README.md`, `PLAN.md`, `TODO.md`, `AGENTS.md`.
@@ -240,6 +242,8 @@ codesage/
 ├─ packages/
 │  └─ shared-types/          # TS types generated from contracts/
 ├─ contracts/                # single source of truth for cross-service APIs
+├─ tests/
+│  └─ e2e/                   # Playwright cross-service journeys (see tests/e2e/AGENTS.md)
 ├─ db/
 │  ├─ migrations/            # versioned SQL — schema source of truth
 │  └─ seed/                  # dev seed data

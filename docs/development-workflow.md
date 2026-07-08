@@ -54,7 +54,9 @@ with local patches.
 - **Frameworks:** **Vitest** (JS/TS unit), **pytest** (Python unit), **Playwright** (E2E). See
   `.cursor/rules/testing-standards.mdc`.
 - **Colocated tests:** `*.test.ts` next to TS code; `test_*.py` next to Python code.
-- **Cross-service / E2E tests:** `tests/e2e/` (Playwright).
+- **Cross-service / E2E tests:** `tests/e2e/` (Playwright). See [`tests/e2e/README.md`](../tests/e2e/README.md)
+  and [`tests/e2e/AGENTS.md`](../tests/e2e/AGENTS.md). Journeys are UI-driven (no API pre-seed);
+  required env is validated in global-setup.
 - **≥ 80% coverage (line + branch) is required** for all code, enforced by CI gates on both the
   TypeScript and Python sides. A coverage drop below 80% fails the build; do not lower the threshold.
   Rare, genuinely-uncoverable lines may use a justified inline ignore (`/* istanbul ignore next */`,
