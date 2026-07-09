@@ -48,3 +48,23 @@ def test_maybe_enqueue_xrepo_enqueues_when_ready(monkeypatch: pytest.MonkeyPatch
 
     assert maybe_enqueue_xrepo(session, project_id) is True
     jobs.enqueue.assert_called_once_with("xrepo", {"projectId": str(project_id)})
+
+
+def test_maybe_enqueue_xrepo_re_enqueues_after_second_index(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Incremental re-index should queue xrepo again when no active xrepo job exists."""
+    project_id = uuid.uuid4()
+    session = MagicMock()
+    repos = MagicMock()
+    repos.list_by_project.return_value = [
+        SimpleNamespace(last_indexed_at=object()),
+        SimpleNamespace(last_indexed_at=object()),
+    ]
+    jobs = MagicMock()
+    jobs.has_active_job.return_value = False
+
+    monkeypatch.setattr("services.indexing.xrepo_enqueue.RepoRepository", lambda _s: repos)
+    monkeypatch.setattr("services.indexing.xrepo_enqueue.JobRepository", lambda _s: jobs)
+
+    assert maybe_enqueue_xrepo(session, project_id) is True
+    assert maybe_enqueue_xrepo(session, project_id) is True
+    assert jobs.enqueue.call_count == 2

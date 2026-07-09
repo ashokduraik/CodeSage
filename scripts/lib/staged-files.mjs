@@ -181,51 +181,37 @@ export function toWorkspaceRelativePaths(workspacePrefix, repoRelativeFiles) {
   return repoRelativeFiles.map((file) => file.slice(workspacePrefix.length));
 }
 
-/**
- * Resolves a command for spawnSync without shell (avoids Node DEP0190 on Windows).
- * @param {string} command
- * @returns {string}
- */
-function resolveCommand(command) {
-  if (process.platform !== "win32") {
-    return command;
-  }
-
-  if (/\.(?:cmd|exe|bat)$/i.test(command)) {
-    return command;
-  }
-
-  return `${command}.cmd`;
-}
+/** @type {boolean} */
+const USE_SHELL_SPAWN = process.platform === "win32";
 
 /**
- * Runs npm with cross-platform spawn (no shell).
+ * Runs npm with cross-platform spawn.
  * @param {string[]} args
  * @param {{ cwd?: string, stdio?: "inherit" | "pipe" }} [options]
  * @returns {number}
  */
 export function spawnNpm(args, options = {}) {
-  const result = spawnSync(resolveCommand("npm"), args, {
+  const result = spawnSync("npm", args, {
     cwd: options.cwd ?? REPO_ROOT,
     stdio: options.stdio ?? "inherit",
-    shell: false,
+    shell: USE_SHELL_SPAWN,
     windowsHide: true,
   });
   return result.status ?? 1;
 }
 
 /**
- * Runs an arbitrary command with cross-platform spawn (no shell).
+ * Runs an arbitrary command with cross-platform spawn.
  * @param {string} command
  * @param {string[]} args
  * @param {{ cwd?: string, stdio?: "inherit" | "pipe" }} [options]
  * @returns {number}
  */
 export function spawnCommand(command, args, options = {}) {
-  const result = spawnSync(resolveCommand(command), args, {
+  const result = spawnSync(command, args, {
     cwd: options.cwd ?? REPO_ROOT,
     stdio: options.stdio ?? "inherit",
-    shell: false,
+    shell: USE_SHELL_SPAWN,
     windowsHide: true,
   });
   return result.status ?? 1;

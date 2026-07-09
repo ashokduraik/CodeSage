@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from services.sync.git_ops import GitSyncResult, build_authenticated_url, sync_repository
+from models.enums import RepoConnectionStatus
+from services.sync.git_ops import GitSyncResult, build_authenticated_url, resolve_remote_head, sync_repository
 from services.sync.paths import (
     FileScanResult,
     is_existing_clone,
@@ -25,6 +26,18 @@ def test_build_authenticated_url_injects_token() -> None:
 def test_build_authenticated_url_without_token() -> None:
     url = "https://github.com/org/repo.git"
     assert build_authenticated_url(url, None) == url
+
+
+def test_resolve_remote_head_parses_ls_remote_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(args: list[str], *, cwd: Path | None = None) -> object:
+        class Result:
+            stdout = "deadbeef\trefs/heads/main\n"
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr("services.sync.git_ops._run_git", fake_run)
+    assert resolve_remote_head(repo_url="https://github.com/org/r.git", branch="main", token=None) == "deadbeef"
 
 
 def test_repo_worktree_path() -> None:

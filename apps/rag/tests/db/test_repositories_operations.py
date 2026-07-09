@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 from models.enums import JobStatus, RowStatus
 from models import AuditLog, Job
-from repositories.operations import AuditLogRepository, JobRepository
+from repositories.operations import AuditLogRepository, JobRepository, SUPERSEDED_JOB_MESSAGE
 
 
 def test_job_enqueue() -> None:
@@ -169,6 +169,38 @@ def test_is_job_active_returns_true_for_active_row() -> None:
 
     repo = JobRepository(session)
     assert repo.is_job_active(job.id) is True
+
+
+def test_has_active_job_for_repo_matches_payload() -> None:
+    repo_id = uuid.uuid4()
+    session = MagicMock()
+    job = Job(
+        type="sync",
+        payload={"repoId": str(repo_id)},
+        status=RowStatus.ACTIVE,
+        job_status=JobStatus.PENDING,
+    )
+    session.scalars.return_value = iter([job])
+
+    repo = JobRepository(session)
+    assert repo.has_active_job_for_repo("sync", repo_id) is True
+
+
+def test_cancel_pending_jobs_for_repo_supersedes_rows() -> None:
+    repo_id = uuid.uuid4()
+    session = MagicMock()
+    job = Job(
+        type="sync",
+        payload={"repoId": str(repo_id)},
+        status=RowStatus.ACTIVE,
+        job_status=JobStatus.PENDING,
+    )
+    session.scalars.return_value = iter([job])
+
+    repo = JobRepository(session)
+    assert repo.cancel_pending_jobs_for_repo(repo_id) == 1
+    assert job.status == RowStatus.DELETED
+    assert job.error_message == SUPERSEDED_JOB_MESSAGE
 
 
 def test_audit_log_append_and_list() -> None:

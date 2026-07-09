@@ -11,6 +11,7 @@ import pytest
 
 from config import Settings
 from config.logging import INDEXING_LOGGER_NAME, configure_logging
+from models.enums import RepoConnectionStatus
 from services.sync.git_ops import GitSyncResult
 from services.sync.run_sync import create_sync_handler, handle_sync_job
 from tests.helpers import make_exec_ctx
@@ -69,6 +70,7 @@ def test_handle_sync_job_enqueues_parse(monkeypatch, caplog: pytest.LogCaptureFi
     monkeypatch.setattr("services.sync.run_sync.RepoRepository", lambda s: mock_repos)
     monkeypatch.setattr("services.sync.run_sync.ProjectRepository", lambda s: mock_projects)
     monkeypatch.setattr("services.sync.run_sync.JobRepository", lambda s: mock_jobs)
+    monkeypatch.setattr("services.sync.run_sync.recompute_project_lifecycle", lambda *args: None)
     monkeypatch.setattr(
         "services.sync.run_sync.sync_repository",
         lambda **kwargs: GitSyncResult(head_sha="abc", changed_files=["src/a.ts"]),
@@ -98,7 +100,9 @@ def test_handle_sync_job_enqueues_parse(monkeypatch, caplog: pytest.LogCaptureFi
         make_exec_ctx(job_type="sync", repo_id=repo_id, project_id=project_id),
     )
     mock_repos.update_head_sha.assert_not_called()
-    mock_repos.update_connection_status.assert_called_once()
+    assert mock_repos.update_connection_status.call_count == 2
+    first_call = mock_repos.update_connection_status.call_args_list[0]
+    assert first_call[0][1] == RepoConnectionStatus.CONNECTING
     mock_jobs.enqueue.assert_called_once()
     assert mock_jobs.enqueue.call_args[0][0] == "parse"
     assert "Step 1/3 started" in caplog.text
@@ -174,6 +178,7 @@ def test_handle_sync_job_sets_error_status_on_failure(monkeypatch, caplog: pytes
     monkeypatch.setattr("services.sync.run_sync.RepoRepository", lambda s: mock_repos)
     monkeypatch.setattr("services.sync.run_sync.ProjectRepository", lambda s: MagicMock())
     monkeypatch.setattr("services.sync.run_sync.JobRepository", lambda s: MagicMock())
+    monkeypatch.setattr("services.sync.run_sync.recompute_project_lifecycle", lambda *args: None)
     monkeypatch.setattr(
         "services.sync.run_sync.sync_repository",
         lambda **kwargs: (_ for _ in ()).throw(
@@ -188,7 +193,10 @@ def test_handle_sync_job_sets_error_status_on_failure(monkeypatch, caplog: pytes
         {"repoId": str(repo_id)},
         make_exec_ctx(repo_id=repo_id, project_id=repo.project_id),
     )
-    mock_repos.update_connection_status.assert_called_once()
+    mock_repos.update_connection_status.assert_called()
+    assert mock_repos.update_connection_status.call_count == 2
+    error_call = mock_repos.update_connection_status.call_args_list[-1]
+    assert error_call[0][1] == RepoConnectionStatus.ERROR
     assert "Step 1/3 failed" in caplog.text
     assert "ghp_" not in caplog.text
 

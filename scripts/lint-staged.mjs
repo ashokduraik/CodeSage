@@ -27,7 +27,7 @@ for (const { entry, files } of groups) {
   console.log(`lint (staged): ${entry.workspace} (${relativeFiles.length} file(s))`);
   const status = spawnCommand(
     "npx",
-    ["eslint", "--max-warnings=0", "--fix", ...relativeFiles],
+    ["eslint", "--max-warnings=0", "--no-warn-ignored", "--fix", ...relativeFiles],
     { cwd: workspaceRoot },
   );
 

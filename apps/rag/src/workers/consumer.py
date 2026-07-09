@@ -91,7 +91,7 @@ def _build_execution_context(session: Session, job: object) -> JobExecutionConte
         run_id=resolve_run_id(job.type, payload, job.id),
         # Only store triggers we recognize in the UI and audit trail. Unknown legacy
         # strings are dropped to None rather than persisting invalid enum values.
-        trigger=trigger if trigger in {"initial_attach", "manual_sync", "webhook_push"} else None,
+        trigger=trigger if trigger in {"initial_attach", "manual_sync", "webhook_push", "cron_poll"} else None,
         project_id=project_id,
         repo_id=repo_id,
         indexing_ctx=indexing_ctx,

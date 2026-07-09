@@ -16,6 +16,7 @@ class Trigger(Enum):
     initial_attach = 'initial_attach'
     manual_sync = 'manual_sync'
     webhook_push = 'webhook_push'
+    cron_poll = 'cron_poll'
 
 
 class SyncPayload(BaseModel):

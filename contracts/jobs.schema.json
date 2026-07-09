@@ -62,7 +62,7 @@
         },
         "trigger": {
           "type": "string",
-          "enum": ["initial_attach", "manual_sync", "webhook_push"],
+          "enum": ["initial_attach", "manual_sync", "webhook_push", "cron_poll"],
           "description": "Why this indexing run was started (set by Node on sync enqueue)."
         }
       }
@@ -92,7 +92,7 @@
         },
         "trigger": {
           "type": "string",
-          "enum": ["initial_attach", "manual_sync", "webhook_push"]
+          "enum": ["initial_attach", "manual_sync", "webhook_push", "cron_poll"]
         }
       }
     },
@@ -117,7 +117,7 @@
         },
         "trigger": {
           "type": "string",
-          "enum": ["initial_attach", "manual_sync", "webhook_push"]
+          "enum": ["initial_attach", "manual_sync", "webhook_push", "cron_poll"]
         }
       }
     },

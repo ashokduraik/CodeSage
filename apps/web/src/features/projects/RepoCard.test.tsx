@@ -107,6 +107,16 @@ describe("RepoCard", () => {
     expect(screen.getByText("Indexed")).toBeTruthy();
   });
 
+  it("shows auto-sync badge when webhook is enabled", () => {
+    renderRepoCard(<RepoCard projectId="p1" repo={REPO} />);
+    expect(screen.getByText("Auto-sync on")).toBeTruthy();
+  });
+
+  it("shows manual-only badge when webhook is disabled", () => {
+    renderRepoCard(<RepoCard projectId="p1" repo={{ ...REPO, webhookEnabled: false }} />);
+    expect(screen.getByText("Manual only")).toBeTruthy();
+  });
+
   it("opens indexing logs dialog when button is clicked", () => {
     renderRepoCard(<RepoCard projectId="p1" repo={REPO} />);
     fireEvent.click(screen.getByRole("button", { name: /Indexing logs/i }));

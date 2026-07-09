@@ -20,7 +20,7 @@ Component checklist, organized by feature. Check items as they land. (Global seq
 ## Projects feature
 - [x] Create project form (`CreateProjectDialog` + `useCreateProject`).
 - [x] Attach repo(s): URL + token + branch + role — `AttachRepoDialog` + `useAttachRepo` (enqueues sync job on attach).
-- [ ] Multi-repo management UI for a project (per-repo list + status). — `ProjectRepoList` + `RepoCard` shipped; job polling still open.
+- [x] Multi-repo management UI for a project (per-repo list + status). — `ProjectRepoList` + `RepoCard` + live polling + webhook badge.
 - [x] Index/job status display per repo (`lastIndexedAt` set after embed completes).
 
 ## Chat feature

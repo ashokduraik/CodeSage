@@ -70,6 +70,18 @@ npm run test -w @codesage/api   # tests + coverage
 docker compose up -d --build api   # http://localhost:3000/health
 ```
 
+## Webhooks (local development)
+
+GitHub/GitLab must reach your CodeSage instance at `WEBHOOK_BASE_URL`. For local dev, expose the
+API with a tunnel (e.g. ngrok, Cloudflare Tunnel) and set:
+
+```bash
+WEBHOOK_BASE_URL=https://your-tunnel.example.com
+```
+
+Push events hit `POST /api/webhooks/{provider}` (public route, no JWT). See
+[`docs/plans/phase-3-freshness.md`](../../docs/plans/phase-3-freshness.md).
+
 ## Related docs
 
 - [`PLAN.md`](./PLAN.md) · [`TODO.md`](./TODO.md) · [`AGENTS.md`](./AGENTS.md)

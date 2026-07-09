@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     retrieval_graph_max_extra_chunks: int = 4
     sync_max_file_bytes: int = 512_000
 
+    freshness_poll_enabled: bool = True
+    freshness_poll_interval_seconds: int = 900
+
 
 def load_settings() -> Settings:
     """Construct settings from env vars and ``.env`` files.

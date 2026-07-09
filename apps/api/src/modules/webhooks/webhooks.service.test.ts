@@ -5,6 +5,7 @@ import type { Sql } from "../../platform/db";
 
 vi.mock("../repos/repos.repository", () => ({
   findRepoByUrl: vi.fn(),
+  setRepoConnecting: vi.fn(),
 }));
 
 vi.mock("../../platform/queue", () => ({
@@ -12,11 +13,12 @@ vi.mock("../../platform/queue", () => ({
   cancelPendingJobsForRepo: vi.fn(),
 }));
 
-import { findRepoByUrl } from "../repos/repos.repository";
+import { findRepoByUrl, setRepoConnecting } from "../repos/repos.repository";
 import { cancelPendingJobsForRepo, enqueueJob } from "../../platform/queue";
 import { encryptToken, parseEncryptionKey } from "../../platform/encryption";
 
 const mockFindRepo = vi.mocked(findRepoByUrl);
+const mockSetConnecting = vi.mocked(setRepoConnecting);
 const mockEnqueue = vi.mocked(enqueueJob);
 const mockCancelPending = vi.mocked(cancelPendingJobsForRepo);
 const DB = {} as Sql;
@@ -83,6 +85,7 @@ describe("handlePushWebhook", () => {
     );
 
     expect(mockCancelPending).toHaveBeenCalledWith(DB, "r1", WEBHOOK_HANDLER_USER_ID);
+    expect(mockSetConnecting).toHaveBeenCalledWith(DB, "r1", WEBHOOK_HANDLER_USER_ID);
     expect(mockEnqueue).toHaveBeenCalledWith(DB, "sync", {
       repoId: "r1",
       trigger: "webhook_push",

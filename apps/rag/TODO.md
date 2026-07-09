@@ -1,6 +1,6 @@
 # apps/rag — TODO
 
-Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-multi-repo.md`.
+Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-multi-repo.md`, `docs/plans/phase-3-freshness.md`.
 
 ## api/
 - [x] FastAPI app + `/health` + worker lifespan.
@@ -41,4 +41,5 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 ## Cross-cutting
 - [x] Contract codegen wired (Pydantic in `src/generated/`).
 - [x] `indexing/xrepo_enqueue` — queue `xrepo` when all project repos are indexed (Phase 2).
+- [x] `freshness/poll_repos` — scheduled poll fallback + `cron_poll` sync enqueue (Phase 3).
 - [x] Structured indexing logs (stdout, beginner-friendly, full activity). See `docs/rag-indexing-logs.md`.

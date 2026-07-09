@@ -15,6 +15,7 @@ from config.service_users import assert_service_users_exist
 from config.startup import StartupConfigurationError, validate_settings, verify_database_connection
 from repositories import create_engine_from_settings, create_session_factory
 from services.indexing.startup_log import log_startup_queue_state
+from workers.freshness_poller import run_freshness_poll_loop
 from workers.worker import run_worker_loop
 
 _settings = load_settings()
@@ -44,6 +45,7 @@ def create_app() -> FastAPI:
 
     stop_event = threading.Event()
     worker_thread: threading.Thread | None = None
+    poll_thread: threading.Thread | None = None
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -54,7 +56,7 @@ def create_app() -> FastAPI:
 
         @yields Control to the running FastAPI app between startup and shutdown hooks.
         """
-        nonlocal worker_thread
+        nonlocal worker_thread, poll_thread
         # Run the worker in a daemon thread so the process can exit when uvicorn stops.
         # A non-daemon thread would keep the interpreter alive after the server shuts down.
         worker_thread = threading.Thread(
@@ -64,6 +66,13 @@ def create_app() -> FastAPI:
             daemon=True,
         )
         worker_thread.start()
+        poll_thread = threading.Thread(
+            target=run_freshness_poll_loop,
+            args=(settings, stop_event, session_factory),
+            name="codesage-freshness-poller",
+            daemon=True,
+        )
+        poll_thread.start()
         log_event(
             _logger,
             logging.INFO,
@@ -76,6 +85,8 @@ def create_app() -> FastAPI:
             # Give the worker up to five seconds to finish its current job after stop_event.
             # We do not wait indefinitely — a hung handler must not block process exit.
             worker_thread.join(timeout=5)
+        if poll_thread is not None:
+            poll_thread.join(timeout=5)
         log_event(_logger, logging.INFO, "RAG service shutting down")
         # Return SQLAlchemy pool connections to Postgres after the worker thread is stopped.
         engine.dispose()

@@ -12,7 +12,7 @@ from config.service_users import WEBHOOK_HANDLER_USER_ID
 if TYPE_CHECKING:
     from services.indexing.progress_recorder import IndexingProgressRecorder
 
-VALID_TRIGGERS = frozenset({"initial_attach", "manual_sync", "webhook_push"})
+VALID_TRIGGERS = frozenset({"initial_attach", "manual_sync", "webhook_push", "cron_poll"})
 
 
 @dataclass

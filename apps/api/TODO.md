@@ -38,8 +38,8 @@ Checklist organized by module. (Global sequencing lives in `docs/final-solution.
 - [x] Enqueue initial sync job on attach.
 
 ## webhooks
-- [ ] `POST /webhooks/:provider` push intake.
-- [ ] Enqueue incremental re-index job per repo.
+- [x] `POST /webhooks/:provider` push intake.
+- [x] Enqueue incremental re-index job per repo.
 
 ## chat
 - [x] SSE proxy (`POST /chat/query`) — stream RAG answers with citations.

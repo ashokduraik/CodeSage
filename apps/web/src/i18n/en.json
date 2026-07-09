@@ -126,6 +126,8 @@
       "reindexError": "Could not start re-index. Please try again.",
       "reindexInProgress": "Indexing is already in progress. Try again in about 10 minutes.",
       "deleteError": "Could not delete repository. Please try again.",
+      "webhookOn": "Auto-sync on",
+      "webhookOff": "Manual only",
       "status": {
         "indexing": "Indexing",
         "indexed": "Indexed",

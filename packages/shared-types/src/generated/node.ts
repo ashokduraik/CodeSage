@@ -647,7 +647,7 @@ export interface components {
          * @description What caused the indexing run.
          * @enum {string}
          */
-        IndexingEventTrigger: "initial_attach" | "manual_sync" | "webhook_push";
+        IndexingEventTrigger: "initial_attach" | "manual_sync" | "webhook_push" | "cron_poll";
         RepoIndexingEvent: {
             /**
              * Format: uuid

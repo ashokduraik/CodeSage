@@ -133,6 +133,20 @@ export function RepoCard({ projectId, repo }: Props): JSX.Element {
                 >
                   {t(`projects.repoCard.status.${statusKey}`)}
                 </span>
+                <span
+                  className={cn(
+                    "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                    repo.webhookEnabled
+                      ? "bg-sky-50 text-sky-700 border-sky-200"
+                      : "bg-slate-50 text-slate-600 border-slate-200",
+                  )}
+                >
+                  {t(
+                    repo.webhookEnabled
+                      ? "projects.repoCard.webhookOn"
+                      : "projects.repoCard.webhookOff",
+                  )}
+                </span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
               {repo.description ? (

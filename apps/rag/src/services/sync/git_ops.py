@@ -63,6 +63,28 @@ def _run_git(args: list[str], *, cwd: Path | None = None) -> subprocess.Complete
     return completed
 
 
+def resolve_remote_head(*, repo_url: str, branch: str, token: str | None) -> str:
+    """Read the remote branch tip SHA without cloning the repository.
+
+    Used by the freshness poller to detect commits that webhooks may have missed.
+
+    @param repo_url - HTTPS clone URL (token injected when private).
+    @param branch - Branch name to resolve.
+    @param token - Optional deploy token for private repositories.
+    @returns Full commit SHA at ``refs/heads/{branch}`` on the remote.
+    @raises RuntimeError when git exits non-zero or the ref is missing.
+    """
+    authed_url = build_authenticated_url(repo_url, token)
+    completed = _run_git(["ls-remote", authed_url, f"refs/heads/{branch}"])
+    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    if not lines:
+        raise RuntimeError(f"No remote ref found for branch {branch}")
+    parts = lines[0].split()
+    if not parts:
+        raise RuntimeError("Unexpected ls-remote output")
+    return parts[0]
+
+
 def sync_repository(
     *,
     repo_url: str,

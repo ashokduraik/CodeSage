@@ -122,6 +122,23 @@ class RepoRepository:
         )
         return list(self._session.scalars(stmt))
 
+    def list_indexed_active(self) -> list[Repo]:
+        """Return active repos that completed at least one full index run.
+
+        Used by the freshness poller to detect remote drift on previously indexed repos.
+
+        @returns Repo rows with ``last_indexed_at`` set, ordered by creation time.
+        """
+        stmt = (
+            select(Repo)
+            .where(
+                Repo.status == RowStatus.ACTIVE,
+                Repo.last_indexed_at.is_not(None),
+            )
+            .order_by(Repo.created_at)
+        )
+        return list(self._session.scalars(stmt))
+
     def update_head_sha(self, repo_id: uuid.UUID, sha: str) -> Repo | None:
         """Record the git HEAD SHA after sync (used for incremental diffs).
 

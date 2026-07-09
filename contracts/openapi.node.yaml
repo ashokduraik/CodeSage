@@ -1260,7 +1260,7 @@ components:
 
     IndexingEventTrigger:
       type: string
-      enum: [initial_attach, manual_sync, webhook_push]
+      enum: [initial_attach, manual_sync, webhook_push, cron_poll]
       description: What caused the indexing run.
 
     RepoIndexingEvent:

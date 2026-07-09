@@ -16,7 +16,7 @@ export interface SyncPayload {
   /**
    * Why this indexing run was started (set by Node on sync enqueue).
    */
-  trigger?: "initial_attach" | "manual_sync" | "webhook_push";
+  trigger?: "initial_attach" | "manual_sync" | "webhook_push" | "cron_poll";
 }
 
 /**
@@ -36,7 +36,7 @@ export interface ParsePayload {
    * Sync job UUID grouping this indexing run.
    */
   runId?: string;
-  trigger?: "initial_attach" | "manual_sync" | "webhook_push";
+  trigger?: "initial_attach" | "manual_sync" | "webhook_push" | "cron_poll";
 }
 
 /**
@@ -52,7 +52,7 @@ export interface EmbedPayload {
    * Sync job UUID grouping this indexing run.
    */
   runId?: string;
-  trigger?: "initial_attach" | "manual_sync" | "webhook_push";
+  trigger?: "initial_attach" | "manual_sync" | "webhook_push" | "cron_poll";
 }
 
 /**

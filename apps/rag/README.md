@@ -98,6 +98,7 @@ The RAG process is a single deployable: HTTP API and background worker run toget
 | **Stale reclaim** | `reclaim_stale_running_jobs()` after `WORKER_STALE_JOB_SECONDS` (default **600 s**) during normal operation. |
 | **Failed jobs** | Never auto-requeued; startup logs them as history only. |
 | **Manual re-index** | API returns **409** when active jobs for the repo are younger than `WORKER_STALE_JOB_SECONDS`; then cancels pending jobs and enqueues a fresh sync. |
+| **Freshness poll** | Background thread runs `git ls-remote` every `FRESHNESS_POLL_INTERVAL_SECONDS` (default 900 s) on indexed repos; enqueues `cron_poll` sync when remote HEAD diverges. Set `FRESHNESS_POLL_ENABLED=false` to disable. |
 
 Indexing pipeline (per file, then project-level linking):
 

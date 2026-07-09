@@ -48,6 +48,7 @@ Each deployable/package documents itself locally. Each folder carries four files
 > - **Phase 0 (Foundation)** — monorepo, migrations, auth skeleton, Compose, CI, ≥ 80% tests.
 > - **Phase 1 (MVP code QA)** — sync → parse → embed → developer RAG with citations + abstain; SSE chat proxy.
 > - **Phase 2 (Multi-repo)** — API signal extraction, `xrepo` cross-repo linker, graph-augmented retrieval.
+> - **Phase 3 (Freshness)** — webhooks + scheduled poll → incremental re-index. See [`plans/phase-3-freshness.md`](./plans/phase-3-freshness.md).
 > - **Phases 3–7** — freshness webhooks, distillation, expert loop, end-user QA, hardening (see [`final-solution.md`](./final-solution.md) §12).
 >
 > Manual/E2E verification of phase exit criteria may still be open — see each plan's Definition of Done.

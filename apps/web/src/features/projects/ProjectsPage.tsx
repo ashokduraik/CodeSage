@@ -99,7 +99,7 @@ export function ProjectsPage(): JSX.Element {
                     </button>
                   </div>
                 </div>
-                <ProjectRepoList projectId={project.id} />
+                <ProjectRepoList projectId={project.id} projectStatus={project.status} />
               </li>
             ))}
           </ul>

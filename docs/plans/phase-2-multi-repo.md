@@ -45,7 +45,8 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 
 ## Definition of Done (Phase 2)
 
-- [ ] Exit criteria met on a multi-repo test project (manual or E2E).
+- [ ] Exit criteria met on a multi-repo test project (manual verification; E2E excluded).
+- [x] Implementation complete (API signals, `xrepo` job, graph-augmented retrieval, UI polling).
 - [x] Shapes from `contracts/` (`XrepoPayload` in `jobs.schema.json`).
 - [x] `xrepo` job handler idempotent; deduped enqueue per project.
 - [x] Graph expansion enabled for developer QA path.

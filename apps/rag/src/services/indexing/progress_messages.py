@@ -8,6 +8,7 @@ _TRIGGER_SUFFIX: dict[str, str] = {
     "initial_attach": "(first time)",
     "manual_sync": "(manual re-index)",
     "webhook_push": "(new commit pushed)",
+    "cron_poll": "(scheduled poll)",
 }
 
 

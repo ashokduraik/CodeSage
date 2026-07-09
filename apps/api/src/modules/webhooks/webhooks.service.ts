@@ -4,7 +4,7 @@ import { ApiError } from "../../platform/errors";
 import { decryptToken, parseEncryptionKey } from "../../platform/encryption";
 import { cancelPendingJobsForRepo, enqueueJob } from "../../platform/queue";
 import { resolveServiceUser } from "../../platform/serviceUsers";
-import { findRepoByUrl } from "../repos/repos.repository";
+import { findRepoByUrl, setRepoConnecting } from "../repos/repos.repository";
 import { parseRepoUrl } from "../repos/repo-url";
 import type { NodeApi } from "@codesage/shared-types";
 
@@ -168,6 +168,7 @@ export async function handlePushWebhook(
   }
 
   await cancelPendingJobsForRepo(db, repo.id, resolveServiceUser("webhook"));
+  await setRepoConnecting(db, repo.id, resolveServiceUser("webhook"));
   await enqueueJob(db, "sync", {
     repoId: repo.id,
     trigger: "webhook_push",

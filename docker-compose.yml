@@ -41,6 +41,10 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: "3000"
       RAG_BASE_URL: http://rag:8001
+      DATABASE_URL: ${DATABASE_URL:-postgres://codesage:change-me@db:5432/codesage?sslmode=disable}
+      TOKEN_ENC_KEY: ${TOKEN_ENC_KEY:-}
+      WEBHOOK_BASE_URL: ${WEBHOOK_BASE_URL:-}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
     ports:
       - "3000:3000"
     depends_on:
@@ -55,6 +59,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://codesage:change-me@db:5432/codesage?sslmode=disable}
       REPO_CLONE_DIR: /var/codesage/repos
       TOKEN_ENC_KEY: ${TOKEN_ENC_KEY:-}
+      FRESHNESS_POLL_ENABLED: ${FRESHNESS_POLL_ENABLED:-true}
+      FRESHNESS_POLL_INTERVAL_SECONDS: ${FRESHNESS_POLL_INTERVAL_SECONDS:-900}
     volumes:
       - repo_clones:/var/codesage/repos
     ports:

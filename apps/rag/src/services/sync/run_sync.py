@@ -26,6 +26,7 @@ from services.indexing.progress_messages import (
     finished_sync_message,
     skipped_up_to_date_message,
 )
+from services.indexing.failure_status import recompute_project_lifecycle
 from services.indexing.progress_recorder import IndexingProgressRecorder
 from services.sync.git_ops import sync_repository
 from services.sync.paths import is_existing_clone, repo_worktree_path, scan_indexable_files
@@ -73,6 +74,10 @@ def handle_sync_job(
     ctx = resolve_indexing_context(session, repo_id)
     context_label = format_indexing_context(ctx) if ctx is not None else f"repo {repo_id}"
     fallback = f"repo {repo_id}"
+
+    repos.update_connection_status(repo_id, RepoConnectionStatus.CONNECTING)
+    recompute_project_lifecycle(session, repo.project_id)
+    log_event(logger, logging.INFO, f"Repository connection status → connecting for {context_label}")
 
     project = projects.get_by_id(repo.project_id)
     if project is not None:

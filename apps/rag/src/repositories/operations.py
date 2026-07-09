@@ -24,6 +24,7 @@ class FailedJobSummary:
 
 
 STALE_JOB_ERROR_MESSAGE = "Job exceeded maximum runtime and was not completed"
+SUPERSEDED_JOB_MESSAGE = "Superseded by newer indexing run"
 
 
 class JobRepository:
@@ -219,6 +220,50 @@ class JobRepository:
             if isinstance(payload, dict) and str(payload.get("projectId")) == project_key:
                 return True
         return False
+
+    def has_active_job_for_repo(self, job_type: str, repo_id: uuid.UUID) -> bool:
+        """Return True when a pending or running job exists for a repository.
+
+        @param job_type - Job discriminator string (e.g. ``sync``).
+        @param repo_id - Repository UUID stored in ``payload.repoId``.
+        @returns Whether an active queue row already targets the repo.
+        """
+        stmt = select(Job).where(
+            Job.type == job_type,
+            Job.status == RowStatus.ACTIVE,
+            Job.job_status.in_((JobStatus.PENDING, JobStatus.RUNNING)),
+        )
+        repo_key = str(repo_id)
+        for job in self._session.scalars(stmt):
+            payload = job.payload
+            if isinstance(payload, dict) and str(payload.get("repoId")) == repo_key:
+                return True
+        return False
+
+    def cancel_pending_jobs_for_repo(self, repo_id: uuid.UUID) -> int:
+        """Soft-delete pending jobs for a repository so a newer sync can take over.
+
+        Matches Node ``cancelPendingJobsForRepo`` supersession semantics.
+
+        @param repo_id - Repository UUID from job payloads.
+        @returns Number of rows cancelled.
+        """
+        stmt = select(Job).where(
+            Job.status == RowStatus.ACTIVE,
+            Job.job_status == JobStatus.PENDING,
+        )
+        repo_key = str(repo_id)
+        cancelled = 0
+        for job in self._session.scalars(stmt):
+            payload = job.payload
+            if isinstance(payload, dict) and str(payload.get("repoId")) == repo_key:
+                job.status = RowStatus.DELETED
+                job.error_message = SUPERSEDED_JOB_MESSAGE
+                stamp_updated(job)
+                cancelled += 1
+        if cancelled:
+            self._session.flush()
+        return cancelled
 
     def latest_failed_summary(self, limit: int = 3) -> list[FailedJobSummary]:
         """Return the most recent failed jobs for startup diagnostics.
