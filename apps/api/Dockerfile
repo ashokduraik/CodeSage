@@ -5,7 +5,8 @@ COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/shared-types/package.json packages/shared-types/package.json
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
-RUN npm ci
+ENV CI=true HUSKY=0
+RUN npm ci --ignore-scripts
 COPY . .
 RUN npm run codegen:ts && npm run build -w @codesage/api
 
