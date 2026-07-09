@@ -14,10 +14,10 @@ Missing `E2E_PRIVATE_REPO_URL` or `E2E_GITHUB_TOKEN` prints a clear error in the
 Login → Projects → [create empty name — error] → create project
   → [attach empty URL — error] → [attach invalid URL — error]
   → attach public repo → [private token missing — error] → attach private repo
-  → indexing logs → re-index → open link → Dashboard → Projects
+  → indexing logs → re-index → open link → Dashboard → Projects → delete project
 ```
 
-- **Spec:** [`web/journey-project-onboarding.spec.ts`](./web/journey-project-onboarding.spec.ts) (8 serial tests, shared `projectName`)
+- **Spec:** [`web/journey-project-onboarding.spec.ts`](./web/journey-project-onboarding.spec.ts) (9 serial tests, shared `projectName`; final step soft-deletes via UI)
 - **Public repo:** built-in default (`octocat/Hello-World`); optional `E2E_PUBLIC_REPO_URL`
 - **Private repo:** `E2E_PRIVATE_REPO_URL` + `E2E_GITHUB_TOKEN` in `.env`
 - **No API seed** — all setup via UI
@@ -34,6 +34,7 @@ Login → Projects → [create empty name — error] → create project
 | 6 | Private — missing token error | `E2E_PRIVATE_REPO_URL` |
 | 7 | Attach private repo | + `E2E_GITHUB_TOKEN` |
 | 8 | Logs, re-index, dashboard | (same) |
+| 9 | Delete created project | stack only |
 
 Tests 1–4 need only dev stack + dev login. Tests 6–8 need private repo URL; test 7+ need token (validated in global-setup).
 

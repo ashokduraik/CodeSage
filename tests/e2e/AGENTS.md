@@ -4,7 +4,7 @@ Local rules for Playwright cross-service journeys. Root [`/AGENTS.md`](../../AGE
 
 ## What E2E covers today
 
-- **One journey spec:** [`web/journey-project-onboarding.spec.ts`](./web/journey-project-onboarding.spec.ts) — 8 **serial** UI tests (errors first, then success).
+- **One journey spec:** [`web/journey-project-onboarding.spec.ts`](./web/journey-project-onboarding.spec.ts) — 9 **serial** UI tests (errors first, then success, then UI cleanup).
 - **No API pre-seeding** — projects and repos are created through the web UI.
 - **Public + private repos** — not “frontend/backend” naming (see [`helpers/env.ts`](./helpers/env.ts)).
 

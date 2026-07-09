@@ -13,7 +13,7 @@ Validates Phase 2 **onboarding** UI today; cross-repo chat/citations when indexi
 | Public attach | Default `octocat/Hello-World` in [`helpers/env.ts`](../../tests/e2e/helpers/env.ts); optional `E2E_PUBLIC_REPO_URL` |
 | Private attach | `E2E_PRIVATE_REPO_URL` + `E2E_GITHUB_TOKEN` in `tests/e2e/.env` |
 
-**Spec:** [`web/journey-project-onboarding.spec.ts`](../../tests/e2e/web/journey-project-onboarding.spec.ts) — 8 serial UI tests:
+**Spec:** [`web/journey-project-onboarding.spec.ts`](../../tests/e2e/web/journey-project-onboarding.spec.ts) — 9 serial UI tests:
 
 1. Create — empty name error  
 2. Create — success  
@@ -23,9 +23,10 @@ Validates Phase 2 **onboarding** UI today; cross-repo chat/citations when indexi
 6. Private — missing token error  
 7. Attach private repo  
 8. Indexing logs, re-index, open link, dashboard, sidebar round-trip  
+9. Delete created project (UI soft-delete cleanup)
 
 - Error paths **before** success paths  
-- **No API pre-seed** — UI-only project + attach  
+- **No API pre-seed** — UI-only project + attach + cleanup  
 - Does **not** wait for Indexed state  
 
 Missing required env → **console error + non-zero exit** ([`validate-e2e-env.ts`](../../tests/e2e/helpers/validate-e2e-env.ts)). `E2E_SKIP=1` skips journey specs.

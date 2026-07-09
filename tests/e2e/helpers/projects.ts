@@ -372,10 +372,30 @@ export async function openIndexingLogsForRepo(
 }
 
 /**
+ * Derives the indexing-logs dialog subtitle from a clone URL.
+ * Matches product rule: `repo.fullName` when parseable, else the URL.
+ *
+ * @param url - Repository clone URL.
+ */
+export function repoSubtitleFromUrl(url: string): string {
+  try {
+    const withScheme = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    const parsed = new URL(withScheme.replace(/\.git\/?$/i, ""));
+    const parts = parsed.pathname.replace(/^\//, "").split("/").filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]}/${parts[1]}`;
+    }
+  } catch {
+    // fall through to normalized URL
+  }
+  return url.replace(/\.git\/?$/, "");
+}
+
+/**
  * Asserts the indexing logs dialog is open for the given repo.
  *
  * @param page - Page with logs dialog open.
- * @param repoNameOrUrl - Substring expected in the dialog subtitle.
+ * @param repoNameOrUrl - Expected dialog subtitle (`owner/repo` or clone URL).
  */
 export async function expectIndexingLogsDialog(
   page: Page,
@@ -383,7 +403,7 @@ export async function expectIndexingLogsDialog(
 ): Promise<void> {
   const dialog = page.getByRole("dialog", { name: "Indexing Logs" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText(repoNameOrUrl)).toBeVisible();
+  await expect(dialog.getByText(repoNameOrUrl, { exact: true })).toBeVisible();
 
   const empty = dialog.getByText(/No indexing activity yet/i);
   const logRow = dialog.locator("article").first();
@@ -440,6 +460,40 @@ export async function expectOpenRepoLink(
 }
 
 /**
+ * Soft-deletes a project through the trash icon and confirmation dialog.
+ *
+ * @param page - Page on `/projects` with the project visible.
+ * @param projectName - Project card title to remove.
+ */
+export async function deleteProjectViaUi(page: Page, projectName: string): Promise<void> {
+  await page.goto("/projects");
+  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+
+  const card = projectCard(page, projectName);
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: "Delete project" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Delete project?" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(projectName);
+
+  const deleteResponse = page.waitForResponse(
+    (res) =>
+      res.request().method() === "DELETE" &&
+      res.url().includes("/projects/") &&
+      !res.url().includes("/repos"),
+  );
+
+  await dialog.getByRole("button", { name: "Delete project" }).click();
+
+  const response = await deleteResponse;
+  expect(response.ok()).toBeTruthy();
+
+  await expect(dialog).toBeHidden();
+  await expect(card).toBeHidden();
+}
+
+/**
  * Asserts the dashboard lists a project in Recent Projects with the repo count.
  *
  * @param page - Authenticated page.
@@ -457,8 +511,13 @@ export async function expectProjectOnDashboard(
   const recentSection = page
     .locator("div.rounded-xl.border")
     .filter({ has: page.getByRole("heading", { name: "Recent Projects" }) });
-  await expect(recentSection.getByText(projectName)).toBeVisible();
-  await expect(recentSection.getByText(new RegExp(`${repoCount}\\s+repos?`, "i"))).toBeVisible();
+
+  const projectRow = recentSection
+    .locator("div.flex.items-center.justify-between")
+    .filter({ has: page.getByText(projectName, { exact: true }) });
+
+  await expect(projectRow).toBeVisible();
+  await expect(projectRow.getByText(new RegExp(`${repoCount}\\s+repos?`, "i"))).toBeVisible();
 }
 
 /**

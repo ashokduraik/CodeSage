@@ -9,6 +9,7 @@ import {
   closeIndexingLogsDialog,
   closeAttachRepoDialog,
   createProjectViaUi,
+  deleteProjectViaUi,
   expectAttachRepoError,
   expectAttachRepoUrlStep,
   expectAttachTokenStep,
@@ -24,6 +25,7 @@ import {
   openNewProjectDialog,
   projectCard,
   repoCardsInProject,
+  repoSubtitleFromUrl,
   submitAttachRepoUrl,
   submitAttachToken,
   submitCreateProject,
@@ -98,7 +100,7 @@ test.describe("Journey: project onboarding via UI", () => {
     const publicUrl = e2eEnv.publicRepoUrl;
 
     await openIndexingLogsForRepo(page, projectName, 0);
-    await expectIndexingLogsDialog(page, publicUrl.replace(/\.git\/?$/, ""));
+    await expectIndexingLogsDialog(page, repoSubtitleFromUrl(publicUrl));
     await closeIndexingLogsDialog(page);
 
     await clickReindexForRepo(page, projectName, 0);
@@ -117,5 +119,9 @@ test.describe("Journey: project onboarding via UI", () => {
     await navigateViaSidebar(page, "Projects");
     await expect(projectCard(page, projectName)).toBeVisible();
     await expect(repoCardsInProject(projectCard(page, projectName))).toHaveCount(2);
+  });
+
+  test("deletes created project", async ({ page }) => {
+    await deleteProjectViaUi(page, projectName);
   });
 });

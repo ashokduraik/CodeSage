@@ -41,7 +41,7 @@ Journey attaches **public first**, then **private**, entirely through the UI (no
 
 1. Loads `tests/e2e/.env` (Playwright config + global-setup).
 2. [`global-setup.ts`](./global-setup.ts) — [`validateE2eEnv`](./helpers/validate-e2e-env.ts) (unless `E2E_SKIP=1`), then checks API + web health.
-3. Runs 8 **serial** tests in [`web/journey-project-onboarding.spec.ts`](./web/journey-project-onboarding.spec.ts): create/attach **error paths first**, then public + private attach success, repo actions, dashboard.
+3. Runs 9 **serial** tests in [`web/journey-project-onboarding.spec.ts`](./web/journey-project-onboarding.spec.ts): create/attach **error paths first**, then public + private attach success, repo actions, dashboard, then **UI cleanup** (soft-delete the project).
 
 Run one journey file or grep filter:
 
