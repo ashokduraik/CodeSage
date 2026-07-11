@@ -36,8 +36,17 @@ nmake /F Makefile.win
 nmake /F Makefile.win install
 ```
 
-**Alternative:** use Docker instead — `docker compose up -d db` from the repo root uses the
-`pgvector/pgvector:pg16` image (pgvector preinstalled). See root [`README.md`](../README.md).
+**Optional (Docker for Postgres only):** if you would rather not install Postgres + pgvector
+natively, start just the database container from the repo root — the `pgvector/pgvector:pg16`
+image ships with pgvector preinstalled, so you can skip [step 2](#2-install-pgvector-native-postgres-only):
+
+```bash
+docker compose up -d db
+```
+
+This runs only Postgres in Docker; the app services (`api`, `rag`, `web`) still run natively via
+`npm run dev:*`. Point `DATABASE_URL` at `localhost:5432` with the Compose credentials (see the
+root [`.env.example`](../.env.example) `POSTGRES_*` values).
 
 ---
 

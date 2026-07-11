@@ -132,16 +132,12 @@ than hallucinating. Secrets never belong in git — document variables in
 
 ## Deployment
 
-**Local development** runs everything on one machine via Docker Compose:
+**Local development runs natively** on one machine — install Node.js, Python, and PostgreSQL,
+then run each service with `npm run dev:*`. Follow the [Quickstart](#quickstart) below.
 
-```bash
-docker compose up -d --build   # db + migrate + api + rag + web
-# api   -> http://localhost:3000/health
-# rag   -> http://localhost:8001/health
-# web   -> http://localhost:8080
-```
-
-GPU services (vLLM, TEI) are added in Phase 1; the Phase 0 Compose file omits them.
+> Docker is **not** used for local development. A root `docker-compose.yml` exists only as an
+> optional convenience for running the whole stack in containers; the supported local dev path is
+> native (faster hot-reload, simpler debugging). Docker's real home is **production**.
 
 **Production** splits across two on-prem machines: PostgreSQL + pgvector on Machine 1; Node API,
 Python RAG, vLLM, and TEI on Machine 2 (with a 48 GB GPU). Compose files live in `deploy/db/` and
@@ -157,34 +153,71 @@ incremental updates after that are much faster. See [`docs/final-solution.md`](.
 | Tool | Version | Required for |
 |---|---|---|
 | **Node.js** | 20+ (24 recommended) | JS workspaces (`web`, `api`, `shared-types`) |
-| **Python** | 3.12+ | Local `apps/rag` dev and tests |
+| **Python** | 3.12+ | `apps/rag` dev and tests |
 | **[uv](https://docs.astral.sh/uv/)** | latest | Python deps and test runner (matches CI) |
-| **Docker + Compose** | latest | Running the full stack locally |
+| **PostgreSQL + pgvector** | 16+ | Single datastore — metadata, pgvector, graph, job queue ([setup](./docs/db-setup.md)) |
+| **[Ollama](https://ollama.com)** | latest | Optional — local LLM + embeddings (deterministic fallback if absent) |
+| **Docker + Compose** | latest | Optional — production deploy, or running the full stack in containers |
 
-### Setup
+Local development is **native** — no Docker required. Run these from the **repository root**.
 
-From the **repository root**:
+**1. Install the prerequisites** above: Node.js, Python, uv, and PostgreSQL with the pgvector
+extension.
+
+**2. Create the database.** Follow [`docs/db-setup.md`](./docs/db-setup.md) to create the role,
+database, and `vector` extension (Windows/macOS/Linux).
+
+**3. Configure environment.** Each service reads its **own** `.env`. Copy the two service
+templates and set `DATABASE_URL` to your local Postgres (URL-encode `@` in passwords as `%40`):
 
 ```bash
-cp .env.example .env          # adjust values (never commit real secrets)
+cp apps/api/.env.example apps/api/.env  # Node API
+cp apps/rag/.env.example apps/rag/.env  # Python RAG
+```
+
+> The **root** [`.env.example`](./.env.example) is for **Docker Compose only** — it interpolates
+> `POSTGRES_*`, `DATABASE_URL`, and secrets into containers. Native dev does not need a root
+> `.env` (RAG will read it as a base layer if present).
+
+**4. Install dependencies:**
+
+```bash
 npm run setup                 # npm install + uv sync --dev (apps/rag)
-npm run codegen               # generate types from contracts/
+```
+
+> Types generated from `contracts/` are **checked into git**, so a fresh clone needs no codegen.
+> Run `npm run codegen` only after editing `contracts/`; CI runs `codegen:check` to catch drift.
+
+**5. Run the services** (each in its own terminal). The API applies pending migrations and seeds
+dev data on startup — no separate migrate step:
+
+```bash
+npm run dev:api               # migrates + seeds, then http://localhost:3000/health
+npm run dev:web               # http://localhost:5173
+npm run dev:rag               # http://localhost:8001/health
+```
+
+> **Local LLM + embeddings:** install [Ollama](https://ollama.com) and pull the models — see
+> [`apps/rag/README.md`](./apps/rag/README.md). Without it, RAG uses deterministic fallbacks.
+
+### Quality gates
+
+Run before pushing — same as CI:
+
+```bash
 npm run typecheck             # typecheck all JS workspaces
+npm run lint                  # ESLint all JS workspaces
 npm test                      # JS (≥ 80%) + Python (≥ 80%)
 npm run build                 # build web + api + shared-types
 ```
 
-Individual targets:
+Other useful targets:
 
 ```bash
 npm run test:js               # JS tests only
 npm run test:python           # Python tests only
 npm run test:e2e              # Playwright journeys (stack + tests/e2e/.env — see tests/e2e/README.md)
-npm run dev:api               # http://localhost:3000/health
-npm run dev:web               # http://localhost:5173
-npm run dev:rag               # http://localhost:8001/health
 npm run codegen:check         # fail if contracts/ and generated types drift
-npm run lint                  # ESLint all JS workspaces
 npm run lint:staged           # ESLint staged files only (pre-commit)
 npm run test:staged           # related tests for staged files only (pre-commit)
 ```
@@ -193,8 +226,8 @@ npm run test:staged           # related tests for staged files only (pre-commit)
 `test:staged` (fast related tests, no coverage gate). Before pushing, run the full gates
 locally — `npm run lint`, `npm run typecheck`, and `npm test` — same as CI.
 
-
-On Linux/macOS: `make setup`, `make test`, `make up`, `make migrate` — see [`Makefile`](./Makefile).
+On Linux/macOS: `make setup`, `make test`, `make lint`, `make typecheck` — see [`Makefile`](./Makefile).
+(The `make up`/`down`/`migrate`/`logs` targets are optional Docker helpers, not the local dev path.)
 
 Per-component runbooks: [`apps/api/README.md`](./apps/api/README.md) ·
 [`apps/web/README.md`](./apps/web/README.md) · [`apps/rag/README.md`](./apps/rag/README.md).
