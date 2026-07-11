@@ -44,7 +44,9 @@ def stream_vllm_answer(
     body = {"model": settings.vllm_model, "messages": messages, "stream": True, "temperature": 0.2}
 
     try:
-        with httpx.stream("POST", url, json=body, timeout=120.0) as response:
+        with httpx.stream(
+            "POST", url, json=body, timeout=settings.llm_timeout_seconds
+        ) as response:
             if response.status_code >= 400:
                 yield from _fallback_answer(context_blocks)
                 return

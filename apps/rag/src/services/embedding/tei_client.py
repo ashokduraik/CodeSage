@@ -69,7 +69,11 @@ class EmbeddingClient:
         if self._settings.tei_embed_model:
             body["model"] = self._settings.tei_embed_model
         try:
-            response = httpx.post(url, json=body, timeout=60.0)
+            response = httpx.post(
+                url,
+                json=body,
+                timeout=self._settings.embedding_timeout_seconds,
+            )
         except httpx.ConnectError as exc:
             raise RuntimeError(
                 f"Cannot connect to embedding service at {host}: {exc}",

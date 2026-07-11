@@ -14,6 +14,7 @@ from config.logging import configure_logging, get_indexing_logger, log_event
 from config.service_users import assert_service_users_exist
 from config.startup import StartupConfigurationError, validate_settings, verify_database_connection
 from repositories import create_engine_from_settings, create_session_factory
+from services.health import log_model_backend_status
 from services.indexing.startup_log import log_startup_queue_state
 from workers.freshness_poller import run_freshness_poll_loop
 from workers.worker import run_worker_loop
@@ -79,6 +80,8 @@ def create_app() -> FastAPI:
             "RAG service started — background indexing worker is running",
         )
         log_startup_queue_state(settings, session_factory)
+        # Non-fatal: warns when a model backend is down/model missing, never aborts boot.
+        log_model_backend_status(settings)
         yield
         stop_event.set()
         if worker_thread is not None:

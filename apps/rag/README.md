@@ -19,19 +19,68 @@ Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from t
 |---|---|---|---|
 | `DATABASE_URL` | `postgresql://codesage:change-me@localhost:5432/codesage` | yes | SQLAlchemy connection string. |
 | `REPO_CLONE_DIR` | `/var/codesage/repos` | yes | Where `sync` jobs clone repositories. |
-| `EMBEDDING_DIMENSION` | `1024` | yes | pgvector column width; must match the TEI model. |
+| `EMBEDDING_DIMENSION` | `1024` | yes | pgvector column width; must match the embedding model's output dimension. |
+| `EMBEDDING_TIMEOUT_SECONDS` | `300` | yes | Embedding HTTP timeout; raise for slow CPU / cold model loads. |
+| `LLM_TIMEOUT_SECONDS` | `300` | yes | LLM stream timeout; raise for slow CPU / cold model loads. |
+| `STARTUP_PROBE_TIMEOUT_SECONDS` | `5` | yes | Per-backend reachability probe at boot (non-fatal; warns only). |
 | `RAG_PORT` | `8001` | Docker only | Host port mapping in Compose (not read by app yet). |
 | `WORKER_IDLE_SECONDS` | `10` | yes | Sleep between polls when the `jobs` queue is empty. |
 | `LOG_LEVEL` | `info` | yes | Indexing log verbosity (`info` or `debug` for per-file detail). |
 | `WORKER_POLL_SECONDS` | `2` | no | Reserved; consumer uses `WORKER_IDLE_SECONDS` today. |
 | `WORKER_CONCURRENCY` | `2` | planned | Max parallel heavy jobs (Phase 3). |
-| `VLLM_BASE_URL`, `VLLM_MODEL` | see `.env.example` | yes | LLM inference (excerpt fallback when unset). |
-| `TEI_BASE_URL`, `TEI_EMBED_MODEL` | see `.env.example` | yes | Embeddings (deterministic dev fallback when unset). |
+| `VLLM_BASE_URL`, `VLLM_MODEL` | see `.env.example` | yes | LLM inference via any OpenAI-compatible server (Ollama/vLLM); excerpt fallback when unset. |
+| `TEI_BASE_URL`, `TEI_EMBED_MODEL` | see `.env.example` | yes | Embeddings via any OpenAI-compatible server (Ollama/TEI); deterministic dev fallback when unset. |
 | `RETRIEVAL_TOP_K` | `8` | yes | Vector search result count. |
 | `RETRIEVAL_MAX_DISTANCE` | `0.55` | yes | Abstain when best match exceeds this cosine distance. |
 | `RETRIEVAL_GRAPH_ENABLED` | `true` | yes | Expand QA retrieval along cross-repo `http_call` edges. |
 | `RETRIEVAL_GRAPH_MAX_DEPTH` | `2` | yes | Max graph hops from vector hit seeds. |
 | `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS` | `4` | yes | Max additional chunks added via graph expansion. |
+
+### Local inference with Ollama (low-spec friendly)
+
+Both the embedding and LLM clients speak the OpenAI API, so [Ollama](https://ollama.com) works
+as a drop-in local backend — no code changes. This is the `.env.example` default. Pull small
+models once, then point both `*_BASE_URL` at Ollama's OpenAI endpoint:
+
+```bash
+ollama pull qwen2.5:7b           # chat model (VLLM_MODEL); lighter option: llama3.2:1b
+ollama pull mxbai-embed-large    # 1024-dim embeddings (TEI_EMBED_MODEL) — matches EMBEDDING_DIMENSION
+```
+
+```dotenv
+VLLM_BASE_URL=http://localhost:11434/v1
+VLLM_MODEL=qwen2.5:7b
+TEI_BASE_URL=http://localhost:11434/v1
+TEI_EMBED_MODEL=mxbai-embed-large
+EMBEDDING_DIMENSION=1024
+```
+
+On boot the service probes both backends (`GET {base}/models`, non-fatal) and logs one line each:
+
+```text
+INFO   [RAG]  LLM backend ready — "qwen2.5:7b" available at localhost
+INFO   [RAG]  Embedding backend ready — "mxbai-embed-large" available at localhost
+```
+
+If a backend is down or a model is not pulled, it logs a **warning** and keeps running on the
+fallbacks (it never exits):
+
+```text
+WARNING [RAG]  LLM backend unreachable — cannot reach localhost: ... Is the model server (e.g. Ollama) running? Answers will use excerpt fallback.
+WARNING [RAG]  Embedding model "mxbai-embed-large" not found at localhost — run: ollama pull mxbai-embed-large. Indexing and search will fail until the model is available.
+```
+
+Tune the probe timeout with `STARTUP_PROBE_TIMEOUT_SECONDS` (default `5`).
+
+Notes:
+
+- **Dimension must match.** `mxbai-embed-large` outputs 1024 dims, matching the pgvector column.
+  A different model (e.g. `nomic-embed-text` = 768, `all-minilm` = 384) requires changing
+  `EMBEDDING_DIMENSION` **and** a migration for `code_chunks.embedding`.
+- **Running in Docker?** Use `http://host.docker.internal:11434/v1` so the container reaches
+  Ollama on your host.
+- **Even lower spec?** Leave `TEI_*`/`VLLM_*` empty to use the built-in deterministic embedding
+  fallback and excerpt-only answers (no model server needed).
 
 For a local database matching the defaults, start Postgres from the repo root:
 

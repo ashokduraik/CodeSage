@@ -45,8 +45,11 @@ class Settings(BaseSettings):
 
     tei_base_url: str = ""
     tei_embed_model: str = ""
+    embedding_timeout_seconds: float = 300.0
     vllm_base_url: str = ""
     vllm_model: str = ""
+    llm_timeout_seconds: float = 300.0
+    startup_probe_timeout_seconds: float = 5.0
 
     retrieval_top_k: int = 8
     retrieval_max_distance: float = 0.55
