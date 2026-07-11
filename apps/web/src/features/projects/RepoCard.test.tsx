@@ -107,14 +107,29 @@ describe("RepoCard", () => {
     expect(screen.getByText("Indexed")).toBeTruthy();
   });
 
-  it("shows auto-sync badge when webhook is enabled", () => {
+  it("shows auto-sync icon when webhook is enabled", () => {
     renderRepoCard(<RepoCard projectId="p1" repo={REPO} />);
-    expect(screen.getByText("Auto-sync on")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Auto-sync on" })).toBeTruthy();
   });
 
-  it("shows manual-only badge when webhook is disabled", () => {
+  it("shows manual-only icon when webhook is disabled", () => {
     renderRepoCard(<RepoCard projectId="p1" repo={{ ...REPO, webhookEnabled: false }} />);
-    expect(screen.getByText("Manual only")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Manual only" })).toBeTruthy();
+  });
+
+  it("reveals the manual-only tooltip on focus and hides it on blur", () => {
+    renderRepoCard(<RepoCard projectId="p1" repo={{ ...REPO, webhookEnabled: false }} />);
+    const icon = screen.getByRole("img", { name: "Manual only" });
+    const trigger = icon.parentElement as HTMLElement;
+
+    expect(screen.queryByRole("tooltip")).toBeNull();
+
+    fireEvent.focus(trigger);
+    const tooltip = screen.getByRole("tooltip");
+    expect(tooltip.textContent).toMatch(/click Re-index to pull the latest code/i);
+
+    fireEvent.blur(trigger);
+    expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
   it("opens indexing logs dialog when button is clicked", () => {

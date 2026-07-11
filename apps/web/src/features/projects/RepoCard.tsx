@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ExternalLink, RefreshCw, ScrollText, Trash2 } from "lucide-react";
+import { ExternalLink, RefreshCw, RefreshCwOff, ScrollText, Trash2 } from "lucide-react";
 import { RepoProviderIcon } from "@/shared/ui/RepoProviderIcon";
 import { Button } from "@/shared/ui/button";
+import { Tooltip } from "@/shared/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -133,20 +134,34 @@ export function RepoCard({ projectId, repo }: Props): JSX.Element {
                 >
                   {t(`projects.repoCard.status.${statusKey}`)}
                 </span>
-                <span
-                  className={cn(
-                    "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                <Tooltip
+                  content={t(
                     repo.webhookEnabled
-                      ? "bg-sky-50 text-sky-700 border-sky-200"
-                      : "bg-slate-50 text-slate-600 border-slate-200",
+                      ? "projects.repoCard.webhookOnTooltip"
+                      : "projects.repoCard.webhookOffTooltip",
                   )}
                 >
-                  {t(
-                    repo.webhookEnabled
-                      ? "projects.repoCard.webhookOn"
-                      : "projects.repoCard.webhookOff",
-                  )}
-                </span>
+                  <span
+                    role="img"
+                    aria-label={t(
+                      repo.webhookEnabled
+                        ? "projects.repoCard.webhookOn"
+                        : "projects.repoCard.webhookOff",
+                    )}
+                    className={cn(
+                      "inline-flex h-6 w-6 items-center justify-center rounded-full border",
+                      repo.webhookEnabled
+                        ? "bg-sky-50 text-sky-700 border-sky-200"
+                        : "bg-slate-50 text-slate-600 border-slate-200",
+                    )}
+                  >
+                    {repo.webhookEnabled ? (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    ) : (
+                      <RefreshCwOff className="h-3.5 w-3.5" />
+                    )}
+                  </span>
+                </Tooltip>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
               {repo.description ? (

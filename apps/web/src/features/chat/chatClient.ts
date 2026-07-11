@@ -4,6 +4,7 @@ import type { NodeApi } from "@codesage/shared-types";
 type ChatQueryRequest = NodeApi.components["schemas"]["ChatQueryRequest"];
 type ChatAnswerChunk = NodeApi.components["schemas"]["ChatAnswerChunk"];
 type CodeCitation = NodeApi.components["schemas"]["CodeCitation"];
+type AnswerMetrics = NodeApi.components["schemas"]["AnswerMetrics"];
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api";
 
@@ -29,6 +30,8 @@ export interface ChatStreamResult {
   confidence: number;
   /** LLM-generated title when `generateTitle` was requested on the first message. */
   title?: string;
+  /** Answer metrics (context window, tokens, tokens/sec) when the LLM path ran. */
+  metrics?: AnswerMetrics;
 }
 
 /**
@@ -92,6 +95,7 @@ export async function streamChatQuery(
   const sources: string[] = [];
   let needsReview = false;
   let title: string | undefined;
+  let metrics: AnswerMetrics | undefined;
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -121,9 +125,12 @@ export async function streamChatQuery(
         content = chunk.content ?? "Not certain — no sufficiently relevant code was retrieved.";
         needsReview = true;
       }
+      if (chunk.type === "metrics" && chunk.metrics) {
+        metrics = chunk.metrics;
+      }
     }
   }
 
   const confidence = needsReview ? 0.4 : sources.length > 0 ? 0.9 : 0.75;
-  return { content, sources, needsReview, confidence, title };
+  return { content, sources, needsReview, confidence, title, metrics };
 }

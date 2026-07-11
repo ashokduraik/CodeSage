@@ -1390,7 +1390,35 @@ components:
         - citation
         - title
         - abstain
+        - metrics
         - done
+
+    AnswerMetrics:
+      type: object
+      required:
+        - contextChunks
+      description: >-
+        Per-answer metrics for display in the chat UI. Emitted only on the grounded
+        LLM path; token/timing fields are absent when the backend does not report usage.
+      properties:
+        contextChunks:
+          type: integer
+        contextTokens:
+          type: integer
+        maxContextTokens:
+          type: integer
+        promptTokens:
+          type: integer
+        completionTokens:
+          type: integer
+        totalTokens:
+          type: integer
+        tokensPerSecond:
+          type: number
+        elapsedMs:
+          type: integer
+        model:
+          type: string
 
     ChatAnswerChunk:
       type: object
@@ -1403,3 +1431,5 @@ components:
           type: string
         citation:
           $ref: '#/components/schemas/CodeCitation'
+        metrics:
+          $ref: '#/components/schemas/AnswerMetrics'

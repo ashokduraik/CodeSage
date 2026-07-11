@@ -30,8 +30,11 @@ Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from t
 | `WORKER_CONCURRENCY` | `2` | planned | Max parallel heavy jobs (Phase 3). |
 | `VLLM_BASE_URL`, `VLLM_MODEL` | see `.env.example` | yes | LLM inference via any OpenAI-compatible server (Ollama/vLLM); excerpt fallback when unset. |
 | `TEI_BASE_URL`, `TEI_EMBED_MODEL` | see `.env.example` | yes | Embeddings via any OpenAI-compatible server (Ollama/TEI); deterministic dev fallback when unset. |
-| `RETRIEVAL_TOP_K` | `8` | yes | Vector search result count. |
-| `RETRIEVAL_MAX_DISTANCE` | `0.55` | yes | Abstain when best match exceeds this cosine distance. |
+| `LLM_CONTEXT_DETECT_ENABLED` | `true` | yes | Auto-detect the model's context window (vLLM `max_model_len` / Ollama `/api/show`). |
+| `LLM_MAX_CONTEXT_TOKENS` | `8192` | yes | Fallback context window when detection is disabled or fails. |
+| `LLM_COMPLETION_RESERVE_TOKENS` | `1024` | yes | Tokens reserved for the answer (also sent as `max_tokens`); the rest packs context. |
+| `RETRIEVAL_TOP_K` | `20` | yes | Candidate count retrieved; the packer fills the context window from these. |
+| `RETRIEVAL_MAX_DISTANCE` | `0.45` | yes | Abstain when best match exceeds this cosine distance. |
 | `RETRIEVAL_GRAPH_ENABLED` | `true` | yes | Expand QA retrieval along cross-repo `http_call` edges. |
 | `RETRIEVAL_GRAPH_MAX_DEPTH` | `2` | yes | Max graph hops from vector hit seeds. |
 | `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS` | `4` | yes | Max additional chunks added via graph expansion. |
@@ -71,6 +74,19 @@ WARNING [RAG]  Embedding model "mxbai-embed-large" not found at localhost — ru
 ```
 
 Tune the probe timeout with `STARTUP_PROBE_TIMEOUT_SECONDS` (default `5`).
+
+### Context window & answer metrics
+
+Grounded answers pack as many retrieved code excerpts as fit the connected model's context
+window instead of a fixed count. The window is auto-detected (vLLM `max_model_len`, then
+Ollama `POST /api/show`), falling back to `LLM_MAX_CONTEXT_TOKENS` when detection is disabled
+or unavailable. `LLM_COMPLETION_RESERVE_TOKENS` is held back for the answer, and excerpt sizes
+are measured with `tiktoken` (`o200k_base` — model-agnostic and approximate, kept safe by the
+reserve). `RETRIEVAL_TOP_K` sets how many candidates are retrieved for the packer to choose from.
+
+On the grounded path the stream emits a `metrics` chunk (before `done`) with the context window
+used vs max, chunks packed, total tokens, and tokens/sec. The chat UI renders these under each
+assistant reply. Small-talk, abstain, and excerpt-fallback paths omit token/speed metrics.
 
 Notes:
 

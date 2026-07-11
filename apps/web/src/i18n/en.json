@@ -128,6 +128,8 @@
       "deleteError": "Could not delete repository. Please try again.",
       "webhookOn": "Auto-sync on",
       "webhookOff": "Manual only",
+      "webhookOnTooltip": "Auto-sync is on. CodeSage re-indexes this repository automatically after every push.",
+      "webhookOffTooltip": "Auto-sync is off. After you push changes to this repository, click Re-index to pull the latest code and re-index it.",
       "status": {
         "indexing": "Indexing",
         "indexed": "Indexed",
@@ -197,6 +199,15 @@
     "messageCount_one": "{{count}} message",
     "messageCount_other": "{{count}} messages",
     "lowConfidence": "Low confidence \u2014 sent for expert review",
+    "contextMeter": {
+      "label": "Context",
+      "value": "{{used}} / {{max}}",
+      "ariaLabel": "Context window {{used}} of {{max}} tokens used"
+    },
+    "metrics": {
+      "tokens": "{{count}} tokens",
+      "tokensPerSecond": "{{rate}} tok/s"
+    },
     "inputPlaceholder": "Ask about your codebase\u2026",
     "send": "Send message",
     "toggleSidebar": "Toggle conversation list",

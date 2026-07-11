@@ -3,6 +3,7 @@ export { Input } from "./input";
 export { Spinner } from "./spinner";
 export { Label } from "./label";
 export { Select } from "./select";
+export { Tooltip } from "./tooltip";
 export {
   Dialog,
   DialogTrigger,

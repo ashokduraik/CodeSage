@@ -51,8 +51,15 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 300.0
     startup_probe_timeout_seconds: float = 5.0
 
-    retrieval_top_k: int = 8
-    retrieval_max_distance: float = 0.55
+    # Context window sizing: the LLM prompt is packed to fill the connected model's
+    # context. When auto-detection fails, ``llm_max_context_tokens`` is the fallback,
+    # and ``llm_completion_reserve_tokens`` is held back for the generated answer.
+    llm_context_detect_enabled: bool = True
+    llm_max_context_tokens: int = 8192
+    llm_completion_reserve_tokens: int = 1024
+
+    retrieval_top_k: int = 20
+    retrieval_max_distance: float = 0.45
     retrieval_graph_enabled: bool = True
     retrieval_graph_max_depth: int = 2
     retrieval_graph_max_extra_chunks: int = 4

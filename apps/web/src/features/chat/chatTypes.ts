@@ -6,6 +6,9 @@ export type ChatMode = NodeApi.components["schemas"]["ChatMode"];
 /** Conversation metadata stored client-side until a server API lands. */
 export type ChatSession = NodeApi.components["schemas"]["ChatSession"];
 
+/** Per-answer metrics (context window, tokens, tokens/sec) from the RAG stream. */
+export type AnswerMetrics = NodeApi.components["schemas"]["AnswerMetrics"];
+
 /** Author of a chat message. */
 export type MessageRole = "user" | "assistant";
 
@@ -21,6 +24,8 @@ export interface ChatMessage {
   sources?: string[];
   /** True when low confidence routed the answer to expert review. */
   needsReview?: boolean;
+  /** Answer metrics (context window, tokens, tokens/sec); absent for user messages. */
+  metrics?: AnswerMetrics;
 }
 
 /** Fields required to open a new conversation. */

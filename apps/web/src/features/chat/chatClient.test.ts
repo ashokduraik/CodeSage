@@ -74,6 +74,33 @@ describe("streamChatQuery", () => {
     ).rejects.toThrow(/502/);
   });
 
+  it("captures a metrics chunk from the stream", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"token","content":"Answer"}\n\n' +
+              'data: {"type":"metrics","metrics":{"contextChunks":3,"contextTokens":800,"maxContextTokens":32768,"totalTokens":950,"tokensPerSecond":24.6}}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+
+    const result = await streamChatQuery({
+      question: "where is auth?",
+      projectId: "11111111-1111-1111-1111-111111111111",
+      audience: "developer",
+      generateTitle: false,
+    });
+
+    expect(result.metrics?.contextChunks).toBe(3);
+    expect(result.metrics?.maxContextTokens).toBe(32768);
+    expect(result.metrics?.tokensPerSecond).toBe(24.6);
+  });
+
   it("marks abstain chunks as needsReview", async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream({

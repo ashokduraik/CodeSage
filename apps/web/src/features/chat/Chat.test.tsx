@@ -60,6 +60,13 @@ async function seedSessionWithMessages(): Promise<string> {
       content: "The login handler lives in the auth module and validates credentials before issuing a session token.",
       confidence: 0.9,
       sources: ["src/auth/login.ts", "src/auth/session.ts"],
+      metrics: {
+        contextChunks: 2,
+        contextTokens: 1800,
+        maxContextTokens: 32768,
+        totalTokens: 920,
+        tokensPerSecond: 22.5,
+      },
     },
     "Auth flow questions",
   );
@@ -97,6 +104,8 @@ describe("Chat", () => {
     const sessionId = await seedSessionWithMessages();
     renderChat(`/chat/${sessionId}`);
     expect(await screen.findByText(/validates credentials/)).toBeTruthy();
+    expect(screen.getByText("Context")).toBeTruthy();
+    expect(screen.getByLabelText(/Context window/)).toBeTruthy();
   });
 
   it("prompts for a first question on an empty conversation", async () => {

@@ -6,6 +6,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from config import Settings
+from services.retrieval.calibration import (
+    BORDERLINE_WEAK_MATCH_DISTANCE,
+    CALIBRATED_MAX_DISTANCE,
+    GENERIC_GREETING_MATCH_DISTANCE,
+    STRONG_CODE_MATCH_DISTANCE,
+)
 from services.retrieval.search import is_confident_match, retrieve_code_chunks
 
 
@@ -18,6 +24,23 @@ def test_is_confident_match_threshold() -> None:
     settings = Settings(retrieval_max_distance=0.5)
     assert is_confident_match(settings, [(chunk, 0.4)]) is True
     assert is_confident_match(settings, [(chunk, 0.9)]) is False
+
+
+def test_calibrated_threshold_passes_strong_matches() -> None:
+    chunk = MagicMock()
+    settings = Settings(retrieval_max_distance=CALIBRATED_MAX_DISTANCE)
+    assert is_confident_match(settings, [(chunk, STRONG_CODE_MATCH_DISTANCE)]) is True
+
+
+def test_calibrated_threshold_rejects_borderline_and_greeting_matches() -> None:
+    chunk = MagicMock()
+    settings = Settings(retrieval_max_distance=CALIBRATED_MAX_DISTANCE)
+    assert is_confident_match(settings, [(chunk, BORDERLINE_WEAK_MATCH_DISTANCE)]) is False
+    assert is_confident_match(settings, [(chunk, GENERIC_GREETING_MATCH_DISTANCE)]) is False
+
+
+def test_default_settings_use_calibrated_threshold() -> None:
+    assert Settings().retrieval_max_distance == CALIBRATED_MAX_DISTANCE
 
 
 def test_retrieve_code_chunks_missing_project(monkeypatch: pytest.MonkeyPatch) -> None:

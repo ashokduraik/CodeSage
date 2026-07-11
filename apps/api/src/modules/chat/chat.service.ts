@@ -24,10 +24,23 @@ export async function streamChatQuery(
     throw new ApiError(502, "RAG_UNAVAILABLE", message);
   }
 
+  // Writing to reply.raw bypasses Fastify's reply pipeline, so headers buffered by
+  // plugins (notably @fastify/cors' Access-Control-* / Vary) are never flushed. Copy
+  // them onto the raw response, otherwise the browser blocks the SSE stream cross-origin
+  // even though every non-streaming route works.
+  const forwardedHeaders: Record<string, string> = {};
+  for (const [name, value] of Object.entries(reply.getHeaders())) {
+    const lower = name.toLowerCase();
+    if (value !== undefined && (lower.startsWith("access-control-") || lower === "vary")) {
+      forwardedHeaders[name] = String(value);
+    }
+  }
+
   reply.raw.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
+    ...forwardedHeaders,
   });
 
   const reader = ragResponse.body!.getReader();

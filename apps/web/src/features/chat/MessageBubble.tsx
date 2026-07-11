@@ -1,11 +1,33 @@
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Bot, FileCode, User } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
-import { CONFIDENCE_THRESHOLD, type ChatMessage } from "./chatTypes";
+import { CONFIDENCE_THRESHOLD, type AnswerMetrics, type ChatMessage } from "./chatTypes";
 
 /** Props for {@link MessageBubble}. */
 export interface MessageBubbleProps {
   message: ChatMessage;
+}
+
+/**
+ * Builds the ordered, translated parts of the assistant metrics line, skipping
+ * any values the backend did not report. Context window usage is shown in the
+ * chat header; per-message metrics are tokens and generation speed only.
+ * @param metrics - Answer metrics from the RAG stream.
+ * @param t - i18n translation function.
+ * @returns Display strings for tokens and speed.
+ */
+function buildMetricsParts(
+  metrics: AnswerMetrics,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string[] {
+  const parts: string[] = [];
+  if (metrics.totalTokens !== undefined) {
+    parts.push(t("chat.metrics.tokens", { count: metrics.totalTokens }));
+  }
+  if (metrics.tokensPerSecond !== undefined) {
+    parts.push(t("chat.metrics.tokensPerSecond", { rate: metrics.tokensPerSecond }));
+  }
+  return parts;
 }
 
 /**
@@ -18,7 +40,11 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const lowConfidence =
     !isUser && message.confidence !== undefined && message.confidence < CONFIDENCE_THRESHOLD;
-  const hasSources = !isUser && message.sources !== undefined && message.sources.length > 0;
+  const uniqueSources =
+    !isUser && message.sources ? Array.from(new Set(message.sources)) : [];
+  const hasSources = uniqueSources.length > 0;
+  const metricsParts =
+    !isUser && message.metrics ? buildMetricsParts(message.metrics, t) : [];
 
   return (
     <div className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
@@ -51,7 +77,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
         {hasSources ? (
           <div className="mt-2 flex flex-wrap gap-1.5 px-1">
-            {message.sources?.map((source) => (
+            {uniqueSources.map((source) => (
               <span
                 key={source}
                 className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 font-mono text-[10px] text-accent-foreground"
@@ -61,6 +87,12 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               </span>
             ))}
           </div>
+        ) : null}
+
+        {metricsParts.length > 0 ? (
+          <p className="mt-1.5 px-1 font-mono text-[10px] text-muted-foreground">
+            {metricsParts.join(" · ")}
+          </p>
         ) : null}
       </div>
 

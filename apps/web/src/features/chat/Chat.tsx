@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/cn";
 import type { ChatSession } from "./chatTypes";
 import { ChatSidebar } from "./ChatSidebar";
 import { MessageBubble } from "./MessageBubble";
+import { ContextWindowMeter } from "./ContextWindowMeter";
 import { ChatInput } from "./ChatInput";
 import { NewChatDialog } from "./NewChatDialog";
 import { useChatSessions } from "./useChatSessions";
@@ -45,6 +46,14 @@ export function Chat() {
   const filteredSessions = (sessions ?? []).filter((session) =>
     session.title.toLowerCase().includes(search.toLowerCase()),
   );
+
+  const latestMetrics = [...(messages ?? [])]
+    .reverse()
+    .find((message) => message.role === "assistant" && message.metrics)?.metrics;
+  const contextUsed = latestMetrics?.contextTokens ?? latestMetrics?.promptTokens;
+  const contextMax = latestMetrics?.maxContextTokens;
+  const showContextMeter =
+    contextUsed !== undefined && contextMax !== undefined && contextMax > 0;
 
   if (isPending) {
     return (
@@ -98,14 +107,19 @@ export function Chat() {
               <p className="text-sm text-muted-foreground">{t("chat.selectConversation")}</p>
             )}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="md:hidden"
-            onClick={() => setDialogOpen(true)}
-          >
-            {t("chat.newChat")}
-          </Button>
+          <div className="flex items-center gap-3">
+            {showContextMeter ? (
+              <ContextWindowMeter usedTokens={contextUsed} maxTokens={contextMax} />
+            ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              className="md:hidden"
+              onClick={() => setDialogOpen(true)}
+            >
+              {t("chat.newChat")}
+            </Button>
+          </div>
         </div>
 
         {!sessionId ? (

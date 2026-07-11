@@ -99,15 +99,37 @@ export interface components {
             excerpt?: string;
         };
         /**
-         * @description token — streamed answer text fragment. citation — a grounding reference emitted before or during the answer. title — short conversation title derived from the first question. abstain — model could not ground an answer; stream ends. done — successful completion marker.
+         * @description token — streamed answer text fragment. citation — a grounding reference emitted before or during the answer. title — short conversation title derived from the first question. abstain — model could not ground an answer; stream ends. metrics — answer metrics (context window, tokens, tokens/sec) emitted before done. done — successful completion marker.
          * @enum {string}
          */
-        RagAnswerChunkType: "token" | "citation" | "title" | "abstain" | "done";
+        RagAnswerChunkType: "token" | "citation" | "title" | "abstain" | "metrics" | "done";
+        /** @description Per-answer metrics for display in the chat UI. Emitted only on the grounded LLM path; token/timing fields are absent when the backend does not report usage. */
+        AnswerMetrics: {
+            /** @description Number of code excerpts packed into the LLM prompt. */
+            contextChunks: number;
+            /** @description Estimated context tokens sent to the model. */
+            contextTokens?: number;
+            /** @description Detected (or configured) max context window of the connected model. */
+            maxContextTokens?: number;
+            /** @description Prompt tokens the backend reported consuming. */
+            promptTokens?: number;
+            /** @description Completion tokens the backend reported generating. */
+            completionTokens?: number;
+            /** @description Total tokens (prompt + completion) reported by the backend. */
+            totalTokens?: number;
+            /** @description Generation speed (completion tokens / elapsed seconds). */
+            tokensPerSecond?: number;
+            /** @description Wall-clock generation time in milliseconds. */
+            elapsedMs?: number;
+            /** @description Model name that produced the answer. */
+            model?: string;
+        };
         RagAnswerChunk: {
             type: components["schemas"]["RagAnswerChunkType"];
             /** @description Text fragment when type is `token` or abstain reason when type is `abstain`. */
             content?: string;
             citation?: components["schemas"]["CodeCitation"];
+            metrics?: components["schemas"]["AnswerMetrics"];
         };
         RagErrorResponse: {
             error: {

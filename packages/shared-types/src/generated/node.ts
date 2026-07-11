@@ -716,11 +716,24 @@ export interface components {
             excerpt?: string;
         };
         /** @enum {string} */
-        ChatAnswerChunkType: "token" | "citation" | "title" | "abstain" | "done";
+        ChatAnswerChunkType: "token" | "citation" | "title" | "abstain" | "metrics" | "done";
+        /** @description Per-answer metrics for display in the chat UI. Emitted only on the grounded LLM path; token/timing fields are absent when the backend does not report usage. */
+        AnswerMetrics: {
+            contextChunks: number;
+            contextTokens?: number;
+            maxContextTokens?: number;
+            promptTokens?: number;
+            completionTokens?: number;
+            totalTokens?: number;
+            tokensPerSecond?: number;
+            elapsedMs?: number;
+            model?: string;
+        };
         ChatAnswerChunk: {
             type: components["schemas"]["ChatAnswerChunkType"];
             content?: string;
             citation?: components["schemas"]["CodeCitation"];
+            metrics?: components["schemas"]["AnswerMetrics"];
         };
     };
     responses: never;

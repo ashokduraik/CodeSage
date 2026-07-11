@@ -81,6 +81,7 @@ export function useSendMessage(sessionId: string) {
         confidence: result.confidence,
         sources: result.sources,
         needsReview: result.needsReview,
+        metrics: result.metrics,
       };
 
       return appendAssistantMessage(sessionId, assistantMessage, result.title);

@@ -69,7 +69,37 @@ class RagAnswerChunkType(Enum):
     citation = 'citation'
     title = 'title'
     abstain = 'abstain'
+    metrics = 'metrics'
     done = 'done'
+
+
+class AnswerMetrics(BaseModel):
+    contextChunks: int = Field(
+        ..., description='Number of code excerpts packed into the LLM prompt.'
+    )
+    contextTokens: int | None = Field(
+        None, description='Estimated context tokens sent to the model.'
+    )
+    maxContextTokens: int | None = Field(
+        None,
+        description='Detected (or configured) max context window of the connected model.',
+    )
+    promptTokens: int | None = Field(
+        None, description='Prompt tokens the backend reported consuming.'
+    )
+    completionTokens: int | None = Field(
+        None, description='Completion tokens the backend reported generating.'
+    )
+    totalTokens: int | None = Field(
+        None, description='Total tokens (prompt + completion) reported by the backend.'
+    )
+    tokensPerSecond: float | None = Field(
+        None, description='Generation speed (completion tokens / elapsed seconds).'
+    )
+    elapsedMs: int | None = Field(
+        None, description='Wall-clock generation time in milliseconds.'
+    )
+    model: str | None = Field(None, description='Model name that produced the answer.')
 
 
 class RagAnswerChunk(BaseModel):
@@ -79,6 +109,7 @@ class RagAnswerChunk(BaseModel):
         description='Text fragment when type is `token` or abstain reason when type is `abstain`.',
     )
     citation: CodeCitation | None = None
+    metrics: AnswerMetrics | None = None
 
 
 class Error(BaseModel):

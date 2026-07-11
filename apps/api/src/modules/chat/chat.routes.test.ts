@@ -90,6 +90,36 @@ describe("POST /chat/query", () => {
     await app.close();
   });
 
+  it("forwards CORS headers onto the raw SSE response", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"type":"done"}\n\n'));
+        controller.close();
+      },
+    });
+    mockPostRag.mockResolvedValue(new Response(body, { status: 200 }));
+
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/chat/query",
+      headers: {
+        authorization: `Bearer ${devToken(app)}`,
+        origin: "http://localhost:5173",
+      },
+      payload: {
+        question: "where is auth?",
+        projectId: "11111111-1111-1111-1111-111111111111",
+        audience: "developer",
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+    await app.close();
+  });
+
   it("returns 502 when RAG is unavailable", async () => {
     mockPostRag.mockRejectedValue(new Error("connection refused"));
     const app = buildApp(TEST_CONFIG);

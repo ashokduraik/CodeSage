@@ -150,13 +150,51 @@ components:
         - citation
         - title
         - abstain
+        - metrics
         - done
       description: >-
         token — streamed answer text fragment.
         citation — a grounding reference emitted before or during the answer.
         title — short conversation title derived from the first question.
         abstain — model could not ground an answer; stream ends.
+        metrics — answer metrics (context window, tokens, tokens/sec) emitted before done.
         done — successful completion marker.
+
+    AnswerMetrics:
+      type: object
+      required:
+        - contextChunks
+      description: >-
+        Per-answer metrics for display in the chat UI. Emitted only on the grounded
+        LLM path; token/timing fields are absent when the backend does not report usage.
+      properties:
+        contextChunks:
+          type: integer
+          description: Number of code excerpts packed into the LLM prompt.
+        contextTokens:
+          type: integer
+          description: Estimated context tokens sent to the model.
+        maxContextTokens:
+          type: integer
+          description: Detected (or configured) max context window of the connected model.
+        promptTokens:
+          type: integer
+          description: Prompt tokens the backend reported consuming.
+        completionTokens:
+          type: integer
+          description: Completion tokens the backend reported generating.
+        totalTokens:
+          type: integer
+          description: Total tokens (prompt + completion) reported by the backend.
+        tokensPerSecond:
+          type: number
+          description: Generation speed (completion tokens / elapsed seconds).
+        elapsedMs:
+          type: integer
+          description: Wall-clock generation time in milliseconds.
+        model:
+          type: string
+          description: Model name that produced the answer.
 
     RagAnswerChunk:
       type: object
@@ -170,6 +208,8 @@ components:
           description: Text fragment when type is `token` or abstain reason when type is `abstain`.
         citation:
           $ref: '#/components/schemas/CodeCitation'
+        metrics:
+          $ref: '#/components/schemas/AnswerMetrics'
 
     RagErrorResponse:
       type: object
