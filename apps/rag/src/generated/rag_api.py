@@ -28,6 +28,19 @@ class QueryAudience(Enum):
     end_user = 'end_user'
 
 
+class ChatTurnRole(Enum):
+    user = 'user'
+    assistant = 'assistant'
+    system = 'system'
+
+
+class ChatTurn(BaseModel):
+    role: ChatTurnRole
+    content: str = Field(
+        ..., description='Prior turn text (user question or assistant answer).'
+    )
+
+
 class RagQueryRequest(BaseModel):
     question: constr(min_length=1, max_length=8000) = Field(
         ..., description='Natural-language question from the user.'
@@ -41,6 +54,11 @@ class RagQueryRequest(BaseModel):
     generateTitle: bool | None = Field(
         False,
         description='When true, emit a `title` chunk summarizing the question (first message in a conversation).',
+    )
+    history: list[ChatTurn] | None = Field(
+        None,
+        description='Prior conversation turns (oldest first). Node builds this from stored messages; RAG trims oldest turns when the context window is exceeded.',
+        max_length=50,
     )
     pageContext: constr(max_length=500) | None = Field(
         None,

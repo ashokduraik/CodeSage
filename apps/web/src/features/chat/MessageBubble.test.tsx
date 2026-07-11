@@ -7,7 +7,14 @@ import { MessageBubble } from "./MessageBubble";
 afterEach(cleanup);
 
 function message(over: Partial<ChatMessage>): ChatMessage {
-  return { id: "m", sessionId: "s", role: "assistant", content: "Hello", ...over };
+  return {
+    id: "m",
+    conversationId: "s",
+    role: "assistant",
+    content: "Hello",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...over,
+  };
 }
 
 describe("MessageBubble", () => {
@@ -20,7 +27,9 @@ describe("MessageBubble", () => {
   it("renders a confident assistant message with citations", () => {
     render(
       <MessageBubble
-        message={message({ confidence: 0.9, sources: ["acme/web/src/index.ts"] })}
+        message={message({
+          citations: [{ kind: "code", repoId: "r1", filePath: "acme/web/src/index.ts" }],
+        })}
       />,
     );
     expect(screen.getByText("acme/web/src/index.ts")).toBeTruthy();
@@ -28,11 +37,16 @@ describe("MessageBubble", () => {
   });
 
   it("flags a low-confidence assistant message for expert review", () => {
-    render(<MessageBubble message={message({ confidence: 0.5, sources: [] })} />);
+    render(<MessageBubble message={message({ needsReview: true })} />);
     expect(screen.getByText("Low confidence \u2014 sent for expert review")).toBeTruthy();
   });
 
-  it("handles an assistant message without confidence or sources", () => {
+  it("shows a stopped marker when generation was interrupted", () => {
+    render(<MessageBubble message={message({ stopped: true, content: "Partial" })} />);
+    expect(screen.getByText("Generation stopped")).toBeTruthy();
+  });
+
+  it("handles an assistant message without citations", () => {
     render(<MessageBubble message={message({})} />);
     expect(screen.getByText("Hello")).toBeTruthy();
     expect(screen.queryByText(/expert review/)).toBeNull();
@@ -62,11 +76,10 @@ describe("MessageBubble", () => {
     render(
       <MessageBubble
         message={message({
-          confidence: 0.9,
-          sources: [
-            "src/app/pages/calculation-logic/calculation-logic.page.ts",
-            "src/app/pages/calculation-logic/calculation-logic.page.ts",
-            "src/app/pages/emi-calculator/emi-calculator.page.ts",
+          citations: [
+            { kind: "code", repoId: "r1", filePath: "src/app/pages/calculation-logic/calculation-logic.page.ts" },
+            { kind: "code", repoId: "r1", filePath: "src/app/pages/calculation-logic/calculation-logic.page.ts" },
+            { kind: "code", repoId: "r1", filePath: "src/app/pages/emi-calculator/emi-calculator.page.ts" },
           ],
         })}
       />,

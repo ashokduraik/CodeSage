@@ -210,6 +210,8 @@
     },
     "inputPlaceholder": "Ask about your codebase\u2026",
     "send": "Send message",
+    "stop": "Stop generating",
+    "stopped": "Generation stopped",
     "toggleSidebar": "Toggle conversation list",
     "selectConversation": "Select or start a conversation",
     "firstQuestion": "Ask your first question about this project.",

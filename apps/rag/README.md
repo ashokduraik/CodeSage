@@ -33,6 +33,7 @@ Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from t
 | `LLM_CONTEXT_DETECT_ENABLED` | `true` | yes | Auto-detect the model's context window (vLLM `max_model_len` / Ollama `/api/show`). |
 | `LLM_MAX_CONTEXT_TOKENS` | `8192` | yes | Fallback context window when detection is disabled or fails. |
 | `LLM_COMPLETION_RESERVE_TOKENS` | `1024` | yes | Tokens reserved for the answer (also sent as `max_tokens`); the rest packs context. |
+| `LLM_MAX_HISTORY_TURNS` | `10` | yes | Max prior conversation turns sent to the LLM; oldest trimmed first when over budget. |
 | `RETRIEVAL_TOP_K` | `20` | yes | Candidate count retrieved; the packer fills the context window from these. |
 | `RETRIEVAL_MAX_DISTANCE` | `0.45` | yes | Abstain when best match exceeds this cosine distance. |
 | `RETRIEVAL_GRAPH_ENABLED` | `true` | yes | Expand QA retrieval along cross-repo `http_call` edges. |

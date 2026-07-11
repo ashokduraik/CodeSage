@@ -4,20 +4,22 @@
  */
 
 import type { AppConfig } from "./config";
-import type { NodeApi } from "@codesage/shared-types";
+import type { RagApi } from "@codesage/shared-types";
 
-type ChatQueryRequest = NodeApi.components["schemas"]["ChatQueryRequest"];
+type RagQueryBody = RagApi.components["schemas"]["RagQueryRequest"];
 
 /**
  * Opens a streaming POST to the RAG `/rag/query` endpoint.
  * @param config - Application configuration (includes `ragBaseUrl`).
- * @param body - Validated chat query payload.
+ * @param body - RAG query payload including optional multi-turn history.
+ * @param signal - Optional abort signal propagated from client disconnect.
  * @returns Fetch `Response` with a readable SSE body stream.
  * @throws {Error} When the RAG service is unreachable or returns a non-OK status.
  */
 export async function postRagQueryStream(
   config: AppConfig,
-  body: ChatQueryRequest,
+  body: RagQueryBody,
+  signal?: AbortSignal,
 ): Promise<Response> {
   const url = `${config.ragBaseUrl.replace(/\/$/, "")}/rag/query`;
   const response = await fetch(url, {
@@ -29,7 +31,10 @@ export async function postRagQueryStream(
       audience: body.audience,
       repoIds: body.repoIds,
       generateTitle: body.generateTitle,
+      history: body.history,
+      pageContext: body.pageContext,
     }),
+    signal,
   });
   if (!response.ok || !response.body) {
     const text = await response.text().catch(() => "");

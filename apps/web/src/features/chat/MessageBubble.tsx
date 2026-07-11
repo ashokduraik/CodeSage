@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Bot, FileCode, User } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
-import { CONFIDENCE_THRESHOLD, type AnswerMetrics, type ChatMessage } from "./chatTypes";
+import { Markdown } from "./Markdown";
+import { type AnswerMetrics, type ChatMessage } from "./chatTypes";
 
 /** Props for {@link MessageBubble}. */
 export interface MessageBubbleProps {
@@ -39,9 +40,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const { t } = useTranslation();
   const isUser = message.role === "user";
   const lowConfidence =
-    !isUser && message.confidence !== undefined && message.confidence < CONFIDENCE_THRESHOLD;
+    !isUser
+    && (message.needsReview
+      || (message.citations?.length === 0 && message.content.length > 0 && !message.stopped));
   const uniqueSources =
-    !isUser && message.sources ? Array.from(new Set(message.sources)) : [];
+    !isUser && message.citations
+      ? Array.from(new Set(message.citations.map((citation) => citation.filePath)))
+      : [];
   const hasSources = uniqueSources.length > 0;
   const metricsParts =
     !isUser && message.metrics ? buildMetricsParts(message.metrics, t) : [];
@@ -63,10 +68,20 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               : "rounded-bl-md bg-muted text-foreground",
           )}
         >
-          <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+          {isUser ? (
+            <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+          ) : (
+            <Markdown content={message.content} />
+          )}
         </div>
 
-        {lowConfidence ? (
+        {message.stopped ? (
+          <p className="mt-1.5 px-1 text-[11px] font-medium text-muted-foreground">
+            {t("chat.stopped")}
+          </p>
+        ) : null}
+
+        {lowConfidence && message.needsReview ? (
           <div className="mt-1.5 flex items-center gap-1.5 px-1">
             <AlertCircle className="h-3 w-3 text-amber-500" />
             <span className="text-[11px] font-medium text-amber-600">

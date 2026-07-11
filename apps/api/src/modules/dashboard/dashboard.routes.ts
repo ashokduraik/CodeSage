@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { getDashboardStats, listDashboardSessions } from "./dashboard.service";
 import type { NodeApi } from "@codesage/shared-types";
+import type { JwtPayload } from "../../platform/auth.plugin";
 
 type DashboardStats = NodeApi.components["schemas"]["DashboardStats"];
 type ChatSession = NodeApi.components["schemas"]["ChatSession"];
@@ -19,11 +20,13 @@ type ChatSession = NodeApi.components["schemas"]["ChatSession"];
  * @param app - The Fastify application instance.
  */
 export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
-  app.get<{ Reply: DashboardStats }>("/dashboard/stats", async () => {
-    return getDashboardStats(app.db, app.config.mockMode);
+  app.get<{ Reply: DashboardStats }>("/dashboard/stats", async (request) => {
+    const { sub } = request.user as JwtPayload;
+    return getDashboardStats(app.db, sub, app.config.mockMode);
   });
 
-  app.get<{ Reply: ChatSession[] }>("/dashboard/sessions", async () => {
-    return listDashboardSessions(app.db, app.config.mockMode);
+  app.get<{ Reply: ChatSession[] }>("/dashboard/sessions", async (request) => {
+    const { sub } = request.user as JwtPayload;
+    return listDashboardSessions(app.db, sub, app.config.mockMode);
   });
 }

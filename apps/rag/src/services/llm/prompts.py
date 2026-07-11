@@ -16,16 +16,25 @@ CODE_QA_SYSTEM_PROMPT = (
 )
 
 
-def build_code_qa_messages(question: str, context_blocks: list[str]) -> list[dict[str, str]]:
+def build_code_qa_messages(
+    question: str,
+    context_blocks: list[str],
+    history: list[dict[str, str]] | None = None,
+) -> list[dict[str, str]]:
     """Build chat messages for a grounded developer code question.
+
+    Prior turns are inserted between the system prompt and the current user message
+    so the LLM can answer follow-up questions in context.
 
     @param question - User question.
     @param context_blocks - Retrieved code excerpts with file paths.
+    @param history - Optional prior turns (oldest first) with ``role`` and ``content``.
     @returns OpenAI-style message list for the LLM provider.
     """
     context = "\n\n---\n\n".join(context_blocks)
     user = f"Question:\n{question}\n\nCode excerpts:\n{context}"
-    return [
-        {"role": "system", "content": CODE_QA_SYSTEM_PROMPT},
-        {"role": "user", "content": user},
-    ]
+    messages: list[dict[str, str]] = [{"role": "system", "content": CODE_QA_SYSTEM_PROMPT}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": user})
+    return messages

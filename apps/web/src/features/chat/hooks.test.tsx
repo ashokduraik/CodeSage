@@ -1,11 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { HookWrapper } from "@/test/utils";
-import {
-  appendMessagePair,
-  createSession,
-  resetChatStore,
-} from "./chatStore";
 import { useChatSessions } from "./useChatSessions";
 import { useChatSession } from "./useChatSession";
 import { useChatMessages } from "./useChatMessages";
@@ -25,19 +20,67 @@ vi.mock("@/features/projects/projectsClient", () => ({
   ]),
 }));
 
+const mockListConversations = vi.fn().mockResolvedValue([]);
+const mockGetConversation = vi.fn();
+const mockListMessages = vi.fn();
+const mockCreateConversation = vi.fn();
+const mockStreamChatQuery = vi.fn();
+
 vi.mock("./chatClient", () => ({
-  streamChatQuery: vi.fn().mockResolvedValue({
+  listConversations: (...args: unknown[]) => mockListConversations(...args),
+  getConversation: (...args: unknown[]) => mockGetConversation(...args),
+  listConversationMessages: (...args: unknown[]) => mockListMessages(...args),
+  createConversation: (...args: unknown[]) => mockCreateConversation(...args),
+  streamChatQuery: (...args: unknown[]) => mockStreamChatQuery(...args),
+  parseChatSseLine: vi.fn(),
+  formatCitationSource: vi.fn((c: { filePath: string }) => c.filePath),
+}));
+
+beforeEach(() => {
+  mockListConversations.mockResolvedValue([]);
+  mockGetConversation.mockResolvedValue({
+    id: "s1",
+    title: "New Chat",
+    mode: "developer",
+    projectId: "p1",
+    projectName: "acme/storefront",
+    messageCount: 0,
+    lastMessageAt: null,
+  });
+  mockListMessages.mockResolvedValue([
+    {
+      id: "m1",
+      conversationId: "s1",
+      role: "user",
+      content: "hi",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    },
+    {
+      id: "m2",
+      conversationId: "s1",
+      role: "assistant",
+      content: "hello",
+      createdAt: "2026-01-01T00:00:01.000Z",
+    },
+  ]);
+  mockCreateConversation.mockResolvedValue({
+    id: "s1",
+    title: "New Chat",
+    mode: "developer",
+    projectId: "p1",
+    projectName: "acme/storefront",
+    messageCount: 0,
+    lastMessageAt: null,
+  });
+  mockStreamChatQuery.mockResolvedValue({
     content: "Mock answer",
     sources: ["src/auth.ts"],
     needsReview: false,
     confidence: 0.9,
     title: "Auth handler question",
-  }),
-  parseChatSseLine: vi.fn(),
-  formatCitationSource: vi.fn((c: { filePath: string }) => c.filePath),
-}));
-
-beforeEach(() => resetChatStore());
+    aborted: false,
+  });
+});
 
 describe("chat query hooks", () => {
   it("lists sessions starting empty", async () => {
@@ -47,36 +90,19 @@ describe("chat query hooks", () => {
   });
 
   it("loads a session when an id is given and stays idle otherwise", async () => {
-    const session = await createSession({
-      mode: "developer",
-      projectId: "p1",
-      projectName: "acme/storefront",
-    });
-
     const disabled = renderHook(() => useChatSession(undefined), { wrapper: HookWrapper });
     expect(disabled.result.current.fetchStatus).toBe("idle");
 
-    const { result } = renderHook(() => useChatSession(session.id), { wrapper: HookWrapper });
+    const { result } = renderHook(() => useChatSession("s1"), { wrapper: HookWrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.title).toBe("New Chat");
   });
 
   it("loads messages when an id is given and stays idle otherwise", async () => {
-    const session = await createSession({
-      mode: "developer",
-      projectId: "p1",
-      projectName: "acme/storefront",
-    });
-    await appendMessagePair(
-      session.id,
-      { id: "m1", sessionId: session.id, role: "user", content: "hi" },
-      { id: "m2", sessionId: session.id, role: "assistant", content: "hello" },
-    );
-
     const disabled = renderHook(() => useChatMessages(undefined), { wrapper: HookWrapper });
     expect(disabled.result.current.fetchStatus).toBe("idle");
 
-    const { result } = renderHook(() => useChatMessages(session.id), { wrapper: HookWrapper });
+    const { result } = renderHook(() => useChatMessages("s1"), { wrapper: HookWrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toHaveLength(2);
   });
@@ -97,33 +123,20 @@ describe("chat mutation hooks", () => {
       projectName: "acme/storefront",
     });
     expect(session.id).toBeTruthy();
-    expect(session.projectName).toBe("acme/storefront");
+    expect(session.projectId).toBe("p1");
   });
 
-  it("sends the first message with generateTitle and stores the returned title", async () => {
-    const session = await createSession({
-      mode: "developer",
-      projectId: "p1",
-      projectName: "acme/storefront",
-    });
-    const { streamChatQuery } = await import("./chatClient");
-
-    const { result } = renderHook(() => useSendMessage(session.id), { wrapper: HookWrapper });
-    const outcome = await result.current.mutateAsync("Where is auth?");
-    expect(outcome.userMessage.content).toBe("Where is auth?");
-    expect(outcome.assistantMessage.role).toBe("assistant");
-    expect(outcome.session.title).toBe("Auth handler question");
-    expect(streamChatQuery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        question: "Where is auth?",
-        generateTitle: true,
-      }),
-      expect.any(Function),
+  it("sends a message with conversationId and question", async () => {
+    const { result } = renderHook(() => useSendMessage("s1"), { wrapper: HookWrapper });
+    await result.current.mutateAsync("Where is auth?");
+    expect(mockStreamChatQuery).toHaveBeenCalledWith(
+      { conversationId: "s1", question: "Where is auth?" },
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
-  it("throws when the session is missing or lacks a project", async () => {
-    const { result } = renderHook(() => useSendMessage("missing"), { wrapper: HookWrapper });
-    await expect(result.current.mutateAsync("hi")).rejects.toThrow(/unknown session/);
+  it("exposes stop to abort the in-flight stream", async () => {
+    const { result } = renderHook(() => useSendMessage("s1"), { wrapper: HookWrapper });
+    expect(typeof result.current.stop).toBe("function");
   });
 });

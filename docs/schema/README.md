@@ -21,6 +21,8 @@ rules change.
 | `repo_indexing_events` | Operations | [`repo_indexing_events.md`](./repo_indexing_events.md) |
 | `audit_log` | Operations | [`audit_log.md`](./audit_log.md) |
 | `schema_migrations` | Operations (runner) | [`schema_migrations.md`](./schema_migrations.md) |
+| `conversations` | QA | [`conversations.md`](./conversations.md) |
+| `messages` | QA | [`messages.md`](./messages.md) |
 
 ## Planned tables (no migration yet)
 
@@ -32,8 +34,6 @@ rules change.
 | `data_flows` | Derived knowledge | [`data_flows.md`](./data_flows.md) |
 | `expert_questions` | Expert-in-the-loop | [`expert_questions.md`](./expert_questions.md) |
 | `expert_answers` | Expert-in-the-loop | [`expert_answers.md`](./expert_answers.md) |
-| `conversations` | QA | [`conversations.md`](./conversations.md) |
-| `messages` | QA | [`messages.md`](./messages.md) |
 
 ## Enums
 

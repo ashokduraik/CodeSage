@@ -10,4 +10,15 @@ def test_build_code_qa_messages_includes_exact_abstain_phrase() -> None:
         "I'm not certain — the retrieved code does not contain enough information to answer that."
         in system
     )
-    assert messages[1]["content"].startswith("Question:")
+    assert messages[-1]["content"].startswith("Question:")
+
+
+def test_build_code_qa_messages_includes_prior_history() -> None:
+    history = [
+        {"role": "user", "content": "What is auth?"},
+        {"role": "assistant", "content": "Auth lives in src/auth.ts"},
+    ]
+    messages = build_code_qa_messages("follow up?", ["File: src/a.ts\n```\ncode\n```"], history)
+    assert messages[0]["role"] == "system"
+    assert messages[1:3] == history
+    assert messages[-1]["role"] == "user"

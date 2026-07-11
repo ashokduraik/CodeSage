@@ -1,9 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithRouter } from "@/test/utils";
-import { resetChatStore } from "./chatStore";
 import type { ChatSession } from "./chatTypes";
 import { NewChatDialog } from "./NewChatDialog";
+
+vi.mock("./chatClient", () => ({
+  createConversation: vi.fn().mockResolvedValue({
+    id: "s-new",
+    title: "New Chat",
+    mode: "end_user",
+    projectId: "p1",
+    projectName: null,
+    messageCount: 0,
+    lastMessageAt: null,
+  }),
+}));
 
 vi.mock("@/features/projects/projectsClient", () => ({
   fetchProjects: vi.fn().mockResolvedValue([
@@ -24,7 +35,10 @@ vi.mock("@/features/projects/projectsClient", () => ({
   ]),
 }));
 
-beforeEach(() => resetChatStore());
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 afterEach(cleanup);
 
 describe("NewChatDialog", () => {
@@ -60,7 +74,7 @@ describe("NewChatDialog", () => {
     const session = onCreated.mock.calls[0]?.[0] as ChatSession;
     expect(session.title).toBe("New Chat");
     expect(session.mode).toBe("end_user");
-    expect(session.projectName).toBe("acme/storefront");
+    expect(session.projectId).toBe("p1");
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 

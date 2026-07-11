@@ -15,8 +15,8 @@ expert question queue, and the workflow/page explorer.
 - **Project & repo setup** — create a project; connect repositories via a multi-step wizard
   (URL probe → optional token → branch + README description). Provider and branches are
   auto-detected; webhooks register on connect when configured.
-- **QA chat** (dev + end-user) — stream answers over WebSocket, render **citations**, pass the
-  user's current page/route as context for page-scoped product questions.
+- **QA chat** (dev + end-user) — SSE streaming via Node `/chat/query`, **PostgreSQL-persisted**
+  conversations (`/conversations` APIs), render **citations**, stop generation, context window meter.
 - **Expert question queue** — list clarifying questions and submit authoritative answers.
 - **Workflow / page / permission explorer** — browse derived knowledge with confidence + sources.
 

@@ -75,26 +75,27 @@ flowchart LR
 
 **Done when:** `curl POST /rag/query` with a developer question returns streamed answer + code citations.
 
-### M4 — Node chat proxy
+### M4 — Node chat proxy + persistence
 
 | Step | Module | Key deliverables |
 |---|---|---|
-| 1 | `modules/chat/` | WebSocket gateway (`WS /chat`) |
-| 2 | Proxy | Stream RAG SSE through WebSocket to browser |
-| 3 | Contracts | Chat message shapes in `openapi.node.yaml` if not already defined |
+| 1 | `modules/chat/` | Conversation CRUD (`/conversations`, `/conversations/{id}/messages`) |
+| 2 | Proxy | `POST /chat/query` — persist user/assistant messages, build `history`, stream RAG SSE |
+| 3 | Contracts | `ChatMessage`, `CreateConversationRequest`, `ChatQueryRequest { conversationId, question }` |
+| 4 | Abort | Propagate client disconnect → abort upstream RAG fetch |
 
-**Done when:** Authenticated WebSocket client receives streamed tokens from RAG service.
+**Done when:** Authenticated client creates a conversation, sends a question, receives streamed tokens, and messages are stored in PostgreSQL (including partial on stop).
 
 ### M5 — Web UI integration
 
 | Step | Feature | Key deliverables |
 |---|---|---|
-| 1 | API client | Replace `src/shared/mock/` with real typed client |
-| 2 | WebSocket | Stream utility for chat answers |
+| 1 | API client | `chatClient.ts` — conversation CRUD + SSE query with `AbortSignal` |
+| 2 | Chat | Server-backed session list + message thread; stop button; context meter |
 | 3 | Projects | Per-repo index/job status display |
-| 4 | Chat | Wire developer-audience chat to WebSocket; render real citations |
+| 4 | Chat | Multi-turn follow-ups use prior messages from DB (via Node → RAG `history`) |
 
-**Done when:** User logs in → attaches repo → waits for index → asks code question → sees cited streamed answer.
+**Done when:** User logs in → attaches repo → waits for index → asks code question → sees cited streamed answer → asks follow-up in same conversation → stop mid-stream keeps partial answer.
 
 ---
 

@@ -254,6 +254,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List chat conversations for the authenticated user. */
+        get: operations["listConversations"];
+        put?: never;
+        /** Create a new chat conversation scoped to a project. */
+        post: operations["createConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single conversation by id (owner only). */
+        get: operations["getConversation"];
+        put?: never;
+        post?: never;
+        /** Soft-delete a conversation (owner only). */
+        delete: operations["deleteConversation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversationId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List messages in a conversation (owner only). */
+        get: operations["listConversationMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/query": {
         parameters: {
             query?: never;
@@ -265,7 +318,7 @@ export interface paths {
         put?: never;
         /**
          * Stream a grounded code answer with citations (proxied to RAG service)
-         * @description Accepts a developer question scoped to a project and streams answer chunks via Server-Sent Events. Each event is a JSON-encoded ChatAnswerChunk. Proxies to apps/rag POST /rag/query without blocking the Node event loop.
+         * @description Accepts a question in an existing conversation and streams answer chunks via Server-Sent Events. Each event is a JSON-encoded ChatAnswerChunk. The server persists user and assistant messages and builds multi-turn history from the DB. Proxies to apps/rag POST /rag/query without blocking the Node event loop.
          */
         post: operations["chatQuery"];
         delete?: never;
@@ -687,22 +740,54 @@ export interface components {
             /** @description Pass as cursor query param to fetch the next older page. */
             nextCursor: string | null;
         };
-        ChatQueryRequest: {
-            /** @description Natural-language question from the user. */
-            question: string;
+        CreateConversationRequest: {
+            mode: components["schemas"]["ChatMode"];
             /**
              * Format: uuid
-             * @description Project scope for retrieval.
+             * @description Project scope for retrieval in this conversation.
              */
             projectId: string;
-            audience: components["schemas"]["ChatMode"];
+        };
+        /**
+         * @description Author role for a stored message turn.
+         * @enum {string}
+         */
+        ChatMessageRole: "user" | "assistant" | "system";
+        ChatMessage: {
             /**
-             * @description When true, the RAG service emits a `title` chunk summarizing the question (used for the first message in a conversation).
-             * @default false
+             * Format: uuid
+             * @description Unique message identifier.
              */
-            generateTitle: boolean;
-            /** @description Optional repo filter within the project. */
-            repoIds?: string[];
+            id: string;
+            /**
+             * Format: uuid
+             * @description Parent conversation.
+             */
+            conversationId: string;
+            role: components["schemas"]["ChatMessageRole"];
+            /** @description Message body text. */
+            content: string;
+            /** @description Grounded source refs for assistant answers. */
+            citations?: components["schemas"]["CodeCitation"][];
+            metrics?: components["schemas"]["AnswerMetrics"];
+            /** @description True when the answer was abstained or routed to expert review. */
+            needsReview?: boolean;
+            /** @description True when the user stopped generation before completion. */
+            stopped?: boolean;
+            /**
+             * Format: date-time
+             * @description ISO-8601 UTC timestamp when the message was stored.
+             */
+            createdAt: string;
+        };
+        ChatQueryRequest: {
+            /**
+             * Format: uuid
+             * @description Existing conversation to append the question to.
+             */
+            conversationId: string;
+            /** @description Natural-language question from the user. */
+            question: string;
         };
         CodeCitation: {
             /** @enum {string} */
@@ -1360,6 +1445,195 @@ export interface operations {
             };
             /** @description Missing or invalid token. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listConversations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversations ordered by most recent activity. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSession"][];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateConversationRequest"];
+            };
+        };
+        responses: {
+            /** @description Conversation created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSession"];
+                };
+            };
+            /** @description Validation error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSession"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conversation not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation soft-deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conversation not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listConversationMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Messages in chronological order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"][];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conversation not found. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

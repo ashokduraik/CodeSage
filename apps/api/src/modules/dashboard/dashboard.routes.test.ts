@@ -84,7 +84,7 @@ describe("GET /dashboard/stats", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual(STATS);
-    expect(mockStats).toHaveBeenCalledWith(app.db, false);
+    expect(mockStats).toHaveBeenCalledWith(app.db, "u1", false);
     await app.close();
   });
 
@@ -98,7 +98,7 @@ describe("GET /dashboard/stats", () => {
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(200);
-    expect(mockStats).toHaveBeenCalledWith(app.db, true);
+    expect(mockStats).toHaveBeenCalledWith(app.db, "u1", true);
     await app.close();
   });
 });
@@ -122,7 +122,7 @@ describe("GET /dashboard/sessions", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual(SESSIONS);
-    expect(mockSessions).toHaveBeenCalledWith(app.db, false);
+    expect(mockSessions).toHaveBeenCalledWith(app.db, "u1", false);
     await app.close();
   });
 
@@ -136,7 +136,7 @@ describe("GET /dashboard/sessions", () => {
       headers: { authorization: `Bearer ${devToken(app)}` },
     });
     expect(res.statusCode).toBe(200);
-    expect(mockSessions).toHaveBeenCalledWith(app.db, true);
+    expect(mockSessions).toHaveBeenCalledWith(app.db, "u1", true);
     await app.close();
   });
 });

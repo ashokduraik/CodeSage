@@ -82,6 +82,26 @@ components:
         developer — code-level RAG over code_chunks (Phase 1).
         end_user — product KB path (Phase 6; Phase 1 returns abstain).
 
+    ChatTurnRole:
+      type: string
+      enum:
+        - user
+        - assistant
+        - system
+      description: Role of a prior conversation turn sent to the LLM.
+
+    ChatTurn:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          $ref: '#/components/schemas/ChatTurnRole'
+        content:
+          type: string
+          description: Prior turn text (user question or assistant answer).
+
     RagQueryRequest:
       type: object
       required:
@@ -112,6 +132,14 @@ components:
           description: >-
             When true, emit a `title` chunk summarizing the question (first message
             in a conversation).
+        history:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/ChatTurn'
+          description: >-
+            Prior conversation turns (oldest first). Node builds this from stored
+            messages; RAG trims oldest turns when the context window is exceeded.
         pageContext:
           type: string
           maxLength: 500

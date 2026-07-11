@@ -1,10 +1,13 @@
-import { getAuthToken } from "@/shared/lib/authTokenStorage";
+import { apiFetch } from "@/shared/lib/apiClient";
 import type { NodeApi } from "@codesage/shared-types";
 
 type ChatQueryRequest = NodeApi.components["schemas"]["ChatQueryRequest"];
 type ChatAnswerChunk = NodeApi.components["schemas"]["ChatAnswerChunk"];
 type CodeCitation = NodeApi.components["schemas"]["CodeCitation"];
 type AnswerMetrics = NodeApi.components["schemas"]["AnswerMetrics"];
+type ChatSession = NodeApi.components["schemas"]["ChatSession"];
+type ChatMessage = NodeApi.components["schemas"]["ChatMessage"];
+type CreateConversationRequest = NodeApi.components["schemas"]["CreateConversationRequest"];
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api";
 
@@ -22,21 +25,72 @@ function resolveApiUrl(path: string): string {
   return new URL(`${base}${suffix}`, origin).href;
 }
 
-/** Parsed result of a completed chat stream. */
+/** Options for {@link streamChatQuery}. */
+export interface StreamChatQueryOptions {
+  /** Optional abort signal for stop-generation. */
+  signal?: AbortSignal;
+  /** Invoked for each streamed text fragment. */
+  onToken?: (token: string) => void;
+}
+
+/** Parsed result of a completed or aborted chat stream. */
 export interface ChatStreamResult {
   content: string;
   sources: string[];
   needsReview: boolean;
   confidence: number;
-  /** LLM-generated title when `generateTitle` was requested on the first message. */
+  /** LLM-generated title when the server requested title generation. */
   title?: string;
-  /** Answer metrics (context window, tokens, tokens/sec) when the LLM path ran. */
+  /** Answer metrics when the LLM path ran. */
   metrics?: AnswerMetrics;
+  /** True when the user stopped generation before completion. */
+  aborted: boolean;
+}
+
+/**
+ * Lists conversations for the authenticated user.
+ * @returns Conversations ordered by recent activity.
+ */
+export async function listConversations(): Promise<ChatSession[]> {
+  return apiFetch<ChatSession[]>("/conversations");
+}
+
+/**
+ * Creates a conversation scoped to a project.
+ * @param body - Mode and project scope.
+ * @returns The created conversation metadata.
+ */
+export async function createConversation(body: CreateConversationRequest): Promise<ChatSession> {
+  return apiFetch<ChatSession>("/conversations", { method: "POST", body });
+}
+
+/**
+ * Returns one conversation by id.
+ * @param conversationId - Conversation UUID.
+ */
+export async function getConversation(conversationId: string): Promise<ChatSession> {
+  return apiFetch<ChatSession>(`/conversations/${conversationId}`);
+}
+
+/**
+ * Soft-deletes a conversation.
+ * @param conversationId - Conversation UUID.
+ */
+export async function deleteConversation(conversationId: string): Promise<void> {
+  await apiFetch<void>(`/conversations/${conversationId}`, { method: "DELETE" });
+}
+
+/**
+ * Lists messages in a conversation.
+ * @param conversationId - Conversation UUID.
+ */
+export async function listConversationMessages(conversationId: string): Promise<ChatMessage[]> {
+  return apiFetch<ChatMessage[]>(`/conversations/${conversationId}/messages`);
 }
 
 /**
  * Parses one SSE `data:` JSON line into a chat answer chunk.
- * @param line - Raw SSE line (may include `data: ` prefix).
+ * @param line - Raw SSE line (may include `data:` prefix).
  * @returns Parsed chunk or null when the line is not a data event.
  */
 export function parseChatSseLine(line: string): ChatAnswerChunk | null {
@@ -60,15 +114,16 @@ export function formatCitationSource(citation: CodeCitation): string {
 }
 
 /**
- * Streams a developer chat query via POST /chat/query (SSE).
- * @param body - Chat query request (question, projectId, audience).
- * @param onToken - Optional callback invoked for each streamed text fragment.
- * @returns Aggregated assistant message fields after the stream completes.
+ * Streams a chat query via POST /chat/query (SSE).
+ * @param body - Chat query request (conversationId, question).
+ * @param options - Abort signal and token callback.
+ * @returns Aggregated assistant fields after the stream completes or aborts.
  */
 export async function streamChatQuery(
   body: ChatQueryRequest,
-  onToken?: (token: string) => void,
+  options: StreamChatQueryOptions = {},
 ): Promise<ChatStreamResult> {
+  const { getAuthToken } = await import("@/shared/lib/authTokenStorage");
   const token = getAuthToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -78,11 +133,26 @@ export async function streamChatQuery(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(resolveApiUrl("/chat/query"), {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch(resolveApiUrl("/chat/query"), {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: options.signal,
+    });
+  } catch (error) {
+    if (options.signal?.aborted) {
+      return {
+        content: "",
+        sources: [],
+        needsReview: false,
+        confidence: 0.75,
+        aborted: true,
+      };
+    }
+    throw error;
+  }
 
   if (!response.ok || !response.body) {
     throw new Error(`Chat query failed (${response.status})`);
@@ -96,41 +166,60 @@ export async function streamChatQuery(
   let needsReview = false;
   let title: string | undefined;
   let metrics: AnswerMetrics | undefined;
+  let aborted = false;
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
+  try {
+    for (;;) {
+      if (options.signal?.aborted) {
+        aborted = true;
+        break;
+      }
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        const chunk = parseChatSseLine(line);
+        if (!chunk) {
+          continue;
+        }
+        if (chunk.type === "title" && chunk.content) {
+          title = chunk.content;
+        }
+        if (chunk.type === "token" && chunk.content) {
+          content += chunk.content;
+          options.onToken?.(chunk.content);
+        }
+        if (chunk.type === "citation" && chunk.citation) {
+          sources.push(formatCitationSource(chunk.citation));
+        }
+        if (chunk.type === "abstain") {
+          content = chunk.content ?? "Not certain — no sufficiently relevant code was retrieved.";
+          needsReview = true;
+        }
+        if (chunk.type === "metrics" && chunk.metrics) {
+          metrics = chunk.metrics;
+        }
+      }
     }
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    for (const line of lines) {
-      const chunk = parseChatSseLine(line);
-      if (!chunk) {
-        continue;
-      }
-      if (chunk.type === "title" && chunk.content) {
-        title = chunk.content;
-      }
-      if (chunk.type === "token" && chunk.content) {
-        content += chunk.content;
-        onToken?.(chunk.content);
-      }
-      if (chunk.type === "citation" && chunk.citation) {
-        sources.push(formatCitationSource(chunk.citation));
-      }
-      if (chunk.type === "abstain") {
-        content = chunk.content ?? "Not certain — no sufficiently relevant code was retrieved.";
-        needsReview = true;
-      }
-      if (chunk.type === "metrics" && chunk.metrics) {
-        metrics = chunk.metrics;
-      }
+  } catch (error) {
+    if (options.signal?.aborted) {
+      aborted = true;
+    } else {
+      throw error;
+    }
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      // Reader may already be closed after abort.
     }
   }
 
   const confidence = needsReview ? 0.4 : sources.length > 0 ? 0.9 : 0.75;
-  return { content, sources, needsReview, confidence, title, metrics };
+  return { content, sources, needsReview, confidence, title, metrics, aborted };
 }

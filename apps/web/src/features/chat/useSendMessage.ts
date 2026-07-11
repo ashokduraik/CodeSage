@@ -1,95 +1,83 @@
+import { useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { appendAssistantMessage, appendUserMessage, getSession, listMessages } from "./chatStore";
-import type { ChatMessage, SendMessageResult } from "./chatTypes";
+import type { ChatMessage } from "./chatTypes";
 import { streamChatQuery } from "./chatClient";
 import { chatKeys } from "./chatKeys";
 
 let messageCounter = 0;
 
-/** Generates a short unique message id. */
-function nextMessageId(): string {
+/** Generates a short unique optimistic message id. */
+function nextOptimisticId(): string {
   messageCounter += 1;
-  return `m-${Date.now()}-${messageCounter}`;
+  return `optimistic-${Date.now()}-${messageCounter}`;
 }
 
 /**
- * Sends a message in a session and refreshes the affected caches on success.
- * On the first message, requests an LLM-generated title alongside the answer.
+ * Sends a message in a conversation and refreshes affected caches on success.
  * Streams assistant tokens into the React Query cache while the RAG response is in flight.
- * @param sessionId - The session the message belongs to.
- * @returns A TanStack mutation accepting the message text.
+ * Exposes `stop()` to abort generation end-to-end; the server persists the partial answer.
+ * @param conversationId - The conversation the message belongs to.
+ * @returns TanStack mutation plus a `stop` function for in-flight streams.
  */
-export function useSendMessage(sessionId: string) {
+export function useSendMessage(conversationId: string) {
   const queryClient = useQueryClient();
-  return useMutation<SendMessageResult, Error, string>({
+  const abortRef = useRef<AbortController | null>(null);
+
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  const mutation = useMutation<void, Error, string>({
     mutationFn: async (text) => {
-      const session = await getSession(sessionId);
-      if (!session) {
-        throw new Error(`unknown session: ${sessionId}`);
-      }
-      if (!session.projectId) {
-        throw new Error("session must be scoped to a project");
-      }
-
-      const existingMessages = await listMessages(sessionId);
-      const isFirstMessage = existingMessages.length === 0;
-
       const userMessage: ChatMessage = {
-        id: nextMessageId(),
-        sessionId,
+        id: nextOptimisticId(),
+        conversationId,
         role: "user",
         content: text,
+        createdAt: new Date().toISOString(),
       };
-      const assistantId = nextMessageId();
+      const assistantId = nextOptimisticId();
 
-      await appendUserMessage(sessionId, userMessage);
-      queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(sessionId), (old) => [
+      queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(conversationId), (old) => [
         ...(old ?? []),
         userMessage,
       ]);
 
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       let streamedContent = "";
-      const result = await streamChatQuery(
+      await streamChatQuery(
+        { conversationId, question: text },
         {
-          question: text,
-          projectId: session.projectId,
-          audience: session.mode,
-          generateTitle: isFirstMessage,
-        },
-        (token) => {
-          streamedContent += token;
-          queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(sessionId), (old) => {
-            const base = (old ?? []).filter((message) => message.id !== assistantId);
-            return [
-              ...base,
-              {
-                id: assistantId,
-                sessionId,
-                role: "assistant",
-                content: streamedContent,
-              },
-            ];
-          });
+          signal: controller.signal,
+          onToken: (token) => {
+            streamedContent += token;
+            queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(conversationId), (old) => {
+              const base = (old ?? []).filter((message) => message.id !== assistantId);
+              return [
+                ...base,
+                {
+                  id: assistantId,
+                  conversationId,
+                  role: "assistant",
+                  content: streamedContent,
+                  createdAt: new Date().toISOString(),
+                },
+              ];
+            });
+          },
         },
       );
 
-      const assistantMessage: ChatMessage = {
-        id: assistantId,
-        sessionId,
-        role: "assistant",
-        content: result.content,
-        confidence: result.confidence,
-        sources: result.sources,
-        needsReview: result.needsReview,
-        metrics: result.metrics,
-      };
-
-      return appendAssistantMessage(sessionId, assistantMessage, result.title);
+      abortRef.current = null;
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.messages(sessionId) });
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
       void queryClient.invalidateQueries({ queryKey: chatKeys.sessions });
-      void queryClient.invalidateQueries({ queryKey: chatKeys.session(sessionId) });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.session(conversationId) });
     },
   });
+
+  return { ...mutation, stop };
 }

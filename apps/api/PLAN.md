@@ -25,7 +25,7 @@ How we will build the Node API so it stays **easy to maintain** and **AI-friendl
 4. **projects** — project CRUD.
 5. **repos** — attach repo, **encrypt token at rest**, branch/role config; enqueue initial index.
 6. **webhooks** — provider push intake → enqueue incremental re-index job.
-7. **chat** — WebSocket gateway proxying to `apps/rag`, streaming answers + citations.
+7. **chat** — Conversation CRUD + SSE proxy to `apps/rag`; persists messages in PostgreSQL, builds multi-turn history, propagates client abort.
 8. **knowledge** — read endpoints for workflows/pages/permissions/data-flows.
 9. **questions** — expert queue read + answer (writes authoritative overrides).
 

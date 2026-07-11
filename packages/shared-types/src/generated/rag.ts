@@ -59,6 +59,16 @@ export interface components {
          * @enum {string}
          */
         QueryAudience: "developer" | "end_user";
+        /**
+         * @description Role of a prior conversation turn sent to the LLM.
+         * @enum {string}
+         */
+        ChatTurnRole: "user" | "assistant" | "system";
+        ChatTurn: {
+            role: components["schemas"]["ChatTurnRole"];
+            /** @description Prior turn text (user question or assistant answer). */
+            content: string;
+        };
         RagQueryRequest: {
             /** @description Natural-language question from the user. */
             question: string;
@@ -75,6 +85,8 @@ export interface components {
              * @default false
              */
             generateTitle: boolean;
+            /** @description Prior conversation turns (oldest first). Node builds this from stored messages; RAG trims oldest turns when the context window is exceeded. */
+            history?: components["schemas"]["ChatTurn"][];
             /** @description Optional current UI route for page-scoped product questions (Phase 6). */
             pageContext?: string;
         };

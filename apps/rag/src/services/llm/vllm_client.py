@@ -78,6 +78,7 @@ def stream_vllm_answer(
     *,
     question: str,
     context_blocks: list[str],
+    history: list[dict[str, str]] | None = None,
     stats: LlmStreamStats | None = None,
 ) -> Iterator[str]:
     """Stream an LLM answer from vLLM, or fall back to excerpt synthesis.
@@ -88,6 +89,7 @@ def stream_vllm_answer(
     @param settings - Application settings.
     @param question - User question.
     @param context_blocks - Retrieved code excerpts.
+    @param history - Optional prior conversation turns for multi-turn QA.
     @param stats - Optional stats object filled with usage and timing when available.
     @yields Text fragments of the answer.
     """
@@ -95,7 +97,7 @@ def stream_vllm_answer(
         yield from _fallback_answer(context_blocks)
         return
 
-    messages = build_code_qa_messages(question, context_blocks)
+    messages = build_code_qa_messages(question, context_blocks, history)
     url = f"{settings.vllm_base_url.rstrip('/')}/chat/completions"
     body = {
         "model": settings.vllm_model,

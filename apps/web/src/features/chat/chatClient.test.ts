@@ -50,26 +50,23 @@ describe("streamChatQuery", () => {
     );
 
     const result = await streamChatQuery({
+      conversationId: "11111111-1111-1111-1111-111111111111",
       question: "where is auth?",
-      projectId: "11111111-1111-1111-1111-111111111111",
-      audience: "developer",
-      generateTitle: true,
     });
 
     expect(result.title).toBe("Auth flow");
     expect(result.content).toBe("Answer");
     expect(result.sources).toEqual(["src/auth.ts"]);
     expect(result.needsReview).toBe(false);
+    expect(result.aborted).toBe(false);
   });
 
   it("throws when the API returns a non-OK status", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 502 })));
     await expect(
       streamChatQuery({
+        conversationId: "11111111-1111-1111-1111-111111111111",
         question: "hi",
-        projectId: "11111111-1111-1111-1111-111111111111",
-        audience: "developer",
-        generateTitle: false,
       }),
     ).rejects.toThrow(/502/);
   });
@@ -90,10 +87,8 @@ describe("streamChatQuery", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
 
     const result = await streamChatQuery({
+      conversationId: "11111111-1111-1111-1111-111111111111",
       question: "where is auth?",
-      projectId: "11111111-1111-1111-1111-111111111111",
-      audience: "developer",
-      generateTitle: false,
     });
 
     expect(result.metrics?.contextChunks).toBe(3);
@@ -117,13 +112,29 @@ describe("streamChatQuery", () => {
     );
 
     const result = await streamChatQuery({
+      conversationId: "11111111-1111-1111-1111-111111111111",
       question: "unknown?",
-      projectId: "11111111-1111-1111-1111-111111111111",
-      audience: "developer",
-      generateTitle: false,
     });
     expect(result.content).toBe("Not certain");
     expect(result.needsReview).toBe(true);
+  });
+
+  it("returns aborted when the signal is already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("Aborted", "AbortError")),
+    );
+
+    const result = await streamChatQuery(
+      {
+        conversationId: "11111111-1111-1111-1111-111111111111",
+        question: "stop me",
+      },
+      { signal: controller.signal },
+    );
+    expect(result.aborted).toBe(true);
   });
 });
 

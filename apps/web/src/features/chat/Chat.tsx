@@ -148,7 +148,12 @@ export function Chat() {
               ))}
               <div ref={messagesEndRef} />
             </div>
-            <ChatInput onSend={handleSend} disabled={sendMessage.isPending} />
+            <ChatInput
+              onSend={handleSend}
+              onStop={sendMessage.stop}
+              disabled={sendMessage.isPending}
+              isStreaming={sendMessage.isPending}
+            />
           </>
         )}
       </div>

@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     llm_context_detect_enabled: bool = True
     llm_max_context_tokens: int = 8192
     llm_completion_reserve_tokens: int = 1024
+    llm_max_history_turns: int = 10
 
     retrieval_top_k: int = 20
     retrieval_max_distance: float = 0.45

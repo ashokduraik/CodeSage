@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "../i18n"; // initialise i18next before rendering
-import { resetChatStore } from "@/features/chat/chatStore";
 import type { AuthContextValue } from "@/features/auth";
 
 /**
@@ -81,7 +80,9 @@ function renderApp(path: string, authCtx: AuthContextValue = AUTHENTICATED_CTX) 
   );
 }
 
-beforeEach(() => resetChatStore());
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 afterEach(cleanup);
 
 describe("App", () => {

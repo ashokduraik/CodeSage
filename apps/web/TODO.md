@@ -9,8 +9,8 @@ Component checklist, organized by feature. Check items as they land. (Global seq
 - [x] Tailwind CSS + design-token theme (`src/index.css`); vendored UI primitives in `src/shared/ui/`.
 - [x] Auth-aware navigation + login screen — `AuthContext`/`useAuth` (JWT, localStorage), `LoginPage`, `ProtectedRoute` guard; `AuthProvider` wraps the app in `main.tsx`.
 - [x] Typed API client — `shared/lib/apiClient.ts` (`apiFetch` typed against `@codesage/shared-types`; Authorization header injection).
-- [ ] Replace `src/shared/mock/` with the real typed API client (dashboard sessions still mock-backed on API).
-- [ ] WebSocket client utility for streamed responses.
+- [ ] Replace `src/shared/mock/` with the real typed API client where mock-backed routes remain.
+- [ ] WebSocket client utility for streamed responses (optional; chat uses SSE today).
 
 ## Dashboard feature
 - [x] Overview stat cards (projects, sessions, knowledge, reviews).
@@ -24,11 +24,12 @@ Component checklist, organized by feature. Check items as they land. (Global seq
 - [x] Index/job status display per repo (`lastIndexedAt` set after embed completes).
 
 ## Chat feature
-- [x] Conversation list + message thread (client localStorage store; empty on first visit).
+- [x] Conversation list + message thread (PostgreSQL via Node `/conversations` APIs).
 - [x] New-conversation dialog — dynamic project dropdown; title from first LLM response.
 - [x] Citation rendering (source chips) + low-confidence "sent for expert review" state.
 - [x] Wire developer-audience chat to RAG SSE proxy; render real citations + live token streaming.
-- [ ] WebSocket streaming (optional; SSE token streaming implemented).
+- [x] Stop generation button (end-to-end abort; partial answer persisted server-side).
+- [x] Multi-turn history — server builds prior turns from DB for RAG prompts.
 - [ ] Page-context capture for page-scoped product questions.
 
 ## Expert-queue feature

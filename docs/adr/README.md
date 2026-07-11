@@ -35,6 +35,7 @@ Consequences · Alternatives considered · Escape hatch**.
 | [0016](./0016-repo-probe-in-node-api.md) | Repo probe runs in Node API | Accepted |
 | [0017](./0017-webhook-registration-on-connect.md) | Webhook registration during repo connect | Accepted |
 | [0018](./0018-mandatory-audit-columns.md) | Mandatory audit columns on domain tables | Accepted |
+| [0019](./0019-persist-chat-history-in-postgres.md) | Persist chat history in PostgreSQL (multi-turn + stop) | Accepted |
 
 ## Adding a new ADR
 

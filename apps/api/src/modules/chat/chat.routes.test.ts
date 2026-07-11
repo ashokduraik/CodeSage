@@ -30,11 +30,60 @@ const TEST_CONFIG = {
   workerStaleJobSeconds: 600,
 } as const;
 
+const CONVERSATION_ID = "22222222-2222-2222-2222-222222222222";
+
 afterEach(() => vi.clearAllMocks());
 
 function devToken(app: ReturnType<typeof buildApp>): string {
   const p: JwtPayload = { sub: "u1", email: "dev@test.com", role: "developer" };
   return app.jwt.sign(p);
+}
+
+function mockDbForChatQuery() {
+  const sql = vi.fn() as ReturnType<typeof vi.fn> & { json: (v: unknown) => unknown };
+  sql.json = (v) => v;
+
+  sql.mockImplementation((strings: TemplateStringsArray) => {
+    const query = strings.join(" ");
+    if (query.includes("FROM conversations") && query.includes("user_id")) {
+      return Promise.resolve([
+        {
+          id: CONVERSATION_ID,
+          project_id: "11111111-1111-1111-1111-111111111111",
+          user_id: "u1",
+          audience: "developer",
+          title: null,
+        },
+      ]);
+    }
+    if (query.includes("COUNT(*)") && query.includes("messages")) {
+      return Promise.resolve([{ count: 0 }]);
+    }
+    if (query.includes("FROM messages") && query.includes("ORDER BY")) {
+      return Promise.resolve([]);
+    }
+    if (query.includes("INSERT INTO messages")) {
+      return Promise.resolve([
+        {
+          id: "m1",
+          conversation_id: CONVERSATION_ID,
+          role: "user",
+          content: "where is auth?",
+          citations: null,
+          metrics: null,
+          needs_review: false,
+          stopped: false,
+          created_at: new Date(),
+        },
+      ]);
+    }
+    if (query.includes("UPDATE conversations")) {
+      return Promise.resolve([]);
+    }
+    return Promise.resolve([]);
+  });
+
+  return sql;
 }
 
 describe("POST /chat/query", () => {
@@ -43,7 +92,7 @@ describe("POST /chat/query", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/chat/query",
-      payload: { question: "hi", projectId: "p1", audience: "developer" },
+      payload: { question: "hi", conversationId: CONVERSATION_ID },
     });
     expect(res.statusCode).toBe(401);
     await app.close();
@@ -62,7 +111,7 @@ describe("POST /chat/query", () => {
     await app.close();
   });
 
-  it("proxies the SSE stream from RAG", async () => {
+  it("proxies the SSE stream from RAG and passes an abort signal", async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream({
       start(controller) {
@@ -73,6 +122,7 @@ describe("POST /chat/query", () => {
     mockPostRag.mockResolvedValue(new Response(body, { status: 200 }));
 
     const app = buildApp(TEST_CONFIG);
+    app.db = mockDbForChatQuery() as never;
     await app.ready();
     const res = await app.inject({
       method: "POST",
@@ -80,13 +130,21 @@ describe("POST /chat/query", () => {
       headers: { authorization: `Bearer ${devToken(app)}` },
       payload: {
         question: "where is auth?",
-        projectId: "11111111-1111-1111-1111-111111111111",
-        audience: "developer",
+        conversationId: CONVERSATION_ID,
       },
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("text/event-stream");
     expect(res.body).toContain('"done"');
+    expect(mockPostRag).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        question: "where is auth?",
+        generateTitle: true,
+        history: undefined,
+      }),
+      expect.any(AbortSignal),
+    );
     await app.close();
   });
 
@@ -101,6 +159,7 @@ describe("POST /chat/query", () => {
     mockPostRag.mockResolvedValue(new Response(body, { status: 200 }));
 
     const app = buildApp(TEST_CONFIG);
+    app.db = mockDbForChatQuery() as never;
     await app.ready();
     const res = await app.inject({
       method: "POST",
@@ -111,8 +170,7 @@ describe("POST /chat/query", () => {
       },
       payload: {
         question: "where is auth?",
-        projectId: "11111111-1111-1111-1111-111111111111",
-        audience: "developer",
+        conversationId: CONVERSATION_ID,
       },
     });
     expect(res.statusCode).toBe(200);
@@ -123,6 +181,7 @@ describe("POST /chat/query", () => {
   it("returns 502 when RAG is unavailable", async () => {
     mockPostRag.mockRejectedValue(new Error("connection refused"));
     const app = buildApp(TEST_CONFIG);
+    app.db = mockDbForChatQuery() as never;
     await app.ready();
     const res = await app.inject({
       method: "POST",
@@ -130,11 +189,37 @@ describe("POST /chat/query", () => {
       headers: { authorization: `Bearer ${devToken(app)}` },
       payload: {
         question: "where is auth?",
-        projectId: "11111111-1111-1111-1111-111111111111",
-        audience: "developer",
+        conversationId: CONVERSATION_ID,
       },
     });
     expect(res.statusCode).toBe(502);
+    await app.close();
+  });
+
+  it("returns 404 when the conversation is not owned by the user", async () => {
+    const sql = vi.fn().mockResolvedValue([]);
+    const app = buildApp(TEST_CONFIG);
+    app.db = sql as never;
+    await app.ready();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/chat/query",
+      headers: { authorization: `Bearer ${devToken(app)}` },
+      payload: {
+        question: "where is auth?",
+        conversationId: CONVERSATION_ID,
+      },
+    });
+    expect(res.statusCode).toBe(404);
+    await app.close();
+  });
+});
+
+describe("conversation routes", () => {
+  it("returns 401 for unauthenticated conversation list", async () => {
+    const app = buildApp(TEST_CONFIG);
+    const res = await app.inject({ method: "GET", url: "/api/conversations" });
+    expect(res.statusCode).toBe(401);
     await app.close();
   });
 });

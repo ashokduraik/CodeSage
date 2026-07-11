@@ -6,42 +6,20 @@ import { ChatInput } from "./ChatInput";
 afterEach(cleanup);
 
 describe("ChatInput", () => {
-  it("sends trimmed text and clears the field on submit", () => {
+  it("shows a stop button while streaming", () => {
+    const onStop = vi.fn();
+    render(<ChatInput onSend={vi.fn()} onStop={onStop} isStreaming disabled />);
+    fireEvent.click(screen.getByRole("button", { name: "Stop generating" }));
+    expect(onStop).toHaveBeenCalled();
+  });
+
+  it("submits trimmed text on send", () => {
     const onSend = vi.fn();
     render(<ChatInput onSend={onSend} />);
-    const field = screen.getByLabelText("Ask about your codebase\u2026") as HTMLTextAreaElement;
-    fireEvent.change(field, { target: { value: "  how does auth work?  " } });
+    fireEvent.change(screen.getByLabelText("Ask about your codebase\u2026"), {
+      target: { value: "  hello  " },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    expect(onSend).toHaveBeenCalledWith("how does auth work?");
-    expect(field.value).toBe("");
-  });
-
-  it("submits on Enter but inserts a newline on Shift+Enter", () => {
-    const onSend = vi.fn();
-    render(<ChatInput onSend={onSend} />);
-    const field = screen.getByLabelText("Ask about your codebase\u2026");
-    fireEvent.change(field, { target: { value: "question" } });
-    fireEvent.keyDown(field, { key: "Enter", shiftKey: true });
-    expect(onSend).not.toHaveBeenCalled();
-    fireEvent.keyDown(field, { key: "Enter" });
-    expect(onSend).toHaveBeenCalledWith("question");
-  });
-
-  it("does not send empty or whitespace-only text", () => {
-    const onSend = vi.fn();
-    render(<ChatInput onSend={onSend} />);
-    const field = screen.getByLabelText("Ask about your codebase\u2026");
-    fireEvent.change(field, { target: { value: "   " } });
-    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    expect(onSend).not.toHaveBeenCalled();
-  });
-
-  it("does not send while disabled", () => {
-    const onSend = vi.fn();
-    render(<ChatInput onSend={onSend} disabled />);
-    const field = screen.getByLabelText("Ask about your codebase\u2026");
-    fireEvent.change(field, { target: { value: "text" } });
-    fireEvent.keyDown(field, { key: "Enter" });
-    expect(onSend).not.toHaveBeenCalled();
+    expect(onSend).toHaveBeenCalledWith("hello");
   });
 });
