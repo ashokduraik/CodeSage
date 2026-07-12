@@ -59,9 +59,9 @@ Implemented in `services.indexing.startup_log.log_startup_queue_state()`.
 
 ### Job supersession and orphan reclaim
 
-On each worker start (and before every job claim):
+On each worker start:
 
-1. **Orphan reclaim** — active `running` jobs → `pending` (`Reclaimed N orphaned running job(s) from previous worker`). Failed/done rows are untouched.
+1. **Orphan reclaim** — active `running` jobs → `pending` (or `failed` when attempts are exhausted). Runs once per worker process start, not before every claim.
 2. **Stale reclaim** — jobs running longer than `WORKER_STALE_JOB_SECONDS` → `pending` or `failed`.
 
 Manual re-index from the UI is blocked (**409**) while active jobs for that repo are younger than `WORKER_STALE_JOB_SECONDS`. When allowed, the API soft-deletes (`status = 'D'`) pending jobs for that `repoId` before enqueueing a new sync. Superseded rows are never claimed by the worker.

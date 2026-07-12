@@ -27,6 +27,8 @@ React (apps/web)  →  Node non-blocking APIs (apps/api)  →  Python (`apps/rag
   cross-repo linking, LLM distillation, retrieval, QA assembly.
 - **Business logic lives in `apps/rag/src/services/`.** `src/api/` (HTTP) and `src/workers/` (jobs) are thin
   I/O layers only; `src/repositories/` + `src/models/` handle persistence.
+- **RAG is internal-only at deploy time.** The browser talks to `apps/api`; Node proxies to
+  `apps/rag` on the private network. Do not publish the RAG HTTP port publicly.
 
 ## 3. Component map
 

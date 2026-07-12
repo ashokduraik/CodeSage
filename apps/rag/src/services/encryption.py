@@ -19,10 +19,27 @@ def parse_encryption_key(base64_key: str) -> bytes:
     """
     if not base64_key:
         raise ValueError("TOKEN_ENC_KEY is not set; cannot decrypt repo tokens.")
-    key = base64.b64decode(base64_key)
+    try:
+        key = base64.b64decode(base64_key, validate=True)
+    except Exception as exc:
+        raise ValueError("TOKEN_ENC_KEY is not valid base64.") from exc
     if len(key) != 32:
         raise ValueError(f"TOKEN_ENC_KEY must decode to 32 bytes (got {len(key)}).")
     return key
+
+
+def _parse_hex_bytes(value: str, *, label: str) -> bytes:
+    """Parse a hex string into bytes with a clear validation error.
+
+    @param value - Hex-encoded bytes.
+    @param label - Field name for error messages.
+    @returns Decoded bytes.
+    @raises ValueError when the value is not valid hex.
+    """
+    try:
+        return bytes.fromhex(value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid {label} hex in ciphertext.") from exc
 
 
 def decrypt_token(ciphertext: str, key: bytes) -> str:
@@ -37,9 +54,11 @@ def decrypt_token(ciphertext: str, key: bytes) -> str:
     if len(parts) != 3:
         raise ValueError("Invalid ciphertext format; expected iv:ciphertext:authTag.")
     iv_hex, enc_hex, tag_hex = parts
-    iv = bytes.fromhex(iv_hex)
-    encrypted = bytes.fromhex(enc_hex)
-    tag = bytes.fromhex(tag_hex)
+    iv = _parse_hex_bytes(iv_hex, label="IV")
+    encrypted = _parse_hex_bytes(enc_hex, label="ciphertext")
+    tag = _parse_hex_bytes(tag_hex, label="auth tag")
+    if len(iv) != IV_BYTES:
+        raise ValueError(f"Invalid IV length: {len(iv)} (expected {IV_BYTES}).")
     if len(tag) != TAG_BYTES:
         raise ValueError(f"Invalid auth tag length: {len(tag)} (expected {TAG_BYTES}).")
     aesgcm = AESGCM(key)

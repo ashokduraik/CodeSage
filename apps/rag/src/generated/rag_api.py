@@ -31,12 +31,11 @@ class QueryAudience(Enum):
 class ChatTurnRole(Enum):
     user = 'user'
     assistant = 'assistant'
-    system = 'system'
 
 
 class ChatTurn(BaseModel):
     role: ChatTurnRole
-    content: str = Field(
+    content: constr(min_length=1, max_length=8000) = Field(
         ..., description='Prior turn text (user question or assistant answer).'
     )
 

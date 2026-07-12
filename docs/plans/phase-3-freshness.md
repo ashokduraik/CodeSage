@@ -1,6 +1,7 @@
 # Phase 3 — Freshness (webhooks + scheduled poll)
 
-Implementation plan per [`final-solution.md` §12](../final-solution.md).
+Implementation plan per [`final-solution.md` §12](../final-solution.md). Webhooks: [ADR 0017](../adr/0017-webhook-registration-on-connect.md);
+scheduled poll: [ADR 0024](../adr/0024-freshness-scheduled-poll.md).
 
 **Exit criteria:** Push to an attached repo triggers incremental re-index within minutes; scheduled poll catches drift when webhooks are disabled or missed.
 
@@ -30,7 +31,7 @@ Implementation plan per [`final-solution.md` §12](../final-solution.md).
 
 **Done when:** Webhook or poll sync advances `last_indexed_sha` without full re-clone.
 
-### M3 — Scheduled poll fallback
+### M3 — Scheduled poll fallback (ADR 0024)
 
 | Task | Module | Deliverables |
 |---|---|---|

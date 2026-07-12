@@ -10,7 +10,14 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 ## workers/
 - [x] Job type registry + background thread.
 - [x] Postgres queue consumer + handler dispatch (`sync`, `parse`, `embed`, `xrepo`).
-- [ ] Procrastinate migration (optional; ADR 0006 allows hand-rolled queue).
+- [x] Worker hardening — rollback-first failure handling, startup-only orphan reclaim, transient retries, per-repo freshness commits.
+
+## Hardening (2026-07)
+- [x] Network-only RAG deploy default (Compose internal service).
+- [x] Git token handling via `GIT_ASKPASS` (no argv / stored remote secrets).
+- [x] Contract-aligned `/rag/query` validation (generated `RagQueryRequest`).
+- [x] Retrieval grounding fixes (rerank confidence, history budget reserve, graph chunk pick).
+- [x] API signal + cross-repo parameterized route matching.
 
 ## config/
 - [x] Settings + env loading.

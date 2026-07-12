@@ -87,8 +87,7 @@ components:
       enum:
         - user
         - assistant
-        - system
-      description: Role of a prior conversation turn sent to the LLM.
+      description: Role of a prior conversation turn sent to the LLM (system prompts are server-owned).
 
     ChatTurn:
       type: object
@@ -100,6 +99,8 @@ components:
           $ref: '#/components/schemas/ChatTurnRole'
         content:
           type: string
+          minLength: 1
+          maxLength: 8000
           description: Prior turn text (user question or assistant answer).
 
     RagQueryRequest:

@@ -60,10 +60,10 @@ export interface components {
          */
         QueryAudience: "developer" | "end_user";
         /**
-         * @description Role of a prior conversation turn sent to the LLM.
+         * @description Role of a prior conversation turn sent to the LLM (system prompts are server-owned).
          * @enum {string}
          */
-        ChatTurnRole: "user" | "assistant" | "system";
+        ChatTurnRole: "user" | "assistant";
         ChatTurn: {
             role: components["schemas"]["ChatTurnRole"];
             /** @description Prior turn text (user question or assistant answer). */

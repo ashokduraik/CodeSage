@@ -122,27 +122,43 @@ class JobRepository:
         ).fetchall()
         return len(rows)
 
-    def reclaim_orphaned_running_jobs(self) -> int:
-        """Reset all active ``running`` jobs to ``pending`` after worker restart.
+    def reclaim_orphaned_running_jobs(self, max_attempts: int) -> int:
+        """Reset orphaned ``running`` jobs to ``pending`` or ``failed`` after worker restart.
 
-        MVP runs a single worker process; any ``running`` row at reclaim time is
-        orphaned because the previous process no longer holds the lock.
+        Called once when the worker process starts. Any ``running`` row at that moment
+        is orphaned because the previous process no longer holds the lock. Jobs at or
+        above ``max_attempts`` are marked failed instead of requeued.
 
+        @param max_attempts - Attempts threshold; at or above marks job failed.
         @returns Number of rows updated.
         """
         rag_actor = str(RAG_ACTOR_ID)
         stmt = text(
             """
             UPDATE jobs
-            SET job_status = 'pending'::job_status,
+            SET job_status = CASE
+                    WHEN attempts >= :max_attempts THEN 'failed'::job_status
+                    ELSE 'pending'::job_status
+                END,
                 locked_at = NULL,
+                error_message = CASE
+                    WHEN attempts >= :max_attempts THEN :stale_error
+                    ELSE error_message
+                END,
                 updated_by = :updated_by
             WHERE job_status = 'running'
               AND status = 'A'
             RETURNING id
             """,
         )
-        rows = self._session.execute(stmt, {"updated_by": rag_actor}).fetchall()
+        rows = self._session.execute(
+            stmt,
+            {
+                "max_attempts": max_attempts,
+                "stale_error": STALE_JOB_ERROR_MESSAGE,
+                "updated_by": rag_actor,
+            },
+        ).fetchall()
         return len(rows)
 
     def is_job_active(self, job_id: uuid.UUID) -> bool:
@@ -240,6 +256,19 @@ class JobRepository:
                 return True
         return False
 
+    def has_active_indexing_job_for_repo(self, repo_id: uuid.UUID) -> bool:
+        """Return True when sync, parse, or embed is pending/running for a repository.
+
+        Used by the freshness poller to avoid enqueueing overlapping indexing pipelines.
+
+        @param repo_id - Repository UUID stored in job payloads.
+        @returns Whether any indexing-stage job targets the repo.
+        """
+        for job_type in ("sync", "parse", "embed"):
+            if self.has_active_job_for_repo(job_type, repo_id):
+                return True
+        return False
+
     def cancel_pending_jobs_for_repo(self, repo_id: uuid.UUID) -> int:
         """Soft-delete pending jobs for a repository so a newer sync can take over.
 
@@ -322,6 +351,24 @@ class JobRepository:
         if job is None:
             return None
         job.job_status = JobStatus.FAILED
+        job.locked_at = None
+        if error_message is not None:
+            job.error_message = error_message[:2000]
+        stamp_updated(job)
+        self._session.flush()
+        return job
+
+    def mark_requeue_pending(self, job_id: uuid.UUID, error_message: str | None = None) -> Job | None:
+        """Return a transiently failed job to the pending queue for another attempt.
+
+        @param job_id - Job UUID.
+        @param error_message - Optional last-error summary retained for diagnostics.
+        @returns Updated job or ``None`` if not found.
+        """
+        job = self._session.get(Job, job_id)
+        if job is None:
+            return None
+        job.job_status = JobStatus.PENDING
         job.locked_at = None
         if error_message is not None:
             job.error_message = error_message[:2000]

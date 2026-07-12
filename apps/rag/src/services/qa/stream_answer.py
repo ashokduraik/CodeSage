@@ -18,7 +18,12 @@ from services.llm.prompts import CODE_QA_SYSTEM_PROMPT
 from services.llm.tokens import count_tokens, truncate_to_tokens
 from services.llm.vllm_client import LlmStreamStats, stream_vllm_answer
 from services.llm.title import generate_session_title
-from services.retrieval.search import RetrievalContext, is_confident_match, retrieve_code_chunks
+from services.retrieval.search import (
+    RetrievalContext,
+    _matches_for_confidence,
+    is_confident_match,
+    retrieve_code_chunks,
+)
 from services.retrieval.hybrid_confidence import compute_hybrid_confidence
 from services.retrieval.types import RetrievalMatch
 from services.router.classify import is_code_audience
@@ -196,7 +201,10 @@ def _trim_history_for_budget(
         + _STRUCT_OVERHEAD_TOKENS
     )
     history_budget = (
-        max_context - settings.llm_completion_reserve_tokens - fixed
+        max_context
+        - settings.llm_completion_reserve_tokens
+        - fixed
+        - settings.llm_min_retrieval_context_tokens
     )
 
     selected: list[dict[str, str]] = []
@@ -425,7 +433,7 @@ def stream_rag_answer(
         session.close()
 
     hybrid_confidence = compute_hybrid_confidence(
-        matches,
+        _matches_for_confidence(matches, retrieval_context),
         settings,
         intent=retrieval_context.intent,
         terms=retrieval_context.terms,

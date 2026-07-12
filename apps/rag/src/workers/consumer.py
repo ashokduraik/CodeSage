@@ -129,6 +129,29 @@ def _sync_is_update(settings: Settings, repo_id: uuid.UUID | None) -> bool:
     return is_existing_clone(worktree)
 
 
+def _is_transient_failure(exc: BaseException) -> bool:
+    """Return True when a handler error is likely temporary and worth retrying.
+
+    Network, git, and embedding service outages are retried up to
+    ``worker_max_job_attempts``. Validation and unsupported job types are not.
+
+    @param exc - Exception raised inside a job handler.
+    @returns Whether the worker should requeue the job instead of failing it.
+    """
+    if isinstance(exc, (ConnectionError, TimeoutError, OSError)):
+        return True
+    if isinstance(exc, RuntimeError):
+        return True
+    try:
+        import httpx
+
+        if isinstance(exc, httpx.HTTPError):
+            return True
+    except ImportError:
+        pass
+    return False
+
+
 def _handle_job_failure(
     work_session: Session,
     settings: Settings,
@@ -151,16 +174,26 @@ def _handle_job_failure(
     @param unsupported - When ``True``, use a fixed message instead of ``explain_failure``.
     @param recorder - Optional progress recorder for repo indexing timeline events.
     """
-    exec_ctx = _build_execution_context(work_session, job)
-    step_num, step_name = job_step(job.type)
-    label = _job_log_label(work_session, job.type, job.payload)
-
     if unsupported:
         explanation = "Unsupported job type"
         failure_exc: BaseException | None = None
     else:
         explanation = explain_failure(exc, job_type=job.type, settings=settings)
         failure_exc = exc
+
+    # Roll back first so a poisoned handler session can still persist failure state.
+    work_session.rollback()
+
+    exec_ctx = _build_execution_context(work_session, job)
+    step_num, step_name = job_step(job.type)
+    label = _job_log_label(work_session, job.type, job.payload)
+
+    attempts = getattr(job, "attempts", settings.worker_max_job_attempts)
+    should_retry = (
+        not unsupported
+        and _is_transient_failure(exc)
+        and attempts < settings.worker_max_job_attempts
+    )
 
     short_id = str(job.id)[:8]
     summary = format_failure_summary(
@@ -173,10 +206,18 @@ def _handle_job_failure(
     )
     log_failure(logger, summary, failure_exc)
 
-    # Discard partial handler writes (chunks, enqueues) before persisting failure state.
-    work_session.rollback()
+    jobs_repo = JobRepository(work_session)
+    if should_retry:
+        jobs_repo.mark_requeue_pending(job.id, error_message=explanation)
+        work_session.commit()
+        log_event(
+            logger,
+            logging.WARNING,
+            f"Job {short_id} requeued for retry ({attempts}/{settings.worker_max_job_attempts})",
+        )
+        return
 
-    JobRepository(work_session).mark_failed(job.id, error_message=explanation)
+    jobs_repo.mark_failed(job.id, error_message=explanation)
     work_session.commit()
 
     try:
@@ -227,15 +268,6 @@ def process_next_job(session_factory: sessionmaker[Session], settings: Settings)
     session = session_factory()
     try:
         jobs = JobRepository(session)
-        orphaned = jobs.reclaim_orphaned_running_jobs()
-        if orphaned > 0:
-            session.commit()
-            log_event(
-                logger,
-                logging.WARNING,
-                format_orphaned_reclaimed_jobs_message(orphaned),
-            )
-
         reclaimed = jobs.reclaim_stale_running_jobs(
             settings.worker_stale_job_seconds,
             settings.worker_max_job_attempts,
@@ -348,6 +380,25 @@ def run_job_consumer(settings: Settings, stop_event) -> None:
 
     engine = create_engine_from_settings(settings)
     session_factory = create_session_factory(engine)
+
+    # Orphan reclaim runs once at startup only. Reclaiming before every claim would
+    # reset actively-running jobs if a second worker were ever introduced.
+    startup_session = session_factory()
+    try:
+        jobs = JobRepository(startup_session)
+        orphaned = jobs.reclaim_orphaned_running_jobs(settings.worker_max_job_attempts)
+        if orphaned > 0:
+            startup_session.commit()
+            log_event(
+                logger,
+                logging.WARNING,
+                format_orphaned_reclaimed_jobs_message(orphaned),
+            )
+        else:
+            startup_session.commit()
+    finally:
+        startup_session.close()
+
     while not stop_event.is_set():
         try:
             processed = process_next_job(session_factory, settings)

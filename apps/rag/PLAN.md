@@ -29,6 +29,7 @@ Layered Python backend under **`src/`**: **api → services → repositories →
 2. **`workers/handlers/`** — dispatch `sync`, `parse`, `embed`, `xrepo` to services. ✅
 3. **Job dedup** — orphan reclaim on worker start; API supersession + 409 re-index throttle. ✅
 4. **`indexing/xrepo_enqueue.py`** — auto-queue `xrepo` when multi-repo project is fully indexed. ✅
+5. **Hardening pass** — worker reliability, internal-only RAG network boundary, git credential handling, retrieval/contract fixes. ✅
 
 ## Definition of Done
 

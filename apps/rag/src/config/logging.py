@@ -15,7 +15,7 @@ RAG_LOG_FORMAT = "%(asctime)s  %(levelname)-5s  [RAG]  %(message)s"
 RAG_LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
 _TOKEN_PATTERN = re.compile(
-    r"ghp_[A-Za-z0-9]+|glpat-[A-Za-z0-9_-]+|://[^@\s/]+@[^@\s/]+|://[^@\s]+@",
+    r"github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|glpat-[A-Za-z0-9_-]+|://[^@\s/]+@[^@\s/]+|://[^@\s]+@",
 )
 
 JOB_STEPS: dict[str, tuple[int, str]] = {

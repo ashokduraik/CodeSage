@@ -29,6 +29,7 @@ STARTUP_PROBE_TIMEOUT_SECONDS = 5.0  # per-backend reachability probe at boot (n
 LLM_MAX_CONTEXT_TOKENS = 8192  # fallback window when auto-detection is off or fails
 LLM_COMPLETION_RESERVE_TOKENS = 1024  # tokens held back for the answer (also sent as max_tokens)
 LLM_MAX_HISTORY_TURNS = 10  # max prior conversation turns packed into the prompt
+LLM_MIN_RETRIEVAL_CONTEXT_TOKENS = 2048  # minimum tokens reserved for retrieved code excerpts
 
 # --- Retrieval (developer QA) ---
 RETRIEVAL_TOP_K = 20  # legacy fallback for vector top-k when RETRIEVAL_VECTOR_TOP_K unset
@@ -66,4 +67,4 @@ RETRIEVAL_RERANKER_MAX_DOC_CHARS = 1500  # per-chunk text cap in the rerank payl
 SYNC_MAX_FILE_BYTES = 512_000  # skip indexing files larger than this
 
 # --- Freshness (Phase 3) ---
-FRESHNESS_POLL_INTERVAL_SECONDS = 900  # fallback poll interval when webhooks miss pushes
+FRESHNESS_POLL_INTERVAL_SECONDS = 1800  # fallback poll interval when webhooks miss pushes

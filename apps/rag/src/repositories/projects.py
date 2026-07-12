@@ -13,7 +13,9 @@ from models.enums import ProjectStatus, RepoConnectionStatus, RowStatus
 from models import Project, Repo
 from repositories.audit import stamp_created, stamp_updated
 
-_TOKEN_PATTERN = re.compile(r"ghp_[A-Za-z0-9]+|glpat-[A-Za-z0-9_-]+|://[^@\s]+@")
+_TOKEN_PATTERN = re.compile(
+    r"github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|glpat-[A-Za-z0-9_-]+|://[^@\s]+@",
+)
 
 
 def sanitize_sync_error(message: str, max_len: int = 2000) -> str:

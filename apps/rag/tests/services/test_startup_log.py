@@ -19,7 +19,6 @@ def test_log_startup_queue_state_empty() -> None:
     session = MagicMock()
     factory = MagicMock(return_value=session)
     jobs = MagicMock()
-    jobs.reclaim_orphaned_running_jobs.return_value = 0
     jobs.reclaim_stale_running_jobs.return_value = 0
     jobs.summarize_pending.return_value = []
     jobs.count_by_status.return_value = 0
@@ -34,16 +33,14 @@ def test_log_startup_queue_state_empty() -> None:
     assert any("Worker ready" in message for message in messages)
     assert any("clone directory /tmp/repos" in message for message in messages)
     assert any("Job queue: empty" in message for message in messages)
-    jobs.reclaim_orphaned_running_jobs.assert_called_once()
     jobs.reclaim_stale_running_jobs.assert_called_once_with(600, 3)
 
 
-def test_startup_log_reclaims_orphaned_before_pending_summary() -> None:
+def test_startup_log_reclaims_stale_before_pending_summary() -> None:
     session = MagicMock()
     factory = MagicMock(return_value=session)
     jobs = MagicMock()
-    jobs.reclaim_orphaned_running_jobs.return_value = 2
-    jobs.reclaim_stale_running_jobs.return_value = 0
+    jobs.reclaim_stale_running_jobs.return_value = 2
     jobs.summarize_pending.return_value = []
     jobs.count_by_status.return_value = 0
 
@@ -53,11 +50,10 @@ def test_startup_log_reclaims_orphaned_before_pending_summary() -> None:
     ):
         log_startup_queue_state(Settings(), factory)
 
-    jobs.reclaim_orphaned_running_jobs.assert_called_once()
     jobs.reclaim_stale_running_jobs.assert_called_once()
     session.commit.assert_called_once()
     messages = _log_messages(mock_log_event)
-    assert any("orphaned running job(s)" in message for message in messages)
+    assert any("Reclaimed 2 stale running job(s)" in message for message in messages)
 
 
 def test_log_startup_queue_state_reclaims_stale_on_startup() -> None:
@@ -85,7 +81,6 @@ def test_log_startup_queue_state_warns_on_failed() -> None:
     session = MagicMock()
     factory = MagicMock(return_value=session)
     jobs = MagicMock()
-    jobs.reclaim_orphaned_running_jobs.return_value = 0
     jobs.reclaim_stale_running_jobs.return_value = 0
     jobs.summarize_pending.return_value = []
     jobs.count_by_status.side_effect = lambda status: 1 if status == "failed" else 0

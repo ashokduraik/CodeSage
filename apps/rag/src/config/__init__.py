@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     llm_max_context_tokens: int = constants.LLM_MAX_CONTEXT_TOKENS
     llm_completion_reserve_tokens: int = constants.LLM_COMPLETION_RESERVE_TOKENS
     llm_max_history_turns: int = constants.LLM_MAX_HISTORY_TURNS
+    llm_min_retrieval_context_tokens: int = constants.LLM_MIN_RETRIEVAL_CONTEXT_TOKENS
 
     retrieval_top_k: int = constants.RETRIEVAL_TOP_K
     retrieval_vector_top_k: int = constants.RETRIEVAL_VECTOR_TOP_K

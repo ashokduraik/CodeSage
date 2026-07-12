@@ -14,7 +14,6 @@ from config.logging import (
     format_failed_queue_header,
     format_indexing_context,
     format_job_fallback_context,
-    format_orphaned_reclaimed_jobs_message,
     format_pending_queue_message,
     format_reclaimed_jobs_message,
     format_running_queue_message,
@@ -47,17 +46,6 @@ def log_startup_queue_state(
     session = session_factory()
     try:
         jobs = JobRepository(session)
-        # If the previous process crashed mid-job, rows stay ``running`` forever. Reclaim
-        # them at startup using the same logic as the worker loop before we log queue state.
-        orphaned = jobs.reclaim_orphaned_running_jobs()
-        if orphaned > 0:
-            session.commit()
-            log_event(
-                logger,
-                logging.WARNING,
-                format_orphaned_reclaimed_jobs_message(orphaned),
-            )
-
         reclaimed = jobs.reclaim_stale_running_jobs(
             settings.worker_stale_job_seconds,
             settings.worker_max_job_attempts,

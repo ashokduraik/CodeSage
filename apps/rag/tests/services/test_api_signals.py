@@ -27,3 +27,29 @@ app.post('/api/users', handler);
 
 def test_extract_api_signals_skips_non_js_files() -> None:
     assert extract_api_signals("fetch('/x')", "README.md") == []
+
+
+def test_extract_api_signals_fetch_defaults_to_get() -> None:
+    source = "fetch('/api/users');"
+    signals = extract_api_signals(source, "client.ts")
+    assert len(signals) == 1
+    assert signals[0].key == "GET /api/users"
+
+
+def test_extract_api_signals_fetch_with_explicit_method() -> None:
+    source = "fetch('/api/users', { method: 'POST' });"
+    signals = extract_api_signals(source, "client.ts")
+    assert len(signals) == 1
+    assert signals[0].key == "POST /api/users"
+
+
+def test_extract_api_signals_fetch_with_nested_options_object() -> None:
+    source = """
+fetch('/api/users', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+});
+"""
+    signals = extract_api_signals(source, "client.ts")
+    assert len(signals) == 1
+    assert signals[0].key == "POST /api/users"

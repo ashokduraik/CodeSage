@@ -2,41 +2,20 @@
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import AsyncIterator, Iterator
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from generated.rag_api import RagQueryRequest
 from starlette.concurrency import iterate_in_threadpool
 
-from repositories import create_session_factory
 from services.qa.stream_answer import stream_rag_answer
 
 router = APIRouter()
 
 
-class ChatTurnBody(BaseModel):
-    """One prior conversation turn sent to the LLM for multi-turn QA."""
-
-    role: str = Field(pattern=r"^(user|assistant|system)$")
-    content: str = Field(min_length=1)
-
-
-class RagQueryBody(BaseModel):
-    """Request body for POST /rag/query (mirrors contracts/openapi.rag.yaml)."""
-
-    question: str = Field(min_length=1, max_length=8000)
-    projectId: uuid.UUID
-    audience: str
-    repoIds: list[uuid.UUID] | None = None
-    pageContext: str | None = Field(default=None, max_length=500)
-    generateTitle: bool = False
-    history: list[ChatTurnBody] | None = None
-
-
 @router.post("/rag/query")
-def rag_query(request: Request, body: RagQueryBody) -> StreamingResponse:
+def rag_query(request: Request, body: RagQueryRequest) -> StreamingResponse:
     """Stream a grounded answer or abstain response as Server-Sent Events.
 
     Retrieves relevant code chunks, optionally calls vLLM, and streams JSON chunks back
@@ -51,7 +30,7 @@ def rag_query(request: Request, body: RagQueryBody) -> StreamingResponse:
     settings = request.app.state.settings
     session_factory = request.app.state.session_factory
     history = (
-        [{"role": turn.role, "content": turn.content} for turn in body.history]
+        [{"role": turn.role.value, "content": turn.content} for turn in body.history]
         if body.history
         else None
     )
@@ -70,9 +49,9 @@ def rag_query(request: Request, body: RagQueryBody) -> StreamingResponse:
             session_factory,
             question=body.question,
             project_id=body.projectId,
-            audience=body.audience,
+            audience=body.audience.value,
             repo_ids=body.repoIds,
-            generate_title=body.generateTitle,
+            generate_title=body.generateTitle or False,
             history=history,
         )
 

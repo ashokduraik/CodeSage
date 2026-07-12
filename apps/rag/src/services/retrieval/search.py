@@ -147,6 +147,32 @@ def retrieve_code_chunks(
     return pruned, context
 
 
+    reranker_applied: bool = False
+
+
+def _matches_for_confidence(
+    matches: list[RetrievalMatch],
+    context: RetrievalContext | None,
+) -> list[RetrievalMatch]:
+    """Return matches ordered for confidence scoring rather than rerank presentation.
+
+    When the reranker reorders results, abstain decisions still use fused/symbol/vector
+    signals from the pre-rerank ordering.
+
+    @param matches - Pruned hits used for answering.
+    @param context - Retrieval metadata including reranker flag.
+    @returns Matches ordered for hybrid-confidence evaluation.
+    """
+    if context is None or not context.reranker_applied:
+        return matches
+    from services.retrieval.prune import prune_sort_key
+
+    return sorted(
+        matches,
+        key=lambda match: prune_sort_key(match, context.intent),
+    )
+
+
 def is_confident_match(
     settings: Settings,
     matches: list[RetrievalMatch],
@@ -173,11 +199,11 @@ def is_confident_match(
         terms = context.terms
         intent = context.intent
 
-    if has_hard_vector_fail(matches, settings):
+    if has_hard_vector_fail(_matches_for_confidence(matches, context), settings):
         return False
 
     score = compute_hybrid_confidence(
-        matches,
+        _matches_for_confidence(matches, context),
         settings,
         intent=intent,
         terms=terms,

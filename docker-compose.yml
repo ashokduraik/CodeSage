@@ -63,8 +63,8 @@ services:
       FRESHNESS_POLL_INTERVAL_SECONDS: ${FRESHNESS_POLL_INTERVAL_SECONDS:-900}
     volumes:
       - repo_clones:/var/codesage/repos
-    ports:
-      - "8001:8001"
+    # Internal only — Node reaches RAG via the Compose network (RAG_BASE_URL=http://rag:8001).
+    # For local debugging outside Compose, run `npm run dev:rag` on the host.
     depends_on:
       migrate:
         condition: service_completed_successfully

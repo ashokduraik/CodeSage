@@ -145,12 +145,28 @@ def test_reclaim_orphaned_running_jobs_resets_to_pending() -> None:
     session.execute.return_value.fetchall.return_value = [(uuid.uuid4(),)]
 
     repo = JobRepository(session)
-    count = repo.reclaim_orphaned_running_jobs()
+    count = repo.reclaim_orphaned_running_jobs(3)
 
     assert count == 1
     sql = str(session.execute.call_args[0][0])
     assert "'pending'::job_status" in sql
     assert "job_status = 'running'" in sql
+    assert session.execute.call_args[0][1]["max_attempts"] == 3
+
+
+def test_mark_requeue_pending_returns_job_to_pending() -> None:
+    session = MagicMock()
+    job_id = uuid.uuid4()
+    job = Job(id=job_id, type="sync", payload={}, job_status=JobStatus.RUNNING)
+    session.get.return_value = job
+
+    repo = JobRepository(session)
+    updated = repo.mark_requeue_pending(job_id, error_message="temporary outage")
+
+    assert updated is job
+    assert job.job_status == JobStatus.PENDING
+    assert job.locked_at is None
+    assert job.error_message == "temporary outage"
 
 
 def test_is_job_active_returns_false_when_superseded() -> None:
@@ -184,6 +200,21 @@ def test_has_active_job_for_repo_matches_payload() -> None:
 
     repo = JobRepository(session)
     assert repo.has_active_job_for_repo("sync", repo_id) is True
+
+
+def test_has_active_indexing_job_for_repo_checks_sync_parse_embed() -> None:
+    repo_id = uuid.uuid4()
+    session = MagicMock()
+    embed_job = Job(
+        type="embed",
+        payload={"repoId": str(repo_id)},
+        status=RowStatus.ACTIVE,
+        job_status=JobStatus.RUNNING,
+    )
+    session.scalars.return_value = iter([embed_job])
+
+    repo = JobRepository(session)
+    assert repo.has_active_indexing_job_for_repo(repo_id) is True
 
 
 def test_cancel_pending_jobs_for_repo_supersedes_rows() -> None:

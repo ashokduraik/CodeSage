@@ -1,6 +1,7 @@
 # Phase 2 — Multi-repo linking
 
-Implementation plan per [`final-solution.md` §12](../final-solution.md).
+Implementation plan per [`final-solution.md` §12](../final-solution.md). Architecture:
+[ADR 0023](../adr/0023-cross-repo-linking.md).
 
 **Exit criteria:** A workflow/graph query spans frontend → backend → IAM (cross-repo
 `graph_edges` connect HTTP client calls to route handlers; developer QA retrieval expands
@@ -13,7 +14,7 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 
 ## Milestones
 
-### M1 — API signal extraction during parse
+### M1 — API signal extraction during parse (ADR 0023)
 
 | Task | Module | Deliverables |
 |---|---|---|
@@ -22,7 +23,7 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 
 **Done when:** Parsed repos contain `http_call` and `route` nodes with normalized `METHOD /path` names.
 
-### M2 — Cross-repo link resolver (`xrepo` job)
+### M2 — Cross-repo link resolver (`xrepo` job) (ADR 0023)
 
 | Task | Module | Deliverables |
 |---|---|---|
@@ -32,7 +33,7 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 
 **Done when:** Two-repo project produces cross-repo edges after indexing; job is idempotent.
 
-### M3 — Graph-augmented retrieval
+### M3 — Graph-augmented retrieval (ADR 0023)
 
 | Task | Module | Deliverables |
 |---|---|---|

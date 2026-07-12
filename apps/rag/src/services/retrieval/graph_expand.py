@@ -12,6 +12,42 @@ from repositories import CodeChunkRepository, GraphNodeRepository, expand_graph_
 from services.retrieval.types import RetrievalMatch
 
 
+def _span_start(chunk) -> int:
+    """Return the start line for a chunk span, or a large sentinel when absent."""
+    span = getattr(chunk, "span", None) or {}
+    if isinstance(span, dict):
+        return int(span.get("startLine") or span.get("start_line") or 10**9)
+    return 10**9
+
+
+def _select_chunk_for_node(node, file_chunks: list) -> object:
+    """Pick the chunk that best overlaps a graph node span.
+
+    @param node - Graph node reached via expansion.
+    @param file_chunks - Candidate chunks for the node's file.
+    @returns The most relevant chunk row.
+    """
+    node_span = node.span if isinstance(getattr(node, "span", None), dict) else None
+    if node_span is not None:
+        node_start = int(node_span.get("startLine") or node_span.get("start_line") or 0)
+        node_end = int(node_span.get("endLine") or node_span.get("end_line") or node_start)
+        best = None
+        best_overlap = -1
+        for chunk in file_chunks:
+            span = getattr(chunk, "span", None) or {}
+            if not isinstance(span, dict):
+                continue
+            start = int(span.get("startLine") or span.get("start_line") or 0)
+            end = int(span.get("endLine") or span.get("end_line") or start)
+            overlap = min(end, node_end) - max(start, node_start)
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best = chunk
+        if best is not None:
+            return best
+    return sorted(file_chunks, key=lambda chunk: (_span_start(chunk), str(chunk.id)))[0]
+
+
 def augment_matches_with_graph(
     session: Session,
     settings: Settings,
@@ -75,7 +111,7 @@ def augment_matches_with_graph(
         file_chunks = chunks_repo.list_by_repo_file(node.repo_id, node.file_path)
         if not file_chunks:
             continue
-        candidate = file_chunks[0]
+        candidate = _select_chunk_for_node(node, file_chunks)
         if candidate.id in seen_chunk_ids:
             continue
         # Graph-expanded chunks sit after fused hits; encode hop depth in a low fused score.

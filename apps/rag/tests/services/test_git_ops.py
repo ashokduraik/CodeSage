@@ -18,9 +18,9 @@ from services.sync.paths import (
 )
 
 
-def test_build_authenticated_url_injects_token() -> None:
+def test_build_authenticated_url_keeps_clean_url() -> None:
     url = build_authenticated_url("https://github.com/org/repo.git", "tok")
-    assert url.startswith("https://tok@github.com/")
+    assert url == "https://github.com/org/repo.git"
 
 
 def test_build_authenticated_url_without_token() -> None:
@@ -29,7 +29,7 @@ def test_build_authenticated_url_without_token() -> None:
 
 
 def test_resolve_remote_head_parses_ls_remote_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_run(args: list[str], *, cwd: Path | None = None) -> object:
+    def fake_run(args: list[str], *, cwd: Path | None = None, token: str | None = None) -> object:
         class Result:
             stdout = "deadbeef\trefs/heads/main\n"
             returncode = 0
@@ -115,7 +115,7 @@ def test_sync_repository_diff_fallback_on_shallow_history(
 ) -> None:
     calls: list[list[str]] = []
 
-    def fake_run(args: list[str], *, cwd: Path | None = None) -> object:
+    def fake_run(args: list[str], *, cwd: Path | None = None, token: str | None = None) -> object:
         calls.append(args)
         if args[:2] == ["diff", "--name-only"]:
             raise RuntimeError("git diff failed: bad object")
@@ -155,7 +155,7 @@ def test_sync_repository_clone_logs(
     configure_logging(Settings(log_level="info"))
     calls: list[list[str]] = []
 
-    def fake_run(args: list[str], *, cwd: Path | None = None) -> object:
+    def fake_run(args: list[str], *, cwd: Path | None = None, token: str | None = None) -> object:
         calls.append(args)
 
         class Result:
@@ -184,7 +184,7 @@ def test_sync_repository_clone_logs(
 def test_sync_repository_clone(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     calls: list[list[str]] = []
 
-    def fake_run(args: list[str], *, cwd: Path | None = None) -> object:
+    def fake_run(args: list[str], *, cwd: Path | None = None, token: str | None = None) -> object:
         calls.append(args)
         class Result:
             stdout = "abc123\n"
@@ -217,7 +217,7 @@ def test_build_authenticated_url_non_http_scheme() -> None:
 
 def test_build_authenticated_url_with_port() -> None:
     url = build_authenticated_url("https://gitlab.com:8443/org/repo.git", "tok")
-    assert ":8443" in url
+    assert url == "https://gitlab.com:8443/org/repo.git"
 
 
 def test_run_git_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -236,10 +236,36 @@ def test_run_git_failure(monkeypatch: pytest.MonkeyPatch) -> None:
         _run_git(["status"])
 
 
+def test_run_git_does_not_embed_token_in_args(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def record_run(cmd: list[str], **kwargs: object) -> object:
+        captured["cmd"] = cmd
+        captured["env"] = kwargs.get("env")
+
+        class Result:
+            returncode = 0
+            stdout = "ok"
+            stderr = ""
+
+        return Result()
+
+    monkeypatch.setattr("services.sync.git_ops.subprocess.run", record_run)
+    from services.sync.git_ops import _run_git
+
+    _run_git(["ls-remote", "https://github.com/org/repo.git", "refs/heads/main"], token="secret-token")
+    cmd = captured["cmd"]
+    assert isinstance(cmd, list)
+    assert "secret-token" not in " ".join(cmd)
+    env = captured["env"]
+    assert isinstance(env, dict)
+    assert env.get("CODESAGE_GIT_TOKEN") == "secret-token"
+
+
 def test_sync_repository_fetch_existing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     calls: list[list[str]] = []
 
-    def fake_run(args: list[str], *, cwd: Path | None = None) -> object:
+    def fake_run(args: list[str], *, cwd: Path | None = None, token: str | None = None) -> object:
         calls.append(args)
         class Result:
             stdout = "sha2\n"
@@ -279,7 +305,7 @@ def test_sync_repository_fetch_existing_logs(
 
     configure_logging(Settings(log_level="info"))
 
-    def fake_run(args: list[str], *, cwd: Path | None = None) -> object:
+    def fake_run(args: list[str], *, cwd: Path | None = None, token: str | None = None) -> object:
         class Result:
             stdout = "sha2\n"
             returncode = 0

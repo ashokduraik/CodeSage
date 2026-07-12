@@ -209,3 +209,47 @@ def test_retrieve_code_chunks_uses_reranker_when_enabled(monkeypatch: pytest.Mon
     assert len(matches) == 1
     assert matches[0].rerank_score == 0.99
     assert context.reranker_applied is True
+
+
+def test_is_confident_match_uses_fused_scores_when_reranker_reorders() -> None:
+    from services.retrieval.hybrid_confidence import has_hard_vector_fail
+    from services.retrieval.search import RetrievalContext, _matches_for_confidence
+
+    chunk_strong = MagicMock()
+    chunk_strong.id = uuid.uuid4()
+    chunk_strong.file_path = "strong.ts"
+    chunk_strong.symbol_refs = [{"name": "getMinEmi"}]
+    chunk_weak = MagicMock()
+    chunk_weak.id = uuid.uuid4()
+    chunk_weak.file_path = "weak.ts"
+    chunk_weak.symbol_refs = []
+    matches = [
+        RetrievalMatch(
+            chunk=chunk_weak,
+            fused_score=0.01,
+            sources=("vector",),
+            vector_distance=0.9,
+            rerank_score=0.99,
+        ),
+        RetrievalMatch(
+            chunk=chunk_strong,
+            fused_score=0.08,
+            sources=("symbol",),
+            symbol_score=0.95,
+            rerank_score=0.10,
+        ),
+    ]
+    context = RetrievalContext(
+        intent=QueryIntentProfile.SYMBOL_LOOKUP,
+        tier=ProjectSizeTier.SMALL,
+        terms=["getMinEmi"],
+        reranker_applied=True,
+    )
+    settings = Settings(
+        retrieval_max_distance=0.45,
+        retrieval_symbol_min_similarity=0.35,
+        retrieval_keyword_min_similarity=0.15,
+    )
+    assert has_hard_vector_fail(matches, settings)
+    assert not has_hard_vector_fail(_matches_for_confidence(matches, context), settings)
+    assert _matches_for_confidence(matches, context)[0].chunk is chunk_strong

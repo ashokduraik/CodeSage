@@ -298,9 +298,12 @@ DATABASE_URL=postgresql://codesage:change-me@localhost:5432/codesage \
 From the **repository root** (build context is the monorepo root):
 
 ```bash
-docker compose up -d --build rag
-curl http://localhost:8001/health
+docker compose up -d --build rag api
+docker compose exec api curl http://rag:8001/health
 ```
+
+Compose does **not** publish RAG to the host by default. Use `npm run dev:rag` on the host when
+you need direct access for debugging.
 
 Compose sets `DATABASE_URL` to the `db` service and waits for migrations to finish.
 
@@ -315,11 +318,11 @@ The RAG process is a single deployable: HTTP API and background worker run toget
 | **Queue table** | `jobs` — not `repos`. Worker claims the oldest `job_status = 'pending'` row (`ORDER BY created_at`, `FOR UPDATE SKIP LOCKED`). |
 | **How a repo is indexed** | API attach enqueues `sync` `{ repoId }` → worker runs `sync` → `parse` → `embed`. Multi-repo projects also enqueue `xrepo` when every repo finishes embedding. |
 | **Poll frequency** | Processes jobs back-to-back while the queue has work. When empty, sleeps `WORKER_IDLE_SECONDS` (default **10 s**). |
-| **Orphan reclaim** | On startup and before each claim, `reclaim_orphaned_running_jobs()` resets active `running` → `pending` (previous worker died). |
+| **Orphan reclaim** | On worker startup only, `reclaim_orphaned_running_jobs()` resets orphaned `running` → `pending` (or `failed` when attempts exhausted). |
 | **Stale reclaim** | `reclaim_stale_running_jobs()` after `WORKER_STALE_JOB_SECONDS` (default **600 s**) during normal operation. |
 | **Failed jobs** | Never auto-requeued; startup logs them as history only. |
 | **Manual re-index** | API returns **409** when active jobs for the repo are younger than `WORKER_STALE_JOB_SECONDS`; then cancels pending jobs and enqueues a fresh sync. |
-| **Freshness poll** | Background thread runs `git ls-remote` every `FRESHNESS_POLL_INTERVAL_SECONDS` (default 900 s) on indexed repos; enqueues `cron_poll` sync when remote HEAD diverges. Set `FRESHNESS_POLL_ENABLED=false` to disable. |
+| **Freshness poll** | Background thread runs `git ls-remote` every `FRESHNESS_POLL_INTERVAL_SECONDS` (default 1800 s) on indexed repos; enqueues `cron_poll` sync when remote HEAD diverges. Set `FRESHNESS_POLL_ENABLED=false` to disable. |
 
 Indexing pipeline (per file, then project-level linking):
 
@@ -451,7 +454,7 @@ Phase plans: [`../../docs/plans/phase-1-mvp-code-qa.md`](../../docs/plans/phase-
 apps/rag/
 ├── src/                # ★ all Python code
 │   ├── api/            # HTTP — FastAPI app, routes (thin)
-│   ├── workers/        # Background jobs — Procrastinate consumer loop
+│   ├── workers/        # Background jobs — Postgres queue consumer loop
 │   ├── services/       # Business logic — parsing, graph, xrepo, retrieval, LLM, distill, …
 │   ├── models/         # ORM — SQLAlchemy tables, enums
 │   ├── repositories/   # Data access — repos, session, pgvector/graph queries
@@ -477,6 +480,15 @@ apps/rag/
 **Dependency direction:** `api/` and `workers/` → `services/` → `repositories/` → `models/`.
 
 Only **`apps/api`** (Node) should call this service over HTTP — not the browser directly.
+
+### Network boundary (deployment)
+
+RAG is an **internal service**. In Docker Compose it is **not** published to the host; only
+`apps/api` reaches it on the internal network via `RAG_BASE_URL=http://rag:8001`. Do not expose
+port 8001 to the internet or LAN without an additional auth layer.
+
+For local debugging outside Compose, run `npm run dev:rag` or `uv run python -m api.run` on the
+host — that binds `127.0.0.1:8001` explicitly for development only.
 
 ## Repo indexing progress (`repo_indexing_events`)
 

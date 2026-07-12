@@ -26,7 +26,6 @@ def test_process_next_job_returns_false_when_empty() -> None:
     session = MagicMock()
     factory = MagicMock(return_value=session)
     jobs = MagicMock()
-    jobs.reclaim_orphaned_running_jobs.return_value = 0
     jobs.reclaim_stale_running_jobs.return_value = 0
     jobs.claim_next.return_value = None
     with patch("workers.consumer.JobRepository", lambda s: jobs):
@@ -45,7 +44,6 @@ def test_process_next_job_runs_handler(caplog: pytest.LogCaptureFixture) -> None
     work_session = MagicMock()
     factory = MagicMock(side_effect=[claim_session, work_session])
     jobs_claim = MagicMock()
-    jobs_claim.reclaim_orphaned_running_jobs.return_value = 0
     jobs_claim.reclaim_stale_running_jobs.return_value = 0
     jobs_claim.claim_next.return_value = job
     jobs_work = MagicMock()
@@ -85,12 +83,12 @@ def test_process_next_job_marks_failed_on_error(caplog: pytest.LogCaptureFixture
         type="embed",
         payload={"repoId": str(uuid.uuid4())},
         created_by=uuid.uuid4(),
+        attempts=3,
     )
     claim_session = MagicMock()
     work_session = MagicMock()
     factory = MagicMock(side_effect=[claim_session, work_session])
     jobs_claim = MagicMock()
-    jobs_claim.reclaim_orphaned_running_jobs.return_value = 0
     jobs_claim.reclaim_stale_running_jobs.return_value = 0
     jobs_claim.claim_next.return_value = job
     jobs_work = MagicMock()
@@ -131,7 +129,6 @@ def test_process_next_job_marks_failed_for_unsupported_type() -> None:
     work_session = MagicMock()
     factory = MagicMock(side_effect=[claim_session, work_session])
     jobs_claim = MagicMock()
-    jobs_claim.reclaim_orphaned_running_jobs.return_value = 0
     jobs_claim.reclaim_stale_running_jobs.return_value = 0
     jobs_claim.claim_next.return_value = job
     jobs_work = MagicMock()
@@ -160,21 +157,61 @@ def test_run_job_consumer_stops_on_event() -> None:
     engine.dispose.assert_called_once()
 
 
-def test_process_next_job_reclaims_orphaned_before_claim(caplog: pytest.LogCaptureFixture) -> None:
-    session = MagicMock()
-    factory = MagicMock(return_value=session)
+def test_process_next_job_requeues_transient_failure_before_max_attempts() -> None:
+    job = SimpleNamespace(
+        id=uuid.uuid4(),
+        type="embed",
+        payload={"repoId": str(uuid.uuid4())},
+        created_by=uuid.uuid4(),
+        attempts=1,
+    )
+    claim_session = MagicMock()
+    work_session = MagicMock()
+    factory = MagicMock(side_effect=[claim_session, work_session])
+    jobs_claim = MagicMock()
+    jobs_claim.reclaim_stale_running_jobs.return_value = 0
+    jobs_claim.claim_next.return_value = job
+    jobs_work = MagicMock()
+    jobs_work.is_job_active.return_value = True
+
+    def job_repo(session: MagicMock) -> MagicMock:
+        return jobs_claim if session is claim_session else jobs_work
+
+    def boom(_payload: dict, _ctx: object, _session: MagicMock) -> None:
+        raise RuntimeError("embedding service unavailable")
+
+    with patch("workers.consumer.JobRepository", job_repo):
+        with patch("workers.consumer.build_job_handlers", lambda *a, **k: {"embed": boom}):
+            with patch("workers.consumer.resolve_indexing_context", return_value=None):
+                with patch(
+                    "workers.consumer._project_id_for_repo",
+                    return_value=uuid.uuid4(),
+                ):
+                    with patch("workers.consumer.mark_repo_indexing_failed") as mark_failed:
+                        assert process_next_job(factory, Settings()) is True
+
+    jobs_work.mark_requeue_pending.assert_called_once()
+    jobs_work.mark_failed.assert_not_called()
+    mark_failed.assert_not_called()
+
+
+def test_run_job_consumer_reclaims_orphaned_on_startup(caplog: pytest.LogCaptureFixture) -> None:
+    stop = threading.Event()
+    stop.set()
+    engine = MagicMock()
+    startup_session = MagicMock()
+    factory = MagicMock(return_value=startup_session)
     jobs = MagicMock()
     jobs.reclaim_orphaned_running_jobs.return_value = 1
-    jobs.reclaim_stale_running_jobs.return_value = 0
-    jobs.claim_next.return_value = None
 
-    with patch("workers.consumer.JobRepository", lambda s: jobs):
-        with patch("workers.consumer.build_job_handlers", lambda *a, **k: {}):
-            assert process_next_job(factory, Settings()) is False
+    with patch("workers.consumer.create_engine_from_settings", lambda s: engine):
+        with patch("workers.consumer.create_session_factory", lambda e: factory):
+            with patch("workers.consumer.JobRepository", lambda s: jobs):
+                with patch("workers.consumer.process_next_job", return_value=False):
+                    run_job_consumer(Settings(), stop)
 
-    jobs.reclaim_orphaned_running_jobs.assert_called_once()
-    jobs.reclaim_stale_running_jobs.assert_called_once_with(600, 3)
-    session.commit.assert_called()
+    jobs.reclaim_orphaned_running_jobs.assert_called_once_with(3)
+    startup_session.commit.assert_called_once()
     assert "orphaned running job(s)" in caplog.text
 
 
@@ -182,7 +219,6 @@ def test_process_next_job_reclaims_stale_before_claim(caplog: pytest.LogCaptureF
     session = MagicMock()
     factory = MagicMock(return_value=session)
     jobs = MagicMock()
-    jobs.reclaim_orphaned_running_jobs.return_value = 0
     jobs.reclaim_stale_running_jobs.return_value = 2
     jobs.claim_next.return_value = None
 
@@ -208,8 +244,6 @@ def test_process_next_job_skips_mark_done_when_job_superseded(
     work_session = MagicMock()
     factory = MagicMock(side_effect=[claim_session, work_session])
     jobs_claim = MagicMock()
-    jobs_claim.reclaim_orphaned_running_jobs.return_value = 0
-    jobs_claim.reclaim_orphaned_running_jobs.return_value = 0
     jobs_claim.reclaim_stale_running_jobs.return_value = 0
     jobs_claim.claim_next.return_value = job
     jobs_work = MagicMock()
@@ -246,6 +280,7 @@ def test_process_next_job_claims_second_repo_after_first_fails() -> None:
         type="embed",
         payload={"repoId": str(repo1)},
         created_by=uuid.uuid4(),
+        attempts=3,
     )
     job2 = SimpleNamespace(
         id=uuid.uuid4(),
@@ -259,7 +294,6 @@ def test_process_next_job_claims_second_repo_after_first_fails() -> None:
         work_session = MagicMock()
         factory = MagicMock(side_effect=[claim_session, work_session])
         jobs_claim = MagicMock()
-        jobs_claim.reclaim_orphaned_running_jobs.return_value = 0
         jobs_claim.reclaim_stale_running_jobs.return_value = 0
         jobs_claim.claim_next.return_value = job
         jobs_work = MagicMock()
@@ -306,12 +340,12 @@ def test_handle_job_failure_commits_even_when_record_failed_raises() -> None:
         type="embed",
         payload={"repoId": str(uuid.uuid4())},
         created_by=uuid.uuid4(),
+        attempts=3,
     )
     claim_session = MagicMock()
     work_session = MagicMock()
     factory = MagicMock(side_effect=[claim_session, work_session])
     jobs_claim = MagicMock()
-    jobs_claim.reclaim_orphaned_running_jobs.return_value = 0
     jobs_claim.reclaim_stale_running_jobs.return_value = 0
     jobs_claim.claim_next.return_value = job
     jobs_work = MagicMock()
