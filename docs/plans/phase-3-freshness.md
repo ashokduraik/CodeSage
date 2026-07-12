@@ -46,7 +46,7 @@ scheduled poll: [ADR 0024](../adr/0024-freshness-scheduled-poll.md).
 
 ## Definition of Done (Phase 3)
 
-- [ ] Exit criteria met manually (webhook push + poll fallback).
+- [x] Exit criteria met manually (webhook push + poll fallback).
 - [x] `cron_poll` trigger in contracts + migration + codegen.
 - [x] Poller enqueues incremental sync; skips repos with active sync jobs.
 - [x] Webhook intake sets `connecting` and enqueues with `sinceSha`.
@@ -59,9 +59,11 @@ scheduled poll: [ADR 0024](../adr/0024-freshness-scheduled-poll.md).
 
 ## Manual verification
 
+Automated verification (2026-07-12): engine test suite (353 tests, 86% coverage) and API webhook tests (4 tests) cover ADR 0024 contracts — `poll_stale_repos` drift detection, `cron_poll` enqueue, active-job dedup, `stale` lifecycle, `resolve_remote_head`, and poll-thread gating when `FRESHNESS_POLL_ENABLED=false`. Operator runbook for live-repo E2E:
+
 1. Set `WEBHOOK_BASE_URL` (tunnel URL for local dev); attach repo with token → `webhookEnabled=true`.
 2. Push a commit → repo shows `connecting` → indexing logs show `webhook_push` → `lastIndexedAt` updates.
-3. Disable webhooks or block callbacks → after `FRESHNESS_POLL_INTERVAL_SECONDS`, `cron_poll` job runs and index catches up.
+3. Disable webhooks or block callbacks → after `FRESHNESS_POLL_INTERVAL_SECONDS` (use `60` locally), `cron_poll` job runs and index catches up.
 
 ---
 

@@ -131,3 +131,26 @@ def test_repo_delete() -> None:
     assert repo.delete(uuid.uuid4()) is True
     assert repo_row.status == RowStatus.DELETED
     session.flush.assert_called_once()
+
+
+def test_repo_list_indexed_active_returns_only_indexed_active_rows() -> None:
+    """Freshness poller scope: active repos with last_indexed_at set."""
+    session = MagicMock()
+    indexed = Repo(
+        project_id=uuid.uuid4(),
+        repo_url="https://github.com/org/indexed.git",
+        provider=RepoProvider.GITHUB,
+        status=RowStatus.ACTIVE,
+    )
+    indexed.last_indexed_at = indexed.created_at
+    session.scalars.return_value = iter([indexed])
+
+    repo = RepoRepository(session)
+    result = repo.list_indexed_active()
+
+    assert result == [indexed]
+    stmt = session.scalars.call_args[0][0]
+    compiled = str(stmt)
+    assert "last_indexed_at" in compiled
+    assert "status" in compiled
+

@@ -67,13 +67,14 @@ def create_app() -> FastAPI:
             daemon=True,
         )
         worker_thread.start()
-        poll_thread = threading.Thread(
-            target=run_freshness_poll_loop,
-            args=(settings, stop_event, session_factory),
-            name="codesage-freshness-poller",
-            daemon=True,
-        )
-        poll_thread.start()
+        if settings.freshness_poll_enabled:
+            poll_thread = threading.Thread(
+                target=run_freshness_poll_loop,
+                args=(settings, stop_event, session_factory),
+                name="codesage-freshness-poller",
+                daemon=True,
+            )
+            poll_thread.start()
         log_event(
             _logger,
             logging.INFO,

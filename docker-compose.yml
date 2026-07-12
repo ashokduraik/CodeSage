@@ -60,7 +60,7 @@ services:
       REPO_CLONE_DIR: /var/codesage/repos
       TOKEN_ENC_KEY: ${TOKEN_ENC_KEY:-}
       FRESHNESS_POLL_ENABLED: ${FRESHNESS_POLL_ENABLED:-true}
-      FRESHNESS_POLL_INTERVAL_SECONDS: ${FRESHNESS_POLL_INTERVAL_SECONDS:-900}
+      FRESHNESS_POLL_INTERVAL_SECONDS: ${FRESHNESS_POLL_INTERVAL_SECONDS:-1800}
     volumes:
       - repo_clones:/var/codesage/repos
     # Internal only — Node reaches the engine via the Compose network (ENGINE_BASE_URL=http://engine:8001).
