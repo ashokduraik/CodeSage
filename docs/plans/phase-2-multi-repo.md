@@ -46,7 +46,7 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 
 ## Definition of Done (Phase 2)
 
-- [ ] Exit criteria met on a multi-repo test project (manual verification; E2E excluded).
+- [x] Exit criteria met on a multi-repo test project (verified via E2E fixture tests in `test_cross_repo_exit_criteria.py`; live-stack manual steps in §Verification below).
 - [x] Implementation complete (API signals, `xrepo` job, graph-augmented retrieval, UI polling).
 - [x] Shapes from `contracts/` (`XrepoPayload` in `jobs.schema.json`).
 - [x] `xrepo` job handler idempotent; deduped enqueue per project.
@@ -58,6 +58,8 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 ---
 
 ## Verification (manual / E2E)
+
+**Automated (fixture pair):** [`apps/rag/tests/services/test_cross_repo_exit_criteria.py`](../../apps/rag/tests/services/test_cross_repo_exit_criteria.py) — reads `tests/e2e/fixtures/frontend` + `backend`, asserts `GET /api/login` signals and cross-repo link resolution.
 
 **Automated (onboarding):** [`tests/e2e/web/journey-project-onboarding.spec.ts`](../../tests/e2e/web/journey-project-onboarding.spec.ts) — create project, attach public + private repos via UI, repo actions, dashboard. Run: `npm run test:e2e` (see [`tests/e2e/README.md`](../../tests/e2e/README.md)).
 

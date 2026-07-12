@@ -68,7 +68,7 @@ worker thread (`workers/consumer.py`) runs three steps per repo:
 | **1 · sync** | `services/sync/run_sync.py`, `git_ops.py` | Clone (first time) or fetch into `REPO_CLONE_DIR/<repo_id>/`, resolve the changed file list (`.ts/.tsx/.js/.jsx/.mjs/.cjs`). |
 | **2 · parse** | `services/parsing/run_parse.py` | For each file: delete stale chunks, extract the **symbol graph** (`services/graph/extract.py`), then split the file into sections with `chunk_source(...)`. Each section is written to **`code_chunks`** (content + `span` + `symbol_refs`) **without a vector yet**, and an `embed` job is enqueued with the new chunk ids (batched). |
 | **3 · embed** | `services/embedding/run_embed.py`, `tei_client.py` | `EmbeddingClient.embed_texts([chunk.content, …])` calls the OpenAI-compatible embeddings endpoint (Ollama/TEI) and writes each vector to **`code_chunks.embedding`** (pgvector). When every chunk for the repo has a vector, the project is marked `INDEXED`. |
-| **xrepo** | `services/xrepo/run_xrepo.py` | Multi-repo projects only: match frontend `http_call` graph nodes to backend `route` nodes and write cross-repo edges. |
+| **xrepo** | `services/xrepo/run_xrepo.py` | Multi-repo projects only: match frontend `http_call` graph nodes to backend `route` nodes and write cross-repo edges ([ADR 0023](../../docs/adr/0023-cross-repo-linking.md)). |
 
 After step 3, the code is **searchable**: each chunk is a row in `code_chunks` with a 1024-dim
 (default) embedding, scoped by `project_id`/`repo_id`.
