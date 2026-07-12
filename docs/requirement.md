@@ -113,8 +113,10 @@ makes it queryable.
 
 ### 3.6 QA serving (LLM + RAG)
 - **FR-19** A **chat/QA interface** answers questions grounded in retrieved context.
-- **FR-20** A **question router** classifies each question as **code** (→ vector + graph) or
-  **product/usage** (→ structured knowledge base) and retrieves accordingly.
+- **FR-20** A **question router** classifies each question as **code** (→ hybrid retrieval:
+  symbol + keyword + vector, fused with weighted RRF, graph expansion, prune to top excerpts,
+  hybrid confidence abstain — ADR 0020, ADR 0021) or **product/usage** (→ structured knowledge
+  base) and retrieves accordingly.
 - **FR-21** End-user product questions can be **page-scoped** (the user's current page/route
   is passed as context).
 - **FR-22** Answers include **citations** (to code or to expert-verified knowledge).

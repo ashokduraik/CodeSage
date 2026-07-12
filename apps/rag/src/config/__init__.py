@@ -60,7 +60,26 @@ class Settings(BaseSettings):
     llm_max_history_turns: int = 10
 
     retrieval_top_k: int = 20
+    retrieval_vector_top_k: int = 12
+    retrieval_keyword_top_k: int = 12
+    retrieval_symbol_top_k: int = 12
+    retrieval_fused_top_k: int = 20
+    retrieval_rrf_k: int = 60
+    retrieval_vector_weight: float = 1.0
+    retrieval_keyword_weight: float = 2.0
+    retrieval_symbol_weight: float = 3.0
+    retrieval_keyword_min_similarity: float = 0.15
+    retrieval_symbol_min_similarity: float = 0.35
     retrieval_max_distance: float = 0.45
+    retrieval_context_top_k: int = 10
+    retrieval_min_confidence: float = 0.45
+    retrieval_adaptive_medium_min_chunks: int = 5000
+    retrieval_adaptive_large_min_chunks: int = 50000
+    retrieval_confidence_weight_retrieval: float = 0.40
+    retrieval_confidence_weight_graph: float = 0.30
+    retrieval_confidence_weight_symbol: float = 0.20
+    retrieval_confidence_weight_coverage: float = 0.10
+    retrieval_min_distinct_files: int = 1
     retrieval_graph_enabled: bool = True
     retrieval_graph_max_depth: int = 2
     retrieval_graph_max_extra_chunks: int = 4

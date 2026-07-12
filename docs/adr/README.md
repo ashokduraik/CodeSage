@@ -36,6 +36,8 @@ Consequences · Alternatives considered · Escape hatch**.
 | [0017](./0017-webhook-registration-on-connect.md) | Webhook registration during repo connect | Accepted |
 | [0018](./0018-mandatory-audit-columns.md) | Mandatory audit columns on domain tables | Accepted |
 | [0019](./0019-persist-chat-history-in-postgres.md) | Persist chat history in PostgreSQL (multi-turn + stop) | Accepted |
+| [0020](./0020-hybrid-retrieval.md) | Hybrid retrieval (symbol + keyword + vector) with rank fusion | Accepted |
+| [0021](./0021-retrieval-quality-pass.md) | Retrieval quality pass — dynamic weights, prune, hybrid confidence, reranker | Accepted |
 
 ## Adding a new ADR
 

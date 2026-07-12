@@ -61,8 +61,11 @@ models land in `apps/rag/` (when generated).** See [`development-workflow.md`](.
 2. **Derived product knowledge** (for end-users): `workflows`, `page_map`, `permission_rules`,
    `data_flows` — every row carries **confidence** + **source citations**.
 
-QA routing: a small fast model classifies each question as **code** (→ vector + graph) or
-**product** (→ structured KB), then a larger model answers with citations. Unsupported
+QA routing: a small fast model classifies each question as **code** (→ hybrid retrieval + graph)
+or **product** (→ structured KB), then a larger model answers with citations. Code retrieval is
+**hybrid** (ADR 0020): symbol, keyword (`pg_trgm`), and vector (pgvector) search run in parallel,
+fused with weighted RRF, graph expansion, then **prune to top 8–10** and a **hybrid confidence**
+gate (ADR 0021). Optional **cross-encoder rerank** before packing (ADR 0021 M3.3). Unsupported
 questions get an honest "unknown" and may raise an expert question.
 
 ## 6. Key runtime flows (summary)
@@ -74,10 +77,12 @@ questions get an honest "unknown" and may raise an expert question.
 - **Incremental freshness:** webhook/cron enqueues job → `git diff` vs SHA → re-parse/re-embed
   changed files → mark touched derived artifacts stale → re-distill only those (Phase 3+).
 - **Cross-repo linking (Phase 2):** `xrepo` job matches `http_call` nodes to `route` nodes by
-  method + path across repos; QA retrieval expands vector hits along those edges.
+  method + path across repos; QA retrieval expands fused hits along those edges.
 - **Distillation:** walk graph from entrypoints → LLM produces workflows/pages/perms/data-flows
   with citations + confidence.
-- **QA serving:** route → retrieve → assemble grounded prompt → stream answer + citations.
+- **QA serving:** route → **hybrid retrieve** (symbol + keyword + vector → weighted RRF) → graph
+  expand → **prune / optional rerank** → hybrid confidence → grounded prompt → stream answer +
+  citations (ADR 0020, ADR 0021).
 
 See [`final-solution.md`](./final-solution.md) §6–§8 for full detail and the mermaid diagrams.
 

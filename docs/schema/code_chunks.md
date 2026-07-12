@@ -3,10 +3,13 @@
 > **Status:** implemented  
 > **Domain:** Code knowledge (developer layer)
 
-Retrieval units for semantic search: contiguous source text spans (functions, blocks, docs) with
+Retrieval units for hybrid search: contiguous source text spans (functions, blocks, docs) with
 metadata tying each chunk to file, symbol, and repo. After embed jobs run, rows store pgvector
-embeddings used by the RAG service to ground chat answers with citations. Chunks are rebuilt on
-re-index; stale vectors for a repo are replaced rather than accumulated indefinitely.
+embeddings used by the RAG service to ground chat answers with citations. The same `content` is
+also used for **keyword/exact retrieval** via `pg_trgm` trigram matching, and `symbol_refs` links
+chunks to `graph_nodes` for **symbol search** — the three signals are fused at query time
+(ADR 0020). Chunks are rebuilt on re-index; stale vectors for a repo are replaced rather than
+accumulated indefinitely.
 
 ## Columns
 
@@ -38,6 +41,7 @@ re-index; stale vectors for a repo are replaced rather than accumulated indefini
 | `idx_code_chunks_repo_id` | `repo_id` | Per-repo chunk lookups |
 | `idx_code_chunks_file_path` | `repo_id`, `file_path` | Chunks in a file |
 | `idx_code_chunks_embedding` | `embedding` | HNSW (`vector_cosine_ops`) for ANN search |
+| `idx_code_chunks_content_trgm` | `content` | GIN `gin_trgm_ops` for `pg_trgm` keyword/exact retrieval (ADR 0020) |
 
 ## Foreign keys
 

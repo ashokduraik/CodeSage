@@ -11,6 +11,137 @@ config, tests, and docs only.
 Setup (deps, env, tests): root [`README.md`](../../README.md) — `npm run setup`, `npm run sync:python`,
 `npm run test:python`.
 
+## How it works (end to end)
+
+CodeSage RAG runs in **two phases**: an offline **indexing** phase (when a repo is attached
+or pushed) that turns source code into searchable vectors + a symbol graph, and an online
+**query** phase (when a user asks a question) that retrieves the most relevant code and asks
+an LLM to answer *only* from it.
+
+```mermaid
+flowchart TB
+  subgraph INDEX["Indexing phase — background worker (jobs queue)"]
+    direction TB
+    A["Repo attached / pushed<br/>(Node enqueues sync job)"] --> S["1 · sync<br/>git clone/fetch<br/>list .ts/.js files"]
+    S --> P["2 · parse<br/>tree-sitter → chunks + graph"]
+    P --> E["3 · embed<br/>chunk text → vector"]
+    P --> G[("graph_nodes /<br/>graph_edges")]
+    E --> V[("code_chunks.embedding<br/>pgvector")]
+    E -. "multi-repo" .-> X["xrepo · link<br/>http_call → route"]
+  end
+
+  subgraph QUERY["Query phase — POST /rag/query (SSE)"]
+    direction TB
+    Q["User question<br/>(via Node proxy)"] --> H{"hybrid retrieval<br/>(run in parallel)"}
+    H --> SYM["symbol search<br/>graph_nodes / symbol_refs"]
+    H --> KW["keyword search<br/>pg_trgm over content"]
+    H --> VEC["vector search<br/>embed question → pgvector"]
+    SYM --> RRF["merge + re-rank<br/>Reciprocal Rank Fusion"]
+    KW --> RRF
+    VEC --> RRF
+    RRF --> GX["graph expand<br/>(cross-repo neighbors)"]
+    GX --> PRUNE["prune to top 8–10<br/>(ADR 0021)"]
+    PRUNE --> GATE{"hybrid confidence?<br/>(ADR 0021)"}
+    GATE -- "no" --> AB["abstain<br/>(never guess)"]
+    GATE -- "yes" --> PACK["pack context to window<br/>+ prior turns"]
+    PACK --> LLM["LLM stream (vLLM/Ollama)<br/>answer ONLY from excerpts"]
+    LLM --> SSE["SSE: citations →<br/>tokens → metrics → done"]
+  end
+
+  V -. "reads" .-> VEC
+  G -. "reads" .-> SYM
+  G -. "reads" .-> GX
+```
+
+> **Retrieval:** hybrid symbol + keyword (`pg_trgm`) + vector search fused with **intent-aware
+> weighted RRF**, graph expansion, **prune to top 8–10**, and **hybrid confidence** abstain
+> ([ADR 0020](../../docs/adr/0020-hybrid-retrieval.md), [ADR 0021](../../docs/adr/0021-retrieval-quality-pass.md)).
+> Optional cross-encoder reranker planned in M3.3.
+
+### 1. Indexing — from repo to pgvector
+
+The Node API never does heavy work; it enqueues a `sync` job in the `jobs` table. The RAG
+worker thread (`workers/consumer.py`) runs three steps per repo:
+
+| Step | Code | What happens |
+|---|---|---|
+| **1 · sync** | `services/sync/run_sync.py`, `git_ops.py` | Clone (first time) or fetch into `REPO_CLONE_DIR/<repo_id>/`, resolve the changed file list (`.ts/.tsx/.js/.jsx/.mjs/.cjs`). |
+| **2 · parse** | `services/parsing/run_parse.py` | For each file: delete stale chunks, extract the **symbol graph** (`services/graph/extract.py`), then split the file into sections with `chunk_source(...)`. Each section is written to **`code_chunks`** (content + `span` + `symbol_refs`) **without a vector yet**, and an `embed` job is enqueued with the new chunk ids (batched). |
+| **3 · embed** | `services/embedding/run_embed.py`, `tei_client.py` | `EmbeddingClient.embed_texts([chunk.content, …])` calls the OpenAI-compatible embeddings endpoint (Ollama/TEI) and writes each vector to **`code_chunks.embedding`** (pgvector). When every chunk for the repo has a vector, the project is marked `INDEXED`. |
+| **xrepo** | `services/xrepo/run_xrepo.py` | Multi-repo projects only: match frontend `http_call` graph nodes to backend `route` nodes and write cross-repo edges. |
+
+After step 3, the code is **searchable**: each chunk is a row in `code_chunks` with a 1024-dim
+(default) embedding, scoped by `project_id`/`repo_id`.
+
+### 2. Where tree-sitter comes in
+
+tree-sitter is used **only during the `parse` step** — it never runs at query time. It does two
+jobs (`services/parsing/tree_sitter_parser.py`):
+
+1. **Smart chunk boundaries** (`chunker.py` → `chunk_source`). Instead of blindly splitting every
+   N lines, tree-sitter parses the file to an AST and extracts top-level
+   **function / class / method** spans (`extract_symbol_spans`). Each symbol becomes one chunk
+   (large symbols are sub-split into 40–60 line windows), so a chunk is a *whole function* rather
+   than an arbitrary slice — which embeds and retrieves with much better signal.
+   - **Fallback:** unsupported extension, a syntax error (`root_node.has_error`), or no
+     extractable symbols → plain fixed line-window chunking, so indexing always succeeds.
+2. **The symbol graph** (`services/graph/extract.py`). The same AST symbols become `graph_nodes`
+   (file/function/class), and API signals (route definitions, HTTP calls) become `graph_edges`.
+   This graph powers cross-repo linking (`xrepo`) and query-time graph expansion.
+
+Grammars are chosen per file extension (`tree_sitter_javascript` / `tree_sitter_typescript`) and
+parsers are cached (`functools.lru_cache`).
+
+### 3. Query — how an answer is produced
+
+`POST /rag/query` (`api/routes/query.py` → `services/qa/stream_answer.py`) streams the answer as
+Server-Sent Events. Order of operations:
+
+1. **Title (optional)** — first message in a conversation emits a `title` chunk.
+2. **Small-talk short-circuit** (`services/router/small_talk.py`) — greetings like "hi"/"thanks"
+   get a friendly reply with **no retrieval** (avoids irrelevant citations).
+3. **Audience gate** (`services/router/classify.py`) — Phase 1 only answers `developer` questions;
+   `end_user` requests `abstain`.
+4. **Retrieval** (`services/retrieval/search.py`) — **hybrid + quality pass**
+   ([ADR 0020](../../docs/adr/0020-hybrid-retrieval.md), [ADR 0021](../../docs/adr/0021-retrieval-quality-pass.md)):
+   - **Intent classification** — `query_intent.py` picks a weight profile (`symbol_lookup`,
+     `conceptual`, `balanced`) from identifier and phrasing heuristics.
+   - **Adaptive top-k** — per-leg candidate counts scale with indexed project size (small/medium/large).
+   - **Vector search** — embed the **question**; `similarity_search` runs pgvector cosine distance.
+   - **Keyword / exact search** — `pg_trgm` trigram match over `code_chunks.content`.
+   - **Symbol search** — name lookup over `graph_nodes` joined back via `symbol_refs`.
+   - **Merge + re-rank** — weighted **Reciprocal Rank Fusion (RRF)** by intent profile.
+   - `augment_matches_with_graph` walks `http_call` edges from fused top hits.
+   - **Prune** — keep top `RETRIEVAL_CONTEXT_TOP_K` (default 10) before context packing.
+5. **Confidence gate** (`is_confident_match` + `hybrid_confidence.py`) — composite score
+   (retrieval + graph connectivity + symbol exactness + citation coverage). Abstains when below
+   `RETRIEVAL_MIN_CONFIDENCE` (NFR-7).
+6. **Context packing** (`_pack_context`) — detect the model's context window, trim oldest
+   conversation turns first when needed, then pack as many retrieved excerpts as fit (top hit
+   always kept, truncated if necessary).
+7. **Grounded generation** (`services/llm/vllm_client.py`, `prompts.py`) — build
+   `[system, …history, user(question + code excerpts)]` and stream tokens from the
+   OpenAI-compatible LLM. The system prompt forbids inventing anything not in the excerpts. If no
+   LLM is configured or it errors, a deterministic **excerpt fallback** returns the top snippets.
+8. **SSE frames** — the stream emits `citation` chunks (the exact files/spans used), then `token`
+   chunks (the answer), then a `metrics` chunk (context tokens used vs. window, tokens/sec), then
+   `done`. Node forwards these to the browser and persists the assistant message.
+
+> **So "how does it respond?"** It never answers from the LLM's own memory — it retrieves the
+> most relevant stored code chunks via hybrid symbol + keyword + vector fusion, optionally
+> expands via the symbol graph, and asks the LLM to answer strictly from those excerpts (or
+> abstains). Debugging tip: set `LOG_LEVEL=debug` to see the `QA retrieval` (fused ranks +
+> retriever sources) and `QA prompt` (excerpts + tokens packed) lines for every query.
+
+### Data it reads/writes
+
+| Table | Written by | Read by |
+|---|---|---|
+| `code_chunks` (`+ embedding` pgvector, `+ pg_trgm` keyword) | parse (rows), embed (vectors) | hybrid vector + keyword + symbol retrieval |
+| `graph_nodes` / `graph_edges` | parse | symbol search, xrepo linking, query graph expansion |
+| `conversations` / `messages` | Node API (chat persistence) | multi-turn history for the prompt |
+| `jobs` | Node (enqueue) + worker | worker claim loop |
+
 ## Configuration
 
 Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from the environment (see `src/config/__init__.py`). Phase 0 `/health` does not require Postgres; repository tests use mocks — **pytest needs no running database**.
@@ -34,8 +165,27 @@ Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from t
 | `LLM_MAX_CONTEXT_TOKENS` | `8192` | yes | Fallback context window when detection is disabled or fails. |
 | `LLM_COMPLETION_RESERVE_TOKENS` | `1024` | yes | Tokens reserved for the answer (also sent as `max_tokens`); the rest packs context. |
 | `LLM_MAX_HISTORY_TURNS` | `10` | yes | Max prior conversation turns sent to the LLM; oldest trimmed first when over budget. |
-| `RETRIEVAL_TOP_K` | `20` | yes | Candidate count retrieved; the packer fills the context window from these. |
-| `RETRIEVAL_MAX_DISTANCE` | `0.45` | yes | Abstain when best match exceeds this cosine distance. |
+| `RETRIEVAL_TOP_K` | `20` | yes | Legacy fallback for vector top-k when `RETRIEVAL_VECTOR_TOP_K` unset. |
+| `RETRIEVAL_VECTOR_TOP_K` | `12` | yes | Ceiling for vector leg top-k (adaptive tier may use less). |
+| `RETRIEVAL_KEYWORD_TOP_K` | `12` | yes | Ceiling for keyword leg top-k. |
+| `RETRIEVAL_SYMBOL_TOP_K` | `12` | yes | Ceiling for symbol leg top-k. |
+| `RETRIEVAL_FUSED_TOP_K` | `20` | yes | Max fused hits passed to graph expansion. |
+| `RETRIEVAL_CONTEXT_TOP_K` | `10` | yes | Post-graph prune limit before LLM packing. |
+| `RETRIEVAL_RRF_K` | `60` | yes | RRF smoothing constant. |
+| `RETRIEVAL_VECTOR_WEIGHT` | `1.0` | yes | Balanced-profile RRF weight for vector leg. |
+| `RETRIEVAL_KEYWORD_WEIGHT` | `2.0` | yes | Balanced-profile RRF weight for keyword leg. |
+| `RETRIEVAL_SYMBOL_WEIGHT` | `3.0` | yes | Balanced-profile RRF weight for symbol leg. |
+| `RETRIEVAL_MIN_CONFIDENCE` | `0.45` | yes | Hybrid confidence abstain threshold. |
+| `RETRIEVAL_ADAPTIVE_MEDIUM_MIN_CHUNKS` | `5000` | yes | Active chunk count boundary (small → medium tier). |
+| `RETRIEVAL_ADAPTIVE_LARGE_MIN_CHUNKS` | `50000` | yes | Active chunk count boundary (medium → large tier). |
+| `RETRIEVAL_CONFIDENCE_WEIGHT_RETRIEVAL` | `0.40` | yes | Hybrid confidence: fused retrieval score weight. |
+| `RETRIEVAL_CONFIDENCE_WEIGHT_GRAPH` | `0.30` | yes | Hybrid confidence: graph connectivity weight. |
+| `RETRIEVAL_CONFIDENCE_WEIGHT_SYMBOL` | `0.20` | yes | Hybrid confidence: symbol/keyword exactness weight. |
+| `RETRIEVAL_CONFIDENCE_WEIGHT_COVERAGE` | `0.10` | yes | Hybrid confidence: distinct-file coverage weight. |
+| `RETRIEVAL_MIN_DISTINCT_FILES` | `1` | yes | Target distinct files for citation coverage score. |
+| `RETRIEVAL_KEYWORD_MIN_SIMILARITY` | `0.15` | yes | Minimum trigram score for keyword hits. |
+| `RETRIEVAL_SYMBOL_MIN_SIMILARITY` | `0.35` | yes | Minimum trigram score for symbol hits. |
+| `RETRIEVAL_MAX_DISTANCE` | `0.45` | yes | Hard fail for vector-only hits above this distance. |
 | `RETRIEVAL_GRAPH_ENABLED` | `true` | yes | Expand QA retrieval along cross-repo `http_call` edges. |
 | `RETRIEVAL_GRAPH_MAX_DEPTH` | `2` | yes | Max graph hops from vector hit seeds. |
 | `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS` | `4` | yes | Max additional chunks added via graph expansion. |

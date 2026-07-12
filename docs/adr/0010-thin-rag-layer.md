@@ -6,8 +6,9 @@
 
 ## Context
 
-The QA path needs retrieval (vector + graph), a **question router** (code vs product), context
-assembly, optional reranking, and grounded answer generation with citations. The router and the
+The QA path needs retrieval (hybrid symbol + keyword + vector, fused with RRF, then graph
+expansion — ADR 0020), a **question router** (code vs product), context assembly, optional
+reranking, and grounded answer generation with citations. The router and the
 **expert-question loop** are core IP and must remain explicit and owned, not buried in a
 framework.
 

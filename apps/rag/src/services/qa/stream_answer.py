@@ -18,7 +18,9 @@ from services.llm.prompts import CODE_QA_SYSTEM_PROMPT
 from services.llm.tokens import count_tokens, truncate_to_tokens
 from services.llm.vllm_client import LlmStreamStats, stream_vllm_answer
 from services.llm.title import generate_session_title
-from services.retrieval.search import is_confident_match, retrieve_code_chunks
+from services.retrieval.search import RetrievalContext, is_confident_match, retrieve_code_chunks
+from services.retrieval.hybrid_confidence import compute_hybrid_confidence
+from services.retrieval.types import RetrievalMatch
 from services.router.classify import is_code_audience
 from services.router.small_talk import is_small_talk_message, small_talk_reply
 
@@ -32,33 +34,54 @@ _logger = get_indexing_logger()
 
 def _log_retrieval(
     question: str,
-    matches: list[tuple[CodeChunk, float]],
+    matches: list[RetrievalMatch],
     *,
     confident: bool,
+    context: RetrievalContext | None = None,
+    hybrid_confidence: float | None = None,
 ) -> None:
     """Emit a DEBUG line describing what retrieval returned for a question.
 
-    Helps diagnose irrelevant answers by exposing the ranked file paths and
-    cosine distances the LLM will be grounded on. Runs only when the process log
-    level is DEBUG, so production console output is unaffected.
+    Helps diagnose irrelevant answers by exposing fused ranks, retriever sources,
+    intent profile, and hybrid confidence. Runs only when log level is DEBUG.
 
     @param question - The user question that was embedded.
-    @param matches - Ranked ``(chunk, distance)`` pairs, best first.
-    @param confident - Whether the best distance passed the abstain threshold.
+    @param matches - Pruned retrieval hits, best first.
+    @param confident - Whether the fused hits passed the abstain threshold.
+    @param context - Optional retrieval metadata (intent, tier).
+    @param hybrid_confidence - Composite confidence score when computed.
     """
     if not _logger.isEnabledFor(logging.DEBUG):
         return
     preview = question.replace("\n", " ")[:120]
+    meta_parts: list[str] = []
+    if context is not None:
+        meta_parts.append(f"intent={context.intent.value}")
+        meta_parts.append(f"tier={context.tier.value}")
+    if hybrid_confidence is not None:
+        meta_parts.append(f"hybrid_conf={hybrid_confidence:.4f}")
+    meta_parts.append(f"pruned={len(matches)}")
+    meta = ", ".join(meta_parts)
     log_event(
         _logger,
         logging.DEBUG,
-        f"QA retrieval for '{preview}' — {len(matches)} matches, confident={confident}",
+        f"QA retrieval for '{preview}' — {len(matches)} matches, confident={confident}"
+        + (f" ({meta})" if meta else ""),
     )
-    for rank, (chunk, distance) in enumerate(matches[:10], start=1):
+    for rank, match in enumerate(matches[:10], start=1):
+        parts = [f"rrf={match.fused_score:.4f}"]
+        if match.vector_distance is not None:
+            parts.append(f"vec={match.vector_distance:.4f}")
+        if match.keyword_score is not None:
+            parts.append(f"kw={match.keyword_score:.4f}")
+        if match.symbol_score is not None:
+            parts.append(f"sym={match.symbol_score:.4f}")
+        if match.sources:
+            parts.append(f"src={','.join(match.sources)}")
         log_event(
             _logger,
             logging.DEBUG,
-            f"  #{rank} dist={distance:.4f} {chunk.file_path} [{chunk.span}]",
+            f"  #{rank} {' '.join(parts)} {match.chunk.file_path} [{match.chunk.span}]",
         )
 
 
@@ -197,7 +220,7 @@ def _trim_history_for_budget(
 def _pack_context(
     settings: Settings,
     question: str,
-    matches: list[tuple[CodeChunk, float]],
+    matches: list[RetrievalMatch],
     history: list[dict[str, str]] | None = None,
 ) -> tuple[list[CodeChunk], list[str], int, int, list[dict[str, str]]]:
     """Select the highest-ranked chunks that fit the model's context window.
@@ -210,7 +233,7 @@ def _pack_context(
 
     @param settings - Application settings (context detection + reserve).
     @param question - User question, counted against the budget.
-    @param matches - Retrieval results ordered by ascending distance.
+    @param matches - Fused retrieval results ordered by descending fused score.
     @param history - Optional prior conversation turns oldest-first.
     @returns Tuple of (selected chunks, their context blocks, context tokens used,
         detected max context window, trimmed history turns).
@@ -237,7 +260,8 @@ def _pack_context(
     selected_chunks: list[CodeChunk] = []
     blocks: list[str] = []
     used = 0
-    for chunk, _distance in matches:
+    for match in matches:
+        chunk = match.chunk
         block = _context_block(chunk)
         cost = count_tokens(block) + _SEPARATOR_TOKENS
         if not selected_chunks:
@@ -298,7 +322,7 @@ def _metrics_payload(
 def _stream_grounded_answer(
     settings: Settings,
     question: str,
-    matches: list[tuple[CodeChunk, float]],
+    matches: list[RetrievalMatch],
     history: list[dict[str, str]] | None = None,
 ) -> Iterator[str]:
     """Yield SSE chunks with citations, a synthesized answer, and answer metrics.
@@ -384,7 +408,7 @@ def stream_rag_answer(
 
     session = session_factory()
     try:
-        matches = retrieve_code_chunks(
+        matches, retrieval_context = retrieve_code_chunks(
             session,
             settings,
             project_id=project_id,
@@ -397,12 +421,29 @@ def stream_rag_answer(
     finally:
         session.close()
 
-    confident = is_confident_match(settings, matches)
-    _log_retrieval(question, matches, confident=confident)
+    hybrid_confidence = compute_hybrid_confidence(
+        matches,
+        settings,
+        intent=retrieval_context.intent,
+        terms=retrieval_context.terms,
+    )
+    confident = is_confident_match(
+        settings,
+        matches,
+        question=question,
+        context=retrieval_context,
+    )
+    _log_retrieval(
+        question,
+        matches,
+        confident=confident,
+        context=retrieval_context,
+        hybrid_confidence=hybrid_confidence,
+    )
     if not confident:
         yield _chunk_event(
             "abstain",
-            content="Not certain — no sufficiently relevant code was retrieved.",
+            content="I couldn't find enough evidence in the indexed repository.",
         )
         return
 

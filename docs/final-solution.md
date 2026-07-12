@@ -297,7 +297,7 @@ produce, with citations + confidence:
 ```mermaid
 flowchart LR
     Q[Question + audience + optional page context] --> R{Router}
-    R -->|code question| C[Retrieve: pgvector + graph]
+    R -->|code question| C[Hybrid retrieve: symbol + keyword + vector\nRRF fuse, then graph expand]
     R -->|product question| K[Retrieve: structured KB\nworkflows/pages/perms/data-flows]
     C --> A[Assemble grounded prompt]
     K --> A
@@ -309,7 +309,9 @@ flowchart LR
 
 1. A small fast model (the **router**) classifies the question as **code** vs **product**, and
    whether it is **page-scoped** (uses the user's current route as context).
-2. **Code** → vector retrieval over `code_chunks` + graph expansion; optional reranking.
+2. **Code** → **hybrid retrieval** over `code_chunks`: symbol, keyword (`pg_trgm`), vector
+   (pgvector); **weighted RRF** by query intent; graph expansion; **prune to 8–10** chunks;
+   optional cross-encoder rerank (M3.3); **hybrid confidence** abstain (ADR 0020, ADR 0021).
    **Product** → structured retrieval from `workflows`/`page_map`/`permission_rules`/`data_flows`.
 3. The larger model assembles a **grounded answer with citations** (to code or expert-verified
    knowledge).

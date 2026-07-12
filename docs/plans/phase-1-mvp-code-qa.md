@@ -75,6 +75,55 @@ flowchart LR
 
 **Done when:** `curl POST /rag/query` with a developer question returns streamed answer + code citations.
 
+#### M3.1 — Hybrid retrieval (ADR 0020) — **done**
+
+Vector-only retrieval ranked exact identifiers/symbols poorly (broad, low-precision answers).
+`services/retrieval/` now runs symbol, keyword (`pg_trgm`), and vector search in parallel and
+fuses them with **Reciprocal Rank Fusion** before graph expansion.
+
+| Step | Module | Key deliverables |
+|---|---|---|
+| 1 | migration | `pg_trgm` extension + GIN indexes on `code_chunks.content` and `graph_nodes.name` |
+| 2 | `services/retrieval/` | Keyword + symbol retrievers (`repositories/keyword.py`, `repositories/symbols.py`) |
+| 3 | `services/retrieval/` | RRF fusion (`fusion.py`) feeding graph expand |
+| 4 | `config/` | Per-retriever top-k, weights, RRF `k`, min similarity thresholds |
+
+**Done when:** an identifier question (e.g. "what does `getMinEmi` do?") ranks the defining chunk
+first and the answer traces that symbol instead of surveying the codebase.
+
+#### M3.2 — Retrieval quality pass (ADR 0021) — **done**
+
+M3.1 equal-weight RRF still let vector neighbours dilute symbol hits and packed too many chunks
+into the LLM prompt. M3.2 adds intent-aware weighting, adaptive top-k, post-graph prune, and a
+hybrid confidence gate.
+
+| Step | Module | Key deliverables |
+|---|---|---|
+| 1 | `services/retrieval/query_intent.py` | Heuristic intent signals (identifier vs conceptual) |
+| 2 | `services/retrieval/fusion.py` | Dynamic RRF weight profiles (`symbol_lookup`, `conceptual`, `balanced`) |
+| 3 | `services/retrieval/search.py` | Adaptive per-leg top-k by project size; post-graph prune to 8–10 |
+| 4 | `services/retrieval/` | Hybrid confidence score (retrieval + graph + symbol + citation coverage) |
+| 5 | `config/` | `RETRIEVAL_MIN_CONFIDENCE`, prune size, weight profiles, adaptive tier thresholds |
+
+**Done when:** identifier questions keep symbol-defined chunks in the top 3 after prune; conceptual
+questions no longer receive 15+ loosely related excerpts; abstain fires when hybrid confidence is
+below threshold.
+
+#### M3.3 — Cross-encoder reranker (ADR 0021) — **planned**
+
+Optional open-source reranker (e.g. `bge-reranker-v2` via TEI-compatible endpoint) reorders top
+~25 fused candidates to top 8 before context packing. Feature-flagged; validate latency on target
+hardware before enabling by default.
+
+| Step | Module | Key deliverables |
+|---|---|---|
+| 1 | `services/retrieval/rerank.py` | Rerank client + integration after fusion/graph |
+| 2 | `config/` | `RETRIEVAL_RERANKER_ENABLED`, endpoint, model id, candidate limits |
+| 3 | ops | Reranker model hosting alongside TEI (document in deployment guide) |
+
+**Done when:** with reranker enabled, precision@8 improves on a small golden set of code-QA
+questions without breaking abstain behaviour.
+
 ### M4 — Node chat proxy + persistence
 
 | Step | Module | Key deliverables |
@@ -146,7 +195,7 @@ Multi-repo linking is implemented — see [`phase-2-multi-repo.md`](./phase-2-mu
 | TEI/vLLM unavailable in CI | Mock providers in unit tests; optional manual GPU smoke test |
 | Large repo clone times | File filters, size limits, skip vendored dirs (see `final-solution.md` §6.1) |
 | Embedding dimension mismatch | Lock model + dimension in config; validate on first embed |
-| Low retrieval quality | Tune chunk size, top-k, optional reranker (post-MVP) |
+| Low retrieval quality | Hybrid retrieval — symbol + keyword (`pg_trgm`) + vector fused with RRF (ADR 0020, M3.1); tune chunk size/top-k; cross-encoder reranker deferred |
 
 ---
 

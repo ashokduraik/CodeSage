@@ -46,7 +46,7 @@ Each deployable/package documents itself locally. Each folder carries four files
 
 > **Status (implementation):**
 > - **Phase 0 (Foundation)** — monorepo, migrations, auth skeleton, Compose, CI, ≥ 80% tests.
-> - **Phase 1 (MVP code QA)** — sync → parse → embed → developer RAG with citations + abstain; SSE chat proxy; PostgreSQL-persisted conversations + multi-turn history + stop generation.
+> - **Phase 1 (MVP code QA)** — sync → parse → embed → developer RAG with citations + abstain; SSE chat proxy; PostgreSQL-persisted conversations + multi-turn history + stop generation; **hybrid retrieval** (symbol + keyword + vector, RRF) per [ADR 0020](./adr/0020-hybrid-retrieval.md); **retrieval quality pass** (dynamic weights, prune, hybrid confidence) per [ADR 0021](./adr/0021-retrieval-quality-pass.md) (M3.2 done; M3.3 reranker planned).
 > - **Phase 2 (Multi-repo)** — API signal extraction, `xrepo` cross-repo linker, graph-augmented retrieval.
 > - **Phase 3 (Freshness)** — webhooks + scheduled poll → incremental re-index. See [`plans/phase-3-freshness.md`](./plans/phase-3-freshness.md).
 > - **Phases 3–7** — freshness webhooks, distillation, expert loop, end-user QA, hardening (see [`final-solution.md`](./final-solution.md) §12).

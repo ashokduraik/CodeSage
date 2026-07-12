@@ -29,9 +29,11 @@ from repositories.indexing import (
     GraphEdgeRepository,
     GraphNodeRepository,
 )
+from repositories.keyword import build_keyword_query, keyword_search
 from repositories.operations import AuditLogRepository, JobRepository
 from repositories.projects import ProjectRepository, RepoRepository
 from repositories.session import create_engine_from_settings, create_session_factory, session_scope
+from repositories.symbols import build_symbol_query, symbol_search
 from repositories.vector import build_similarity_query, similarity_search
 
 __all__ = [
@@ -57,11 +59,15 @@ __all__ = [
     "User",
     "UserRepository",
     "UserRole",
+    "build_keyword_query",
     "build_neighbor_expansion_query",
     "build_similarity_query",
+    "build_symbol_query",
     "create_engine_from_settings",
     "create_session_factory",
     "expand_graph_neighbors",
+    "keyword_search",
     "session_scope",
     "similarity_search",
+    "symbol_search",
 ]

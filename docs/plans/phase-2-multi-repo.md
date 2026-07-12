@@ -36,7 +36,7 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 
 | Task | Module | Deliverables |
 |---|---|---|
-| Expand vector hits via `http_call` edges | `services/retrieval/graph_expand.py` | Chunks from linked repos in QA context |
+| Expand fused retrieval hits via `http_call` edges | `services/retrieval/graph_expand.py` | Chunks from linked repos in QA context |
 | Tunables | `config/__init__.py` | `retrieval_graph_*` settings |
 
 **Done when:** A question seeded in the frontend repo retrieves backend route/chunk citations.

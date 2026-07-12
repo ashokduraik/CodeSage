@@ -6,7 +6,8 @@
 AST-derived vertices in the code knowledge graph: files, classes, functions, routes, and similar
 symbols extracted during parse. Nodes are scoped to a project and repo and keyed by a stable symbol
 identity so re-indexing can upsert rather than duplicate. They power developer-facing navigation,
-impact analysis, and inputs to LLM distillation of higher-level product knowledge.
+impact analysis, **symbol search at query time** (joined to `code_chunks` via `symbol_refs`, ADR 0020),
+and inputs to LLM distillation of higher-level product knowledge.
 
 ## Columns
 
@@ -36,6 +37,8 @@ impact analysis, and inputs to LLM distillation of higher-level product knowledg
 | `idx_graph_nodes_project_id` | `project_id` | Project-scoped graph queries |
 | `idx_graph_nodes_repo_id` | `repo_id` | Per-repo node lookups |
 | `idx_graph_nodes_file_path` | `repo_id`, `file_path` | Nodes in a file |
+| `idx_graph_nodes_name_trgm` | `name` | GIN `gin_trgm_ops` for symbol name search (ADR 0020) |
+| `idx_graph_nodes_symbol_lookup` | `project_id`, `kind`, `name` | Active function/class/method lookup |
 
 ## Foreign keys
 

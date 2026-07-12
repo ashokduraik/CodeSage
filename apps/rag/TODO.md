@@ -29,7 +29,9 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 - [x] `sync/` — git clone/fetch + file enumeration + enqueue parse.
 - [x] `parsing/` — tree-sitter symbol boundaries + line-window fallback.
 - [x] `embedding/` — TEI client + deterministic dev fallback.
-- [x] `retrieval/` — vector search + graph expansion + abstain threshold.
+- [x] `retrieval/` — hybrid retrieval: symbol + keyword (`pg_trgm`) search + RRF fusion (ADR 0020).
+- [x] `retrieval/` — M3.2 quality pass: dynamic weights, adaptive top-k, prune, hybrid confidence (ADR 0021).
+- [ ] `retrieval/` — M3.3 optional cross-encoder reranker (ADR 0021).
 - [x] `qa/` — SSE answer streaming with citations.
 - [x] `graph/` — file + symbol node extraction during parse; HTTP/route API signals (Phase 2).
 - [x] `xrepo/` — cross-repo link resolver job (Phase 2).

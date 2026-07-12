@@ -9,11 +9,12 @@ import pytest
 
 from config import Settings
 from services.retrieval.graph_expand import augment_matches_with_graph
+from services.retrieval.types import RetrievalMatch
 
 
 def test_augment_matches_with_graph_disabled() -> None:
     chunk = MagicMock(id=uuid.uuid4(), repo_id=uuid.uuid4(), file_path="a.ts")
-    matches = [(chunk, 0.2)]
+    matches = [RetrievalMatch(chunk=chunk, fused_score=0.02, sources=("vector",))]
     settings = Settings(retrieval_graph_enabled=False)
     result = augment_matches_with_graph(
         MagicMock(),
@@ -60,8 +61,11 @@ def test_augment_matches_with_graph_adds_neighbor_chunks(monkeypatch: pytest.Mon
         MagicMock(),
         Settings(retrieval_graph_max_extra_chunks=2),
         project_id=project_id,
-        matches=[(seed_chunk, 0.1)],
+        matches=[RetrievalMatch(chunk=seed_chunk, fused_score=0.03, sources=("vector",))],
     )
 
     assert len(result) == 2
-    assert result[1][0] is neighbor_chunk
+    assert result[1].chunk is neighbor_chunk
+    assert result[1].sources == ("graph",)
+    assert result[1].is_graph_expanded is True
+    assert result[1].graph_depth == 1

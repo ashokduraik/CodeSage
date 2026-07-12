@@ -5,10 +5,11 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from models import CodeChunk, GraphEdge, GraphNode
+from models.enums import RowStatus
 from repositories.audit import stamp_created, stamp_updated
 
 
@@ -201,6 +202,30 @@ class CodeChunkRepository:
         @returns The chunk row or `None`.
         """
         return self._session.get(CodeChunk, chunk_id)
+
+    def count_active_by_project(
+        self,
+        project_id: uuid.UUID,
+        *,
+        repo_ids: list[uuid.UUID] | None = None,
+    ) -> int:
+        """Count active code chunks for adaptive retrieval top-k.
+
+        @param project_id - Project UUID.
+        @param repo_ids - Optional repo filter.
+        @returns Number of active chunk rows in scope.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(CodeChunk)
+            .where(
+                CodeChunk.project_id == project_id,
+                CodeChunk.status == RowStatus.ACTIVE,
+            )
+        )
+        if repo_ids:
+            stmt = stmt.where(CodeChunk.repo_id.in_(repo_ids))
+        return int(self._session.scalar(stmt) or 0)
 
     def list_by_repo(self, repo_id: uuid.UUID) -> list[CodeChunk]:
         """List all chunks for a repository.

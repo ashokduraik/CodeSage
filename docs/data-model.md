@@ -12,6 +12,9 @@ Postgres covers everything the MVP needs, eliminating extra services:
 
 - **Relational metadata + KB** (with JSONB for flexible derived artifacts).
 - **Vectors** via `pgvector` (HNSW index, `halfvec`/fp16 storage).
+- **Keyword / exact search** via `pg_trgm` trigram (GIN) indexes for hybrid code retrieval (ADR 0020).
+  Query-time ranking refinements (dynamic weights, prune, hybrid confidence) are ADR 0021 — no
+  additional schema for M3.2.
 - **Code graph** via adjacency tables + recursive CTEs.
 - **Job queue** via `SELECT … FOR UPDATE SKIP LOCKED` (or Procrastinate).
 - **Encrypted repo tokens** (app-level envelope encryption).
@@ -30,8 +33,8 @@ Postgres covers everything the MVP needs, eliminating extra services:
 
 | Table | Purpose | Column reference |
 |---|---|---|
-| `code_chunks` | RAG retrieval units + vectors | [`schema/code_chunks.md`](./schema/code_chunks.md) |
-| `graph_nodes` | Files / symbols / HTTP API signals | [`schema/graph_nodes.md`](./schema/graph_nodes.md) |
+| `code_chunks` | RAG retrieval units + vectors (+ `pg_trgm` keyword search) | [`schema/code_chunks.md`](./schema/code_chunks.md) |
+| `graph_nodes` | Files / symbols / HTTP API signals (backs symbol search) | [`schema/graph_nodes.md`](./schema/graph_nodes.md) |
 | `graph_edges` | Calls / imports / callers | [`schema/graph_edges.md`](./schema/graph_edges.md) |
 
 ### 2.3 Derived product knowledge (end-user layer)

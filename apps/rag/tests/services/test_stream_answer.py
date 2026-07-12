@@ -8,6 +8,22 @@ from unittest.mock import MagicMock
 
 from config import Settings
 from services.qa.stream_answer import stream_rag_answer
+from services.retrieval.adaptive_top_k import ProjectSizeTier
+from services.retrieval.query_intent import QueryIntentProfile
+from services.retrieval.search import RetrievalContext
+from services.retrieval.types import RetrievalMatch
+
+
+def _retrieval_context() -> RetrievalContext:
+    return RetrievalContext(
+        intent=QueryIntentProfile.BALANCED,
+        tier=ProjectSizeTier.SMALL,
+        terms=[],
+    )
+
+
+def _retrieve_tuple(*matches: RetrievalMatch) -> tuple[list[RetrievalMatch], RetrievalContext]:
+    return list(matches), _retrieval_context()
 
 
 def _make_chunk(name: str, content: str) -> SimpleNamespace:
@@ -22,6 +38,22 @@ def _make_chunk(name: str, content: str) -> SimpleNamespace:
         file_path=name,
         span={"startLine": 1, "endLine": 2},
         content=content,
+        symbol_refs=[],
+    )
+
+def _make_match(
+    name: str,
+    content: str,
+    *,
+    vector_distance: float = 0.1,
+) -> RetrievalMatch:
+    """Build a fused retrieval hit for streaming tests."""
+    chunk = _make_chunk(name, content)
+    return RetrievalMatch(
+        chunk=chunk,
+        fused_score=0.02,
+        sources=("vector",),
+        vector_distance=vector_distance,
     )
 
 
@@ -75,7 +107,7 @@ def test_stream_abstains_without_matches(monkeypatch) -> None:
     session_factory = MagicMock(return_value=session)
     monkeypatch.setattr(
         "services.qa.stream_answer.retrieve_code_chunks",
-        lambda *a, **k: [],
+        lambda *a, **k: _retrieve_tuple(),
     )
     events = list(
         stream_rag_answer(
@@ -95,11 +127,14 @@ def test_stream_grounded_answer(monkeypatch) -> None:
     chunk = _make_chunk("src/a.ts", "export function main() {}")
     monkeypatch.setattr(
         "services.qa.stream_answer.retrieve_code_chunks",
-        lambda *a, **k: [(chunk, 0.1)],
+        lambda *a, **k: (
+            [_make_match("src/a.ts", "export function main() {}")],
+            _retrieval_context(),
+        ),
     )
     monkeypatch.setattr(
         "services.qa.stream_answer.is_confident_match",
-        lambda settings, matches: True,
+        lambda settings, matches, **kwargs: True,
     )
     monkeypatch.setattr(
         "services.qa.stream_answer.stream_vllm_answer",
@@ -124,10 +159,12 @@ def test_stream_grounded_answer_emits_metrics(monkeypatch) -> None:
     session_factory = MagicMock(return_value=MagicMock())
     chunk = _make_chunk("src/a.ts", "export function main() {}")
     monkeypatch.setattr(
-        "services.qa.stream_answer.retrieve_code_chunks", lambda *a, **k: [(chunk, 0.1)]
+        "services.qa.stream_answer.retrieve_code_chunks",
+        lambda *a, **k: _retrieve_tuple(_make_match("src/a.ts", "export function main() {}")),
     )
     monkeypatch.setattr(
-        "services.qa.stream_answer.is_confident_match", lambda settings, matches: True
+        "services.qa.stream_answer.is_confident_match",
+        lambda settings, matches, **kwargs: True,
     )
     monkeypatch.setattr(
         "services.qa.stream_answer.stream_vllm_answer",
@@ -153,12 +190,14 @@ def test_packing_limits_chunks_to_context_budget(monkeypatch) -> None:
     session_factory = MagicMock(return_value=MagicMock())
     # Many large chunks but a tiny window: only a subset should be packed as context.
     big_content = "const x = 1;\n" * 200
-    matches = [(_make_chunk(f"src/f{i}.ts", big_content), 0.1) for i in range(10)]
+    matches = [_make_match(f"src/f{i}.ts", big_content) for i in range(10)]
     monkeypatch.setattr(
-        "services.qa.stream_answer.retrieve_code_chunks", lambda *a, **k: matches
+        "services.qa.stream_answer.retrieve_code_chunks",
+        lambda *a, **k: _retrieve_tuple(*matches),
     )
     monkeypatch.setattr(
-        "services.qa.stream_answer.is_confident_match", lambda settings, matches: True
+        "services.qa.stream_answer.is_confident_match",
+        lambda settings, matches, **kwargs: True,
     )
     monkeypatch.setattr(
         "services.qa.stream_answer.stream_vllm_answer",
@@ -214,10 +253,12 @@ def test_history_is_passed_to_llm_and_trimmed_when_over_budget(monkeypatch) -> N
         yield "answer"
 
     monkeypatch.setattr(
-        "services.qa.stream_answer.retrieve_code_chunks", lambda *a, **k: [(chunk, 0.1)]
+        "services.qa.stream_answer.retrieve_code_chunks",
+        lambda *a, **k: _retrieve_tuple(_make_match("src/a.ts", "export function main() {}")),
     )
     monkeypatch.setattr(
-        "services.qa.stream_answer.is_confident_match", lambda settings, matches: True
+        "services.qa.stream_answer.is_confident_match",
+        lambda settings, matches, **kwargs: True,
     )
     monkeypatch.setattr("services.qa.stream_answer.stream_vllm_answer", fake_vllm)
 
@@ -247,10 +288,14 @@ def test_debug_logging_reports_retrieval_and_prompt(monkeypatch, caplog) -> None
     session_factory = MagicMock(return_value=MagicMock())
     chunk = _make_chunk("src/emi.ts", "export function getMinEmi() {}")
     monkeypatch.setattr(
-        "services.qa.stream_answer.retrieve_code_chunks", lambda *a, **k: [(chunk, 0.12)]
+        "services.qa.stream_answer.retrieve_code_chunks",
+        lambda *a, **k: _retrieve_tuple(
+            _make_match("src/emi.ts", "export function getMinEmi() {}", vector_distance=0.12),
+        ),
     )
     monkeypatch.setattr(
-        "services.qa.stream_answer.is_confident_match", lambda settings, matches: True
+        "services.qa.stream_answer.is_confident_match",
+        lambda settings, matches, **kwargs: True,
     )
     monkeypatch.setattr(
         "services.qa.stream_answer.stream_vllm_answer",
@@ -270,17 +315,21 @@ def test_debug_logging_reports_retrieval_and_prompt(monkeypatch, caplog) -> None
     assert "QA retrieval" in text
     assert "src/emi.ts" in text
     assert "QA prompt" in text
-    assert "ctx tokens" in text
+    assert "rrf=" in text
 
 
 def test_debug_logging_silent_when_not_debug(monkeypatch, caplog) -> None:
     session_factory = MagicMock(return_value=MagicMock())
     chunk = _make_chunk("src/emi.ts", "export function getMinEmi() {}")
     monkeypatch.setattr(
-        "services.qa.stream_answer.retrieve_code_chunks", lambda *a, **k: [(chunk, 0.12)]
+        "services.qa.stream_answer.retrieve_code_chunks",
+        lambda *a, **k: _retrieve_tuple(
+            _make_match("src/emi.ts", "export function getMinEmi() {}", vector_distance=0.12),
+        ),
     )
     monkeypatch.setattr(
-        "services.qa.stream_answer.is_confident_match", lambda settings, matches: True
+        "services.qa.stream_answer.is_confident_match",
+        lambda settings, matches, **kwargs: True,
     )
     monkeypatch.setattr(
         "services.qa.stream_answer.stream_vllm_answer",
