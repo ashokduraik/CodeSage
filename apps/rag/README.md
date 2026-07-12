@@ -147,56 +147,33 @@ Server-Sent Events. Order of operations:
 
 Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from the environment (see `src/config/__init__.py`). Phase 0 `/health` does not require Postgres; repository tests use mocks — **pytest needs no running database**.
 
+Config is split into two homes (see [`.cursor/rules/rag-config.mdc`](../../.cursor/rules/rag-config.mdc)):
+
+- **`.env.example` / `.env`** — environment-specific values (connections, secrets, endpoints, model ids, ports), the cross-service `WORKER_STALE_JOB_SECONDS`, and per-deploy **feature toggles**. These are the only variables listed below.
+- **[`src/config/constants.py`](src/config/constants.py)** — standard tuning defaults (retrieval weights, top-k, timeouts, worker timings, context-window sizing, sync limits). They rarely change per deployment, so they are not in `.env.example`. Each is still a `Settings` field, so you can override any of them via env if needed (e.g. `RETRIEVAL_VECTOR_TOP_K=20`, `RETRIEVAL_MIN_CONFIDENCE=0.55`) — they just aren't documented as env knobs.
+
+### Environment variables (`.env.example`)
+
 | Variable | Default | Used today | Purpose |
 |---|---|---|---|
-| `DATABASE_URL` | `postgresql://codesage:change-me@localhost:5432/codesage` | yes | SQLAlchemy connection string. |
-| `REPO_CLONE_DIR` | `/var/codesage/repos` | yes | Where `sync` jobs clone repositories. |
-| `EMBEDDING_DIMENSION` | `1024` | yes | pgvector column width; must match the embedding model's output dimension. |
-| `EMBEDDING_TIMEOUT_SECONDS` | `300` | yes | Embedding HTTP timeout; raise for slow CPU / cold model loads. |
-| `LLM_TIMEOUT_SECONDS` | `300` | yes | LLM stream timeout; raise for slow CPU / cold model loads. |
-| `STARTUP_PROBE_TIMEOUT_SECONDS` | `5` | yes | Per-backend reachability probe at boot (non-fatal; warns only). |
+| `DATABASE_URL` | `postgresql://codesage_dba:change-me@localhost:5432/codesage_db` | yes | SQLAlchemy connection string. |
 | `RAG_PORT` | `8001` | Docker only | Host port mapping in Compose (not read by app yet). |
-| `WORKER_IDLE_SECONDS` | `10` | yes | Sleep between polls when the `jobs` queue is empty. |
+| `REPO_CLONE_DIR` | `/var/codesage/repos` | yes | Where `sync` jobs clone repositories. |
+| `TOKEN_ENC_KEY` | *(empty)* | yes | base64 32-byte AES key; must match `apps/api`. |
+| `WORKER_STALE_JOB_SECONDS` | `600` | yes | Cross-service: stale reclaim (RAG) + re-index throttle (API); must match root `.env`. |
 | `LOG_LEVEL` | `info` | yes | Indexing log verbosity (`info` or `debug` for per-file detail). |
-| `WORKER_POLL_SECONDS` | `2` | no | Reserved; consumer uses `WORKER_IDLE_SECONDS` today. |
-| `WORKER_CONCURRENCY` | `2` | planned | Max parallel heavy jobs (Phase 3). |
 | `VLLM_BASE_URL`, `VLLM_MODEL` | see `.env.example` | yes | LLM inference via any OpenAI-compatible server (Ollama/vLLM); excerpt fallback when unset. |
+| `EMBEDDING_DIMENSION` | `1024` | yes | pgvector column width; must match the embedding model's output dimension. |
 | `TEI_BASE_URL`, `TEI_EMBED_MODEL` | see `.env.example` | yes | Embeddings via any OpenAI-compatible server (Ollama/TEI); deterministic dev fallback when unset. |
-| `LLM_CONTEXT_DETECT_ENABLED` | `true` | yes | Auto-detect the model's context window (vLLM `max_model_len` / Ollama `/api/show`). |
-| `LLM_MAX_CONTEXT_TOKENS` | `8192` | yes | Fallback context window when detection is disabled or fails. |
-| `LLM_COMPLETION_RESERVE_TOKENS` | `1024` | yes | Tokens reserved for the answer (also sent as `max_tokens`); the rest packs context. |
-| `LLM_MAX_HISTORY_TURNS` | `10` | yes | Max prior conversation turns sent to the LLM; oldest trimmed first when over budget. |
-| `RETRIEVAL_TOP_K` | `20` | yes | Legacy fallback for vector top-k when `RETRIEVAL_VECTOR_TOP_K` unset. |
-| `RETRIEVAL_VECTOR_TOP_K` | `12` | yes | Ceiling for vector leg top-k (adaptive tier may use less). |
-| `RETRIEVAL_KEYWORD_TOP_K` | `12` | yes | Ceiling for keyword leg top-k. |
-| `RETRIEVAL_SYMBOL_TOP_K` | `12` | yes | Ceiling for symbol leg top-k. |
-| `RETRIEVAL_FUSED_TOP_K` | `20` | yes | Max fused hits passed to graph expansion. |
-| `RETRIEVAL_CONTEXT_TOP_K` | `10` | yes | Post-graph prune limit before LLM packing. |
-| `RETRIEVAL_RRF_K` | `60` | yes | RRF smoothing constant. |
-| `RETRIEVAL_VECTOR_WEIGHT` | `1.0` | yes | Balanced-profile RRF weight for vector leg. |
-| `RETRIEVAL_KEYWORD_WEIGHT` | `2.0` | yes | Balanced-profile RRF weight for keyword leg. |
-| `RETRIEVAL_SYMBOL_WEIGHT` | `3.0` | yes | Balanced-profile RRF weight for symbol leg. |
-| `RETRIEVAL_MIN_CONFIDENCE` | `0.45` | yes | Hybrid confidence abstain threshold. |
-| `RETRIEVAL_ADAPTIVE_MEDIUM_MIN_CHUNKS` | `5000` | yes | Active chunk count boundary (small → medium tier). |
-| `RETRIEVAL_ADAPTIVE_LARGE_MIN_CHUNKS` | `50000` | yes | Active chunk count boundary (medium → large tier). |
-| `RETRIEVAL_CONFIDENCE_WEIGHT_RETRIEVAL` | `0.40` | yes | Hybrid confidence: fused retrieval score weight. |
-| `RETRIEVAL_CONFIDENCE_WEIGHT_GRAPH` | `0.30` | yes | Hybrid confidence: graph connectivity weight. |
-| `RETRIEVAL_CONFIDENCE_WEIGHT_SYMBOL` | `0.20` | yes | Hybrid confidence: symbol/keyword exactness weight. |
-| `RETRIEVAL_CONFIDENCE_WEIGHT_COVERAGE` | `0.10` | yes | Hybrid confidence: distinct-file coverage weight. |
-| `RETRIEVAL_MIN_DISTINCT_FILES` | `1` | yes | Target distinct files for citation coverage score. |
-| `RETRIEVAL_KEYWORD_MIN_SIMILARITY` | `0.15` | yes | Minimum trigram score for keyword hits. |
-| `RETRIEVAL_SYMBOL_MIN_SIMILARITY` | `0.35` | yes | Minimum trigram score for symbol hits. |
-| `RETRIEVAL_MAX_DISTANCE` | `0.45` | yes | Hard fail for vector-only hits above this distance. |
-| `RETRIEVAL_GRAPH_ENABLED` | `true` | yes | Expand QA retrieval along cross-repo `http_call` edges. |
-| `RETRIEVAL_GRAPH_MAX_DEPTH` | `2` | yes | Max graph hops from vector hit seeds. |
-| `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS` | `4` | yes | Max additional chunks added via graph expansion. |
-| `RETRIEVAL_RERANKER_ENABLED` | `false` | yes | Enable TEI cross-encoder rerank (M3.3). |
-| `RETRIEVAL_RERANKER_BASE_URL` | *(empty)* | yes | TEI reranker base URL (e.g. `http://localhost:8081`). |
-| `RETRIEVAL_RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | yes | Cross-encoder model id (TEI `MODEL_ID`). |
-| `RETRIEVAL_RERANKER_INPUT_K` | `25` | yes | Max candidates sent to reranker. |
-| `RETRIEVAL_RERANKER_OUTPUT_K` | `8` | yes | Chunks kept after rerank. |
-| `RETRIEVAL_RERANKER_TIMEOUT_SECONDS` | `30` | yes | Rerank HTTP timeout. |
-| `RETRIEVAL_RERANKER_MAX_DOC_CHARS` | `1500` | yes | Per-chunk text cap in rerank payload. |
+| `LLM_CONTEXT_DETECT_ENABLED` | `true` | yes | Toggle: auto-detect the model's context window (vLLM `max_model_len` / Ollama `/api/show`). |
+| `RETRIEVAL_GRAPH_ENABLED` | `true` | yes | Toggle: expand QA retrieval along cross-repo `http_call` edges. |
+| `FRESHNESS_POLL_ENABLED` | `true` | yes | Toggle: background `git ls-remote` poll when webhooks miss pushes. |
+| `RETRIEVAL_RERANKER_ENABLED` | `false` | yes | Toggle: enable TEI cross-encoder rerank (M3.3). |
+| `RETRIEVAL_RERANKER_BASE_URL` | *(empty)* | yes | TEI reranker base URL (e.g. `http://localhost:8081`); empty = disabled path. |
+
+### Tuning defaults (`src/config/constants.py`)
+
+Retrieval weights and top-k, RRF smoothing, hybrid-confidence weights, adaptive tiers, graph depth, reranker model/limits, worker timings (`WORKER_POLL_SECONDS`, `WORKER_IDLE_SECONDS`, `WORKER_MAX_JOB_ATTEMPTS`), timeouts (`*_TIMEOUT_SECONDS`), context-window sizing (`LLM_MAX_CONTEXT_TOKENS`, `LLM_COMPLETION_RESERVE_TOKENS`, `LLM_MAX_HISTORY_TURNS`), `FRESHNESS_POLL_INTERVAL_SECONDS`, and `SYNC_MAX_FILE_BYTES` all live in [`src/config/constants.py`](src/config/constants.py) with an inline purpose comment each. Edit that file to change a default; set the matching env var to override for a single deployment.
 
 ### Optional cross-encoder reranker (M3.3)
 

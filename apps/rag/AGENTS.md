@@ -39,6 +39,8 @@ src/config/                → settings, env
 - Don't put algorithms in `api/` or `workers/`.
 - Don't expose HTTP to the browser — only `apps/api` calls this service.
 - Don't commit secrets.
+- Don't add standard tuning defaults to `.env.example` — they belong in `src/config/constants.py`
+  (env-specific vars + feature toggles stay in `.env.example`). See `.cursor/rules/rag-config.mdc`.
 
 ## Before finishing
 

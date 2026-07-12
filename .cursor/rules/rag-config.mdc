@@ -1,0 +1,35 @@
+---
+description: Where RAG config lives — env-specific vars in .env.example vs tuning defaults in config/constants.py
+globs: apps/rag/**
+alwaysApply: false
+---
+
+# RAG configuration — two homes
+
+`apps/rag` config is split so operators only see what changes per deployment. Decide the bucket
+**before** adding a new knob.
+
+## Buckets
+
+| Bucket | Home | What goes here |
+|---|---|---|
+| Environment-specific | `apps/rag/.env.example` + sibling `.env` | Connections, secrets, endpoints, ports, model ids, cross-service contracts (`WORKER_STALE_JOB_SECONDS`), and per-deploy **feature toggles** (`*_ENABLED`). |
+| Standard tuning default | `apps/rag/src/config/constants.py` | Retrieval weights/top-k, RRF, hybrid-confidence weights, adaptive tiers, graph depth, reranker model + limits, worker timings, timeouts, context-window sizing, sync limits, poll intervals. |
+
+Both are read through `Settings` in [`apps/rag/src/config/__init__.py`](../../apps/rag/src/config/__init__.py):
+env-specific fields keep a literal default; tuning fields read their default from `constants`.
+
+## Rules
+
+- **Every tuning field default references a `constants` value** — never inline a magic number in
+  `Settings` for a tuning knob. The value lives in exactly one place (`constants.py`).
+- **Constants stay env-overridable.** They are `Settings` fields, so an operator can still set the
+  env var in an emergency; they are just **not** listed in `.env.example`.
+- **Do not re-add tuning knobs to `.env.example`.** If a value is standard across deployments, it
+  belongs in `constants.py`.
+- **Each constant carries a one-line purpose comment.** Group by concern (worker, retrieval, …).
+- Feature toggles (`RETRIEVAL_GRAPH_ENABLED`, `RETRIEVAL_RERANKER_ENABLED`, `FRESHNESS_POLL_ENABLED`,
+  `LLM_CONTEXT_DETECT_ENABLED`) stay in `.env.example`; their tuning knobs are constants.
+- When you touch `.env.example`, follow [`env-example-sync.mdc`](./env-example-sync.mdc) to sync `.env`.
+
+See ADR [`0022-rag-config-constants.md`](../../docs/adr/0022-rag-config-constants.md).

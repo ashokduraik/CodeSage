@@ -126,7 +126,7 @@ cross-language API contract so an agent never has to guess request/response shap
 codesage/
 ├─ AGENTS.md               # Repo-wide conventions & guardrails for AI agents (and humans)
 ├─ README.md               # Quickstart, architecture map, links to docs/
-├─ .env.example            # All env vars documented (never commit real secrets)
+├─ .env.example            # Env-specific vars + feature toggles (never commit real secrets); RAG tuning defaults live in apps/rag/src/config/constants.py
 ├─ Makefile / justfile     # One-liners: setup, dev, test, lint, migrate, seed
 ├─ docker-compose.yml      # Local dev (all services on one host)
 ├─ contracts/              # ★ SINGLE SOURCE OF TRUTH for cross-service APIs

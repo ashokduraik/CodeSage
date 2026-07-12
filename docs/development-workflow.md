@@ -79,7 +79,7 @@ with local patches.
 - [ ] Migration added + `docs/data-model.md` and `docs/schema/<table>.md` updated (if schema changed).
 - [ ] Tests colocated and passing; **≥ 80% coverage (line + branch)**; lint clean.
 - [ ] Relevant `README.md` / `TODO.md` / `PLAN.md` updated.
-- [ ] No secrets committed; `.env.example` updated if new env vars were added.
+- [ ] No secrets committed; env-specific vars/toggles added to `.env.example` (and sibling `.env`); `apps/rag` standard tuning defaults go in `src/config/constants.py`, not `.env.example` (see `.cursor/rules/rag-config.mdc`).
 - [ ] ADR added for any new architectural decision.
 
 ## 8. Phased roadmap (reference)

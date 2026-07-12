@@ -38,6 +38,7 @@ Consequences · Alternatives considered · Escape hatch**.
 | [0019](./0019-persist-chat-history-in-postgres.md) | Persist chat history in PostgreSQL (multi-turn + stop) | Accepted |
 | [0020](./0020-hybrid-retrieval.md) | Hybrid retrieval (symbol + keyword + vector) with rank fusion | Accepted |
 | [0021](./0021-retrieval-quality-pass.md) | Retrieval quality pass — dynamic weights, prune, hybrid confidence, reranker | Accepted |
+| [0022](./0022-rag-config-constants.md) | RAG tuning defaults in `config/constants.py` (env.example = env-specific only) | Accepted |
 
 ## Adding a new ADR
 

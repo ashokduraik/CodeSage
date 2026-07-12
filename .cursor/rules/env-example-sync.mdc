@@ -29,6 +29,13 @@ root `.env.example`, then mirror each to its `.env`.
 - **Never commit** `.env` files.
 - **Do not read or print** `.env` contents in chat or logs.
 
+## RAG tuning defaults
+
+For `apps/rag`, standard tuning defaults (retrieval weights, timeouts, worker timings, etc.)
+live in `apps/rag/src/config/constants.py`, **not** `.env.example` — see `rag-config.mdc`. This
+sync rule applies only to keys that legitimately belong in `.env.example` (connections, secrets,
+endpoints, model ids, cross-service contracts, and feature toggles).
+
 ## Definition of Done
 
 A config change is incomplete until every touched `.env.example` has its sibling `.env` updated.

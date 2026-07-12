@@ -1,6 +1,7 @@
 import pytest
 
 from config import Settings, load_settings, resolve_env_files
+from config import constants
 
 
 def test_resolve_env_files_skips_under_pytest() -> None:
@@ -42,3 +43,21 @@ def test_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.repo_clone_dir == "/tmp/repos"
     assert settings.embedding_dimension == 512
     assert settings.tei_base_url == "http://tei"
+
+
+def test_tuning_defaults_come_from_constants(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tuning fields read their default from ``constants`` so there is one source of truth."""
+    monkeypatch.delenv("RETRIEVAL_VECTOR_TOP_K", raising=False)
+    monkeypatch.delenv("RETRIEVAL_MIN_CONFIDENCE", raising=False)
+    settings = load_settings()
+    assert settings.retrieval_vector_top_k == constants.RETRIEVAL_VECTOR_TOP_K
+    assert settings.retrieval_min_confidence == constants.RETRIEVAL_MIN_CONFIDENCE
+    assert settings.sync_max_file_bytes == constants.SYNC_MAX_FILE_BYTES
+    assert settings.freshness_poll_interval_seconds == constants.FRESHNESS_POLL_INTERVAL_SECONDS
+
+
+def test_constants_still_env_overridable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A constant-backed default can still be overridden by an env var when required."""
+    monkeypatch.setenv("RETRIEVAL_VECTOR_TOP_K", "99")
+    settings = load_settings()
+    assert settings.retrieval_vector_top_k == 99
