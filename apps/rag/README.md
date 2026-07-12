@@ -40,7 +40,7 @@ flowchart TB
     KW --> RRF
     VEC --> RRF
     RRF --> GX["graph expand<br/>(cross-repo neighbors)"]
-    GX --> PRUNE["prune to top 8–10<br/>(ADR 0021)"]
+    GX --> PRUNE["prune or rerank<br/>(ADR 0021)"]
     PRUNE --> GATE{"hybrid confidence?<br/>(ADR 0021)"}
     GATE -- "no" --> AB["abstain<br/>(never guess)"]
     GATE -- "yes" --> PACK["pack context to window<br/>+ prior turns"]
@@ -54,9 +54,9 @@ flowchart TB
 ```
 
 > **Retrieval:** hybrid symbol + keyword (`pg_trgm`) + vector search fused with **intent-aware
-> weighted RRF**, graph expansion, **prune to top 8–10**, and **hybrid confidence** abstain
-> ([ADR 0020](../../docs/adr/0020-hybrid-retrieval.md), [ADR 0021](../../docs/adr/0021-retrieval-quality-pass.md)).
-> Optional cross-encoder reranker planned in M3.3.
+> weighted RRF**, graph expansion, **heuristic prune or optional TEI cross-encoder rerank**, and
+> **hybrid confidence** abstain ([ADR 0020](../../docs/adr/0020-hybrid-retrieval.md),
+> [ADR 0021](../../docs/adr/0021-retrieval-quality-pass.md)).
 
 ### 1. Indexing — from repo to pgvector
 
@@ -112,7 +112,8 @@ Server-Sent Events. Order of operations:
    - **Symbol search** — name lookup over `graph_nodes` joined back via `symbol_refs`.
    - **Merge + re-rank** — weighted **Reciprocal Rank Fusion (RRF)** by intent profile.
    - `augment_matches_with_graph` walks `http_call` edges from fused top hits.
-   - **Prune** — keep top `RETRIEVAL_CONTEXT_TOP_K` (default 10) before context packing.
+   - **Prune or rerank** — default: heuristic prune to `RETRIEVAL_CONTEXT_TOP_K` (10). Optional:
+     TEI `POST /rerank` on top 25 candidates when `RETRIEVAL_RERANKER_ENABLED=true`.
 5. **Confidence gate** (`is_confident_match` + `hybrid_confidence.py`) — composite score
    (retrieval + graph connectivity + symbol exactness + citation coverage). Abstains when below
    `RETRIEVAL_MIN_CONFIDENCE` (NFR-7).
@@ -189,6 +190,33 @@ Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from t
 | `RETRIEVAL_GRAPH_ENABLED` | `true` | yes | Expand QA retrieval along cross-repo `http_call` edges. |
 | `RETRIEVAL_GRAPH_MAX_DEPTH` | `2` | yes | Max graph hops from vector hit seeds. |
 | `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS` | `4` | yes | Max additional chunks added via graph expansion. |
+| `RETRIEVAL_RERANKER_ENABLED` | `false` | yes | Enable TEI cross-encoder rerank (M3.3). |
+| `RETRIEVAL_RERANKER_BASE_URL` | *(empty)* | yes | TEI reranker base URL (e.g. `http://localhost:8081`). |
+| `RETRIEVAL_RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | yes | Cross-encoder model id (TEI `MODEL_ID`). |
+| `RETRIEVAL_RERANKER_INPUT_K` | `25` | yes | Max candidates sent to reranker. |
+| `RETRIEVAL_RERANKER_OUTPUT_K` | `8` | yes | Chunks kept after rerank. |
+| `RETRIEVAL_RERANKER_TIMEOUT_SECONDS` | `30` | yes | Rerank HTTP timeout. |
+| `RETRIEVAL_RERANKER_MAX_DOC_CHARS` | `1500` | yes | Per-chunk text cap in rerank payload. |
+
+### Optional cross-encoder reranker (M3.3)
+
+Reranking requires a **second TEI container** with a cross-encoder model — the embedding TEI
+instance cannot serve both embedding and rerank models. Ollama does not expose `/rerank`.
+
+With GPU Compose overlay:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile gpu up -d tei-rerank
+```
+
+Enable in `apps/rag/.env`:
+
+```dotenv
+RETRIEVAL_RERANKER_ENABLED=true
+RETRIEVAL_RERANKER_BASE_URL=http://localhost:8081
+```
+
+When disabled or unreachable, retrieval falls back to M3.2 heuristic prune automatically.
 
 ### Local inference with Ollama (low-spec friendly)
 

@@ -26,7 +26,7 @@ def _intent_tiebreak(match: RetrievalMatch, intent: QueryIntentProfile) -> float
     return max(symbol, keyword, vector)
 
 
-def _prune_sort_key(match: RetrievalMatch, intent: QueryIntentProfile) -> tuple:
+def prune_sort_key(match: RetrievalMatch, intent: QueryIntentProfile) -> tuple:
     """Build a sort key that prefers fused seeds over graph-expanded chunks.
 
     @param match - Candidate retrieval hit.
@@ -40,6 +40,11 @@ def _prune_sort_key(match: RetrievalMatch, intent: QueryIntentProfile) -> tuple:
         -_intent_tiebreak(match, intent),
         match.chunk.file_path,
     )
+
+
+def _prune_sort_key(match: RetrievalMatch, intent: QueryIntentProfile) -> tuple:
+    """Alias for ``prune_sort_key`` (internal callers)."""
+    return prune_sort_key(match, intent)
 
 
 def prune_matches(

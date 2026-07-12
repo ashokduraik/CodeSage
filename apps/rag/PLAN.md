@@ -19,7 +19,7 @@ Layered Python backend under **`src/`**: **api → services → repositories →
 5. **`services/llm/`** — vLLM/Ollama provider, prompts.
 6. **`services/retrieval/`** — hybrid retrieval: symbol + keyword (`pg_trgm`) + vector, fused
    with RRF, then graph expansion (ADR 0020). **Done:** dynamic weights, adaptive top-k, prune,
-   hybrid confidence (M3.2, ADR 0021). **Next:** optional cross-encoder reranker (M3.3).
+   hybrid confidence (M3.2), optional cross-encoder reranker (M3.3, ADR 0021).
 7. **`services/router/`** — code vs product classifier.
 8. **`services/distill/`** — workflow/page/permission extractors.
 9. **`services/experts/`** — confidence, expert questions.

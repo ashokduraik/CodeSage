@@ -7,8 +7,10 @@ from services.health.model_backends import (
     ProbeStatus,
     check_embedding_backend,
     check_llm_backend,
+    check_reranker_backend,
     log_model_backend_status,
     probe_openai_backend,
+    probe_tei_health,
 )
 
 __all__ = [
@@ -16,6 +18,8 @@ __all__ = [
     "ProbeStatus",
     "check_embedding_backend",
     "check_llm_backend",
+    "check_reranker_backend",
     "log_model_backend_status",
     "probe_openai_backend",
+    "probe_tei_health",
 ]

@@ -106,18 +106,19 @@ Abstain when `confidence < RETRIEVAL_MIN_CONFIDENCE` (new setting) with message 
 **Graph centrality** (PageRank-style scores on `graph_nodes`) is **deferred** — higher complexity
 and rebuild cost; revisit only if M3.2 metrics still show structural misses.
 
-### M3.3 — Cross-encoder reranker (follow-up)
+### M3.3 — Cross-encoder reranker (follow-up) — **implemented**
 
-After M3.2 prune, add an optional **open-source cross-encoder reranker** (e.g. `bge-reranker-v2`
-or equivalent served via TEI/OpenAI-compatible rerank API — ADR 0008/0009 posture, no paid APIs):
+After M3.2 prune, an optional **open-source cross-encoder reranker** (`BAAI/bge-reranker-v2-m3`
+served via TEI `POST /rerank` — ADR 0008/0009 posture, no paid APIs):
 
-- Input: question + top **~25** candidates post-fusion/graph.
-- Output: reorder; keep top **8** for the LLM.
-- Feature-flagged (`RETRIEVAL_RERANKER_ENABLED`); off by default until latency and hosting are
-  validated on target hardware.
+- Input: question + top **~25** candidates post-fusion/graph (`RETRIEVAL_RERANKER_INPUT_K`).
+- Output: reorder; keep top **8** for the LLM (`RETRIEVAL_RERANKER_OUTPUT_K`).
+- Feature-flagged (`RETRIEVAL_RERANKER_ENABLED`, default `false`).
+- **Hosting:** separate `tei-rerank` Compose service — embed TEI cannot serve both embedding and
+  cross-encoder models in one instance. Ollama does not expose `/rerank`.
+- **Fallback:** on disable, missing URL, or HTTP error → M3.2 heuristic `prune_matches`.
 
-Requires its own env/config block and may warrant a short ADR addendum if the chosen model or
-serving path differs materially from TEI embeddings.
+Implementation: [`apps/rag/src/services/retrieval/rerank.py`](../../apps/rag/src/services/retrieval/rerank.py).
 
 ## Consequences
 

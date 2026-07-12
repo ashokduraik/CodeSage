@@ -83,6 +83,13 @@ class Settings(BaseSettings):
     retrieval_graph_enabled: bool = True
     retrieval_graph_max_depth: int = 2
     retrieval_graph_max_extra_chunks: int = 4
+    retrieval_reranker_enabled: bool = False
+    retrieval_reranker_base_url: str = ""
+    retrieval_reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    retrieval_reranker_input_k: int = 25
+    retrieval_reranker_output_k: int = 8
+    retrieval_reranker_timeout_seconds: float = 30.0
+    retrieval_reranker_max_doc_chars: int = 1500
     sync_max_file_bytes: int = 512_000
 
     freshness_poll_enabled: bool = True

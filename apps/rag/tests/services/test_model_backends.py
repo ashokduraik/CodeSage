@@ -13,8 +13,10 @@ from services.health import (
     ProbeStatus,
     check_embedding_backend,
     check_llm_backend,
+    check_reranker_backend,
     log_model_backend_status,
     probe_openai_backend,
+    probe_tei_health,
 )
 
 _MODULE = "services.health.model_backends"
@@ -137,6 +139,23 @@ def test_check_helpers_use_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["url"].endswith("/models")
 
 
+def test_check_reranker_disabled() -> None:
+    probe = check_reranker_backend(Settings(retrieval_reranker_enabled=False))
+    assert probe.status is ProbeStatus.FALLBACK
+
+
+def test_probe_tei_health_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = MagicMock()
+    response.status_code = 200
+    monkeypatch.setattr(f"{_MODULE}.httpx.get", lambda *a, **k: response)
+    probe = probe_tei_health(
+        base_url="http://localhost:8081",
+        timeout=1.0,
+        label="reranker",
+    )
+    assert probe.status is ProbeStatus.OK
+
+
 def test_log_model_backend_status_ok(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -155,6 +174,7 @@ def test_log_model_backend_status_ok(
     text = caplog.text
     assert "LLM backend ready" in text
     assert "Embedding backend ready" in text
+    assert "Reranker disabled" in text
 
 
 def test_log_model_backend_status_warns_when_unreachable(

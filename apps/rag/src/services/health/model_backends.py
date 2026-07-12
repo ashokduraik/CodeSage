@@ -130,6 +130,56 @@ def probe_openai_backend(
     )
 
 
+def check_reranker_backend(settings: Settings) -> BackendProbe:
+    """Probe the configured cross-encoder reranker backend.
+
+    @param settings - Application settings.
+    @returns Probe result for the reranker, or FALLBACK when disabled.
+    """
+    if not settings.retrieval_reranker_enabled:
+        return BackendProbe(ProbeStatus.FALLBACK, "reranker disabled")
+    return probe_tei_health(
+        base_url=settings.retrieval_reranker_base_url,
+        timeout=settings.startup_probe_timeout_seconds,
+        label="reranker",
+    )
+
+
+def probe_tei_health(
+    *,
+    base_url: str,
+    timeout: float,
+    label: str = "TEI",
+) -> BackendProbe:
+    """Probe a TEI service via ``GET {base_url}/health``.
+
+    @param base_url - TEI base URL; empty means no backend configured.
+    @param timeout - Short probe timeout in seconds.
+    @param label - Human-readable service name for log messages.
+    @returns Probe result describing reachability.
+    """
+    if not base_url.strip():
+        return BackendProbe(ProbeStatus.FALLBACK, f"no {label} configured")
+
+    base = base_url.rstrip("/")
+    host = _host_label(base)
+    url = f"{base}/health"
+    try:
+        response = httpx.get(url, timeout=timeout)
+    except httpx.HTTPError as exc:
+        return BackendProbe(
+            ProbeStatus.UNREACHABLE,
+            f"cannot reach {label} at {host}: {sanitize_log_message(str(exc))}",
+        )
+
+    if response.status_code >= 400:
+        return BackendProbe(
+            ProbeStatus.UNREACHABLE,
+            f"{label} at {host} unhealthy (HTTP {response.status_code})",
+        )
+    return BackendProbe(ProbeStatus.OK, f"{label} reachable at {host}")
+
+
 def check_embedding_backend(settings: Settings) -> BackendProbe:
     """Probe the configured embedding backend.
 
@@ -229,6 +279,28 @@ def _log_embedding_probe(settings: Settings, probe: BackendProbe) -> None:
         )
 
 
+def _log_reranker_probe(probe: BackendProbe) -> None:
+    """Emit the reranker backend probe result at the appropriate level.
+
+    @param probe - Reranker probe result.
+    """
+    if probe.status is ProbeStatus.OK:
+        log_event(_logger, logging.INFO, f"Reranker backend ready — {probe.message}")
+    elif probe.status is ProbeStatus.FALLBACK:
+        log_event(
+            _logger,
+            logging.INFO,
+            "Reranker disabled — using heuristic prune only (M3.2)",
+        )
+    else:  # UNREACHABLE
+        log_event(
+            _logger,
+            logging.WARNING,
+            f"Reranker backend unreachable — {probe.message}. "
+            "QA will fall back to heuristic prune.",
+        )
+
+
 def log_model_backend_status(settings: Settings) -> None:
     """Probe both model backends at startup and log success or warnings.
 
@@ -240,6 +312,7 @@ def log_model_backend_status(settings: Settings) -> None:
     try:
         _log_llm_probe(settings, check_llm_backend(settings))
         _log_embedding_probe(settings, check_embedding_backend(settings))
+        _log_reranker_probe(check_reranker_backend(settings))
     except Exception as exc:  # noqa: BLE001 - startup probe must never crash boot
         log_event(
             _logger,

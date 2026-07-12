@@ -318,6 +318,48 @@ def test_debug_logging_reports_retrieval_and_prompt(monkeypatch, caplog) -> None
     assert "rrf=" in text
 
 
+def test_debug_logging_reports_rerank_scores(monkeypatch, caplog) -> None:
+    session_factory = MagicMock(return_value=MagicMock())
+    match = _make_match("src/emi.ts", "export function getMinEmi() {}", vector_distance=0.12)
+    match = RetrievalMatch(
+        chunk=match.chunk,
+        fused_score=match.fused_score,
+        sources=match.sources,
+        vector_distance=match.vector_distance,
+        rerank_score=0.88,
+    )
+    context = RetrievalContext(
+        intent=QueryIntentProfile.BALANCED,
+        tier=ProjectSizeTier.SMALL,
+        terms=[],
+        reranker_applied=True,
+    )
+    monkeypatch.setattr(
+        "services.qa.stream_answer.retrieve_code_chunks",
+        lambda *a, **k: ([match], context),
+    )
+    monkeypatch.setattr(
+        "services.qa.stream_answer.is_confident_match",
+        lambda settings, matches, **kwargs: True,
+    )
+    monkeypatch.setattr(
+        "services.qa.stream_answer.stream_vllm_answer",
+        lambda settings, question, context_blocks, stats=None, history=None: iter(["a"]),
+    )
+    with caplog.at_level(logging.DEBUG, logger="codesage.indexing"):
+        list(
+            stream_rag_answer(
+                Settings(),
+                session_factory,
+                question="how is EMI calculated?",
+                project_id=uuid.uuid4(),
+                audience="developer",
+            ),
+        )
+    assert "reranker=true" in caplog.text
+    assert "rerank=" in caplog.text
+
+
 def test_debug_logging_silent_when_not_debug(monkeypatch, caplog) -> None:
     session_factory = MagicMock(return_value=MagicMock())
     chunk = _make_chunk("src/emi.ts", "export function getMinEmi() {}")

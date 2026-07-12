@@ -58,6 +58,7 @@ def _log_retrieval(
     if context is not None:
         meta_parts.append(f"intent={context.intent.value}")
         meta_parts.append(f"tier={context.tier.value}")
+        meta_parts.append(f"reranker={str(context.reranker_applied).lower()}")
     if hybrid_confidence is not None:
         meta_parts.append(f"hybrid_conf={hybrid_confidence:.4f}")
     meta_parts.append(f"pruned={len(matches)}")
@@ -76,6 +77,8 @@ def _log_retrieval(
             parts.append(f"kw={match.keyword_score:.4f}")
         if match.symbol_score is not None:
             parts.append(f"sym={match.symbol_score:.4f}")
+        if match.rerank_score is not None:
+            parts.append(f"rerank={match.rerank_score:.4f}")
         if match.sources:
             parts.append(f"src={','.join(match.sources)}")
         log_event(

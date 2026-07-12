@@ -130,3 +130,82 @@ def test_retrieve_code_chunks_hybrid_fusion(monkeypatch: pytest.MonkeyPatch) -> 
     assert matches[0] == fused
     assert context.intent == QueryIntentProfile.SYMBOL_LOOKUP
     assert context.tier == ProjectSizeTier.SMALL
+    assert context.reranker_applied is False
+
+
+def test_retrieve_code_chunks_uses_reranker_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    from services.retrieval.rerank import RerankOutcome
+
+    project = MagicMock()
+    project_repo = MagicMock()
+    project_repo.get_by_id.return_value = project
+    chunk_a = MagicMock()
+    chunk_a.id = uuid.uuid4()
+    chunk_a.file_path = "a.ts"
+    chunk_b = MagicMock()
+    chunk_b.id = uuid.uuid4()
+    chunk_b.file_path = "b.ts"
+    fused = [
+        RetrievalMatch(chunk=chunk_a, fused_score=0.03, sources=("vector",)),
+        RetrievalMatch(chunk=chunk_b, fused_score=0.02, sources=("vector",)),
+    ]
+    reranked = RetrievalMatch(
+        chunk=chunk_b,
+        fused_score=0.02,
+        sources=("vector",),
+        rerank_score=0.99,
+    )
+
+    chunks_repo = MagicMock()
+    chunks_repo.count_active_by_project.return_value = 100
+
+    monkeypatch.setattr(
+        "services.retrieval.search.ProjectRepository",
+        lambda session: project_repo,
+    )
+    monkeypatch.setattr(
+        "services.retrieval.search.CodeChunkRepository",
+        lambda session: chunks_repo,
+    )
+    monkeypatch.setattr(
+        "services.retrieval.search.EmbeddingClient",
+        lambda settings: MagicMock(embed_texts=lambda texts: [[0.1]]),
+    )
+    monkeypatch.setattr(
+        "services.retrieval.search.similarity_search",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
+        "services.retrieval.search.keyword_search",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
+        "services.retrieval.search.symbol_search",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
+        "services.retrieval.search.reciprocal_rank_fusion",
+        lambda **kwargs: fused,
+    )
+    monkeypatch.setattr(
+        "services.retrieval.search.augment_matches_with_graph",
+        lambda session, settings, *, project_id, matches: matches,
+    )
+    monkeypatch.setattr(
+        "services.retrieval.search.rerank_matches",
+        lambda question, candidates, settings: RerankOutcome([reranked], applied=True),
+    )
+
+    matches, context = retrieve_code_chunks(
+        MagicMock(),
+        Settings(
+            retrieval_reranker_enabled=True,
+            retrieval_reranker_base_url="http://localhost:8081",
+            retrieval_reranker_output_k=1,
+        ),
+        project_id=uuid.uuid4(),
+        question="what does getMinEmi do?",
+    )
+    assert len(matches) == 1
+    assert matches[0].rerank_score == 0.99
+    assert context.reranker_applied is True

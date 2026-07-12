@@ -109,17 +109,16 @@ hybrid confidence gate.
 questions no longer receive 15+ loosely related excerpts; abstain fires when hybrid confidence is
 below threshold.
 
-#### M3.3 — Cross-encoder reranker (ADR 0021) — **planned**
+#### M3.3 — Cross-encoder reranker (ADR 0021) — **done**
 
-Optional open-source reranker (e.g. `bge-reranker-v2` via TEI-compatible endpoint) reorders top
-~25 fused candidates to top 8 before context packing. Feature-flagged; validate latency on target
-hardware before enabling by default.
+Optional open-source reranker (`BAAI/bge-reranker-v2-m3` via TEI `/rerank`) reorders top
+~25 fused candidates to top 8 before context packing. Feature-flagged; off by default.
 
 | Step | Module | Key deliverables |
 |---|---|---|
 | 1 | `services/retrieval/rerank.py` | Rerank client + integration after fusion/graph |
 | 2 | `config/` | `RETRIEVAL_RERANKER_ENABLED`, endpoint, model id, candidate limits |
-| 3 | ops | Reranker model hosting alongside TEI (document in deployment guide) |
+| 3 | ops | `tei-rerank` service in `docker-compose.gpu.yml`; hosting docs |
 
 **Done when:** with reranker enabled, precision@8 improves on a small golden set of code-QA
 questions without breaking abstain behaviour.

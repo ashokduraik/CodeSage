@@ -23,6 +23,7 @@ from services.retrieval.hybrid_confidence import compute_hybrid_confidence, has_
 from services.retrieval.prune import prune_matches
 from services.retrieval.query_intent import QueryIntentProfile, classify_query_intent, resolve_rrf_weights
 from services.retrieval.query_terms import extract_search_terms
+from services.retrieval.rerank import rerank_matches, select_rerank_candidates
 from services.retrieval.types import RetrievalMatch
 
 
@@ -34,6 +35,7 @@ class RetrievalContext:
     tier: ProjectSizeTier
     terms: list[str]
     hybrid_confidence: float | None = None
+    reranker_applied: bool = False
 
 
 def retrieve_code_chunks(
@@ -115,12 +117,33 @@ def retrieve_code_chunks(
         project_id=project_id,
         matches=fused,
     )
-    pruned = prune_matches(
-        expanded,
-        limit=settings.retrieval_context_top_k,
+
+    reranker_applied = False
+    if settings.retrieval_reranker_enabled and settings.retrieval_reranker_base_url.strip():
+        candidates = select_rerank_candidates(expanded, settings, intent=intent)
+        outcome = rerank_matches(question, candidates, settings)
+        if outcome.applied:
+            pruned = outcome.matches[: settings.retrieval_reranker_output_k]
+            reranker_applied = True
+        else:
+            pruned = prune_matches(
+                expanded,
+                limit=settings.retrieval_context_top_k,
+                intent=intent,
+            )
+    else:
+        pruned = prune_matches(
+            expanded,
+            limit=settings.retrieval_context_top_k,
+            intent=intent,
+        )
+
+    context = RetrievalContext(
         intent=intent,
+        tier=tier,
+        terms=terms,
+        reranker_applied=reranker_applied,
     )
-    context = RetrievalContext(intent=intent, tier=tier, terms=terms)
     return pruned, context
 
 
