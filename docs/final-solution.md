@@ -66,7 +66,7 @@ flowchart TB
         CRUD[User / project / repo CRUD]
     end
 
-    subgraph PY["Python — apps/rag (heavy/blocking)"]
+    subgraph PY["Python — apps/engine (heavy/blocking)"]
         RAGSVC[RAG / router / QA HTTP]
         ORCH[Job enqueue + scheduler]
         subgraph WORK["Background consumers"]
@@ -108,7 +108,7 @@ flowchart TB
 
 **Boundary rule:** Node never blocks on heavy work. It performs CRUD/auth synchronously,
 enqueues indexing/distillation jobs (rows in Postgres), and calls the Python RAG service for
-QA (streaming the answer back over WebSocket). Background jobs run in the same `apps/rag`
+QA (streaming the answer back over WebSocket). Background jobs run in the same `apps/engine`
 deployable (Procrastinate / `SKIP LOCKED`).
 
 ---
@@ -126,12 +126,12 @@ cross-language API contract so an agent never has to guess request/response shap
 codesage/
 ├─ AGENTS.md               # Repo-wide conventions & guardrails for AI agents (and humans)
 ├─ README.md               # Quickstart, architecture map, links to docs/
-├─ .env.example            # Env-specific vars + feature toggles (never commit real secrets); RAG tuning defaults live in apps/rag/src/config/constants.py
+├─ .env.example            # Env-specific vars + feature toggles (never commit real secrets); RAG tuning defaults live in apps/engine/src/config/constants.py
 ├─ Makefile / justfile     # One-liners: setup, dev, test, lint, migrate, seed
 ├─ docker-compose.yml      # Local dev (all services on one host)
 ├─ contracts/              # ★ SINGLE SOURCE OF TRUTH for cross-service APIs
 │  ├─ openapi.node.yaml    #   Public Node REST/WS API
-│  ├─ openapi.rag.yaml     #   Internal Python RAG API
+│  ├─ openapi.engine.yaml     #   Internal Python RAG API
 │  ├─ jobs.schema.json     #   Job queue payload schemas (Node enqueues → Python consumes)
 │  └─ README.md            #   "Edit here, then run codegen" — types are generated, not hand-written
 ├─ apps/                   # Deployable user-facing apps
@@ -179,7 +179,7 @@ api/src/
 │  ├─ users/
 │  ├─ projects/
 │  ├─ repos/              # attach repo, token encryption, branch config
-│  ├─ chat/               # WS gateway → proxies to apps/rag (streams)
+│  ├─ chat/               # WS gateway → proxies to apps/engine (streams)
 │  ├─ knowledge/          # read workflows / pages / permissions / data-flows
 │  ├─ questions/          # expert queue read + answer
 │  └─ webhooks/           # provider push → enqueue re-index job
@@ -187,10 +187,10 @@ api/src/
 └─ http/                  # server bootstrap, middleware, OpenAPI wiring
 ```
 
-### 4.4 Python backend — `apps/rag/` (layered)
+### 4.4 Python backend — `apps/engine/` (layered)
 
 ```
-apps/rag/
+apps/engine/
 ├── src/                  # All Python code
 │   ├── api/              # HTTP — FastAPI app, routes (thin)
 │   ├── workers/          # Background jobs — Procrastinate dispatch (thin)
@@ -211,7 +211,7 @@ apps/rag/
   `api/` or `workers/`"), the test/lint commands, and naming rules.
 - **Tests colocated** with code (`*.test.ts`, `test_*.py`) plus `tests/e2e/` for cross-service.
 - **One concern = one place:** DB schema only in `db/migrations/`; API shapes only in
-  `contracts/`; prompts only in `apps/rag/src/services/llm` + `apps/rag/src/services/distill`.
+  `contracts/`; prompts only in `apps/engine/src/services/llm` + `apps/engine/src/services/distill`.
 - **No deep cross-module imports** — modules expose a public surface (`index.ts` / `__init__.py`);
   internals stay private. This is what makes large-codebase edits safe for an AI agent.
 - **Small, single-purpose files** with descriptive names over large grab-bag files.
@@ -334,8 +334,8 @@ flowchart LR
 - `WS /chat` — QA streaming (proxied to the Python RAG service).
 - `POST /webhooks/:provider` — push events → enqueue re-index job.
 
-**Python (internal only, `apps/rag`):**
-- `POST /rag/query` — router + retrieval + grounded answer (SSE/stream).
+**Python (internal only, `apps/engine`):**
+- `POST /engine/query` — router + retrieval + grounded answer (SSE/stream).
 - Background queue consumers — `sync`, `parse`, `embed`, `xrepo`, `distill` (same deployable).
 
 ---
@@ -359,7 +359,7 @@ flowchart LR
 - **Machine 1 — Database:** 16 cores, 64–128 GB RAM, 1 TB NVMe SSD (RAID1), no GPU. Runs
   PostgreSQL + pgvector.
 - **Machine 2 — Application + GPU:** 16–32 cores, 64–128 GB RAM, 500 GB–1 TB NVMe,
-  **1× 48 GB GPU** (L40S/A6000). Runs Node API, Python `apps/rag`, vLLM, TEI.
+  **1× 48 GB GPU** (L40S/A6000). Runs Node API, Python `apps/engine`, vLLM, TEI.
 
 > **GPU = 1× 48 GB** (finalized): runs a 14B fp16 / quantized-32B class model + the embedding
 > model — the MVP sweet spot for "understanding" quality. Scale out (more GPUs / Kubernetes)

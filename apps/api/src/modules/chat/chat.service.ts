@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import type { NodeApi, RagApi } from "@codesage/shared-types";
+import type { NodeApi, EngineApi } from "@codesage/shared-types";
 import type { Sql } from "../../platform/db";
-import { postRagQueryStream } from "../../platform/ragClient";
+import { postEngineQueryStream } from "../../platform/engineClient";
 import { ApiError } from "../../platform/errors";
 import type { JwtPayload } from "../../platform/auth.plugin";
 import {
@@ -28,7 +28,7 @@ type ChatMessage = NodeApi.components["schemas"]["ChatMessage"];
 type ChatMode = NodeApi.components["schemas"]["ChatMode"];
 type ChatQueryRequest = NodeApi.components["schemas"]["ChatQueryRequest"];
 type CreateConversationRequest = NodeApi.components["schemas"]["CreateConversationRequest"];
-type ChatTurn = RagApi.components["schemas"]["ChatTurn"];
+type ChatTurn = EngineApi.components["schemas"]["ChatTurn"];
 type CodeCitation = NodeApi.components["schemas"]["CodeCitation"];
 
 const DEFAULT_TITLE = "New Chat";
@@ -260,14 +260,14 @@ export async function streamChatQuery(
   };
   request.raw.on("close", onClientClose);
 
-  let ragResponse: Response;
+  let engineResponse: Response;
   try {
-    ragResponse = await postRagQueryStream(
+    engineResponse = await postEngineQueryStream(
       app.config,
       {
         question,
         projectId: scope.project_id,
-        audience: scope.audience as RagApi.components["schemas"]["QueryAudience"],
+        audience: scope.audience as EngineApi.components["schemas"]["QueryAudience"],
         generateTitle,
         history: history.length > 0 ? history : undefined,
       },
@@ -275,8 +275,8 @@ export async function streamChatQuery(
     );
   } catch (err) {
     request.raw.off("close", onClientClose);
-    const message = err instanceof Error ? err.message : "RAG service unavailable";
-    throw new ApiError(502, "RAG_UNAVAILABLE", message);
+    const message = err instanceof Error ? err.message : "Engine service unavailable";
+    throw new ApiError(502, "ENGINE_UNAVAILABLE", message);
   }
 
   const forwardedHeaders: Record<string, string> = {};
@@ -298,7 +298,7 @@ export async function streamChatQuery(
   let lineBuffer = "";
   let clientDisconnected = false;
 
-  const reader = ragResponse.body!.getReader();
+  const reader = engineResponse.body!.getReader();
   try {
     for (;;) {
       if (abortController.signal.aborted) {

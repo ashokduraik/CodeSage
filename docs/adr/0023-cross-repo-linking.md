@@ -21,7 +21,7 @@ normalized path. Phase 2 must deliver that without a new datastore (ADR 0003) or
 ## Decision
 
 Implement cross-repo linking in **three milestones** on top of the existing parse → embed
-pipeline. All logic lives in `apps/rag/src/services/`; Node only enqueues jobs.
+pipeline. All logic lives in `apps/engine/src/services/`; Node only enqueues jobs.
 
 ### M1 — API signal extraction during parse
 
@@ -110,4 +110,4 @@ flowchart LR
 - If regex coverage is insufficient, add tree-sitter queries for HTTP client/route AST nodes
   alongside regex (same `ApiSignal` shape).
 - Graph expansion remains behind `services/retrieval/graph_expand.py` — a future dedicated
-  graph engine (ADR 0005 escape hatch) can replace traversal without changing `/rag/query`.
+  graph engine (ADR 0005 escape hatch) can replace traversal without changing `/engine/query`.

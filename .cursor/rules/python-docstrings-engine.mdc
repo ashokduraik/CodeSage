@@ -1,0 +1,73 @@
+---
+description: Mandatory docstrings and WHY comments for apps/engine Python code
+globs: apps/engine/src/**
+alwaysApply: false
+---
+
+# Python documentation — apps/engine
+
+Every change under `apps/engine/src/` must stay **human- and AI-readable**: a developer or
+agent should understand intent from docstrings and comments without running the code.
+
+**Scope:** all hand-written modules under `src/` (exclude `src/generated/` — codegen owns those).
+
+## Every function, method, and class
+
+- **Docstring required** on every `def`, `async def`, and `class` — including nested
+  closures (`lifespan`, `event_stream`, factory `_handler`, local helpers like `list_files`).
+- **Opening paragraph (required):** 2–4 plain-English sentences describing *what* the symbol
+  does, *when* to call it, and any product/domain context (indexing pipeline step, trust
+  rule, soft-delete policy, etc.). Do not jump straight to `@param` tags.
+- **Tags (required when applicable):** `@param`, `@returns`, `@yields`, `@raises` — each
+  tag value is a full sentence, not a fragment.
+
+```python
+def handle_sync_job(session, settings, payload, exec_ctx) -> None:
+    """Run Step 1/3 of the indexing pipeline for one repository.
+
+    Clones or fetches the Git remote, compares against the last indexed commit, and
+    enqueues a parse job for changed source files. Updates repo connection status and
+    project lifecycle so the UI reflects progress.
+
+    @param session - Open SQLAlchemy session; the worker commits after the handler returns.
+    @param settings - Application settings including clone directory and encryption key.
+    @param payload - SyncPayload matching ``contracts/jobs.schema.json``.
+    @param exec_ctx - Run grouping and progress recorder shared with parse/embed steps.
+    @raises ValueError when the payload is invalid or the repo row is missing.
+    @raises RuntimeError when a git command fails.
+    """
+```
+
+## Complex logic inside functions
+
+Add **inline comments** where control flow is non-obvious. Each comment is **1–3 complete
+sentences** explaining *why* the code exists and what would go wrong without it:
+
+- Multi-step orchestration (job pipeline handoffs, superseded-job checks)
+- State machines and precedence rules (lifecycle reconciliation)
+- Destructive or policy-heavy ops (git reset, delete-before-rechunk)
+- Heuristic chains (error classification, trigger inference)
+- Non-trivial algorithms (recursive CTEs, AST chunking, deterministic fake embeddings)
+- Dual-session / retry / isolation patterns in workers
+
+```python
+# A newer sync may have soft-deleted this job row while we were still cloning.
+# Skip parse enqueue so we never index stale files from an outdated run.
+if not jobs.is_job_active(exec_ctx.job_id):
+    ...
+```
+
+Do **not** comment trivial assignments or self-explanatory CRUD. Do **not** use telegraphic
+fragments (`# fail fast`, `# daemon thread`) — write for a human maintainer.
+
+## Module docstrings
+
+Each `.py` file keeps a one- or two-sentence module docstring describing its layer role.
+
+## Definition of Done
+
+- [ ] Every new/changed symbol has an opening prose paragraph plus tag lines.
+- [ ] Complex branches have multi-sentence WHY comments.
+- [ ] Comments read naturally aloud — not bullet fragments.
+
+See also `global-coding-standards.mdc` and `apps/engine/AGENTS.md`.

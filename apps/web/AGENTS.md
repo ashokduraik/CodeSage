@@ -15,9 +15,9 @@ Local rules for the React frontend. Root [`/AGENTS.md`](../../AGENTS.md) also ap
 
 ## Don't
 
-- Don't call the Python service (`apps/rag`) directly — go through
+- Don't call the Python service (`apps/engine`) directly — go through
   `apps/api` only.
-- Don't add business logic here (parsing, retrieval, distillation belong in `apps/rag/src/services/`).
+- Don't add business logic here (parsing, retrieval, distillation belong in `apps/engine/src/services/`).
 - Don't reach across features with deep imports — share via `shared/`.
 - Don't commit secrets or API tokens.
 

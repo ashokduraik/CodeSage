@@ -40,7 +40,7 @@ services:
       NODE_ENV: production
       API_HOST: 0.0.0.0
       API_PORT: "3000"
-      RAG_BASE_URL: http://rag:8001
+      ENGINE_BASE_URL: http://engine:8001
       DATABASE_URL: ${DATABASE_URL:-postgres://codesage:change-me@db:5432/codesage?sslmode=disable}
       TOKEN_ENC_KEY: ${TOKEN_ENC_KEY:-}
       WEBHOOK_BASE_URL: ${WEBHOOK_BASE_URL:-}
@@ -51,10 +51,10 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  rag:
+  engine:
     build:
       context: .
-      dockerfile: apps/rag/Dockerfile
+      dockerfile: apps/engine/Dockerfile
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://codesage:change-me@db:5432/codesage?sslmode=disable}
       REPO_CLONE_DIR: /var/codesage/repos
@@ -63,8 +63,8 @@ services:
       FRESHNESS_POLL_INTERVAL_SECONDS: ${FRESHNESS_POLL_INTERVAL_SECONDS:-900}
     volumes:
       - repo_clones:/var/codesage/repos
-    # Internal only — Node reaches RAG via the Compose network (RAG_BASE_URL=http://rag:8001).
-    # For local debugging outside Compose, run `npm run dev:rag` on the host.
+    # Internal only — Node reaches the engine via the Compose network (ENGINE_BASE_URL=http://engine:8001).
+    # For local debugging outside Compose, run `npm run dev:engine` on the host.
     depends_on:
       migrate:
         condition: service_completed_successfully

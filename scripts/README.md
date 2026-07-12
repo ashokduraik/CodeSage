@@ -1,7 +1,7 @@
 # scripts/ — Dev/ops scripts
 
 One-off and repeatable developer/operations scripts. Kept thin; they orchestrate, they don't hold
-business logic (that lives in `apps/rag/services/`).
+business logic (that lives in `apps/engine/services/`).
 
 > **Status:** Scaffolded with this README only. **No scripts written yet.**
 

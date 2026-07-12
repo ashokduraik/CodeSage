@@ -44,7 +44,7 @@ stream with its own `actor_id` + `ts`).
 - Migration `20260704120000_audit_columns_and_service_users.sql` adds columns, backfills,
   FKs, and `set_row_updated_at()` triggers.
 - Node: `apps/api/src/platform/serviceUsers.ts`; `enqueueJob(db, type, payload, actorId)`.
-- Python: `apps/rag/src/config/service_users.py`, `repositories/audit.py` (`stamp_created`,
+- Python: `apps/engine/src/config/service_users.py`, `repositories/audit.py` (`stamp_created`,
   `stamp_updated`).
 - Both services call `assertServiceUsersExist` / `assert_service_users_exist` at startup.
 

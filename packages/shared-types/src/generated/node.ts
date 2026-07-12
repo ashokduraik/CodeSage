@@ -318,7 +318,7 @@ export interface paths {
         put?: never;
         /**
          * Stream a grounded code answer with citations (proxied to RAG service)
-         * @description Accepts a question in an existing conversation and streams answer chunks via Server-Sent Events. Each event is a JSON-encoded ChatAnswerChunk. The server persists user and assistant messages and builds multi-turn history from the DB. Proxies to apps/rag POST /rag/query without blocking the Node event loop.
+         * @description Accepts a question in an existing conversation and streams answer chunks via Server-Sent Events. Each event is a JSON-encoded ChatAnswerChunk. The server persists user and assistant messages and builds multi-turn history from the DB. Proxies to apps/engine POST /engine/query without blocking the Node event loop.
          */
         post: operations["chatQuery"];
         delete?: never;

@@ -30,7 +30,7 @@ Lock cross-service shapes before implementation.
 
 | Task | Owner | Files |
 |---|---|---|
-| Define `POST /rag/query` (SSE/stream chunks, citations, abstain) | contracts | `contracts/openapi.rag.yaml` |
+| Define `POST /engine/query` (SSE/stream chunks, citations, abstain) | contracts | `contracts/openapi.engine.yaml` |
 | Finalize job payload types (sync → parse → embed chain) | contracts | `contracts/jobs.schema.json` |
 | Generate TS types (incl. job payloads) | shared-types | `npm run codegen` |
 | Generate Pydantic models for RAG + jobs | rag | py-core codegen (when wired) |
@@ -70,10 +70,10 @@ flowchart LR
 | 1 | `services/retrieval/` | Vector search over `code_chunks`; optional graph expansion |
 | 2 | `services/llm/` | vLLM provider; grounded prompt assembly |
 | 3 | `services/router/` | Phase 1: code-only path (product router stub returns code) |
-| 4 | `api/routes/query.py` | `POST /rag/query` — SSE stream of answer chunks + citations |
+| 4 | `api/routes/query.py` | `POST /engine/query` — SSE stream of answer chunks + citations |
 | 5 | Abstain path | Return "not certain" when retrieval confidence is below threshold (NFR-7) |
 
-**Done when:** `curl POST /rag/query` with a developer question returns streamed answer + code citations.
+**Done when:** `curl POST /engine/query` with a developer question returns streamed answer + code citations.
 
 #### M3.1 — Hybrid retrieval (ADR 0020) — **done**
 
@@ -179,7 +179,7 @@ For local development without GPU:
 - [x] Tests ≥ 80% (line + branch) on all workspaces; lint + typecheck clean in CI.
 - [x] `TODO.md` / `PLAN.md` updated in each touched component.
 - [x] `.env.example` documents new variables (TEI/vLLM model ids + `docker-compose.gpu.yml`).
-- [x] Graph expansion settings documented in `apps/rag/.env.example` (Phase 2 uses defaults).
+- [x] Graph expansion settings documented in `apps/engine/.env.example` (Phase 2 uses defaults).
 
 ---
 
@@ -204,4 +204,4 @@ Multi-repo linking is implemented — see [`phase-2-multi-repo.md`](./phase-2-mu
 - [`final-solution.md` §8](../final-solution.md) — QA serving flow
 - [`architecture.md`](../architecture.md) — component map
 - [`data-model.md`](../data-model.md) — schema reference
-- Component plans: `apps/rag/PLAN.md`, `apps/api/PLAN.md`, `apps/web/PLAN.md`
+- Component plans: `apps/engine/PLAN.md`, `apps/api/PLAN.md`, `apps/web/PLAN.md`

@@ -60,7 +60,7 @@ flowchart TB
         CRUD[User / project / repo CRUD]
     end
 
-    subgraph PY["Python — apps/rag (heavy/blocking)"]
+    subgraph PY["Python — apps/engine (heavy/blocking)"]
         RAGSVC[RAG / router / QA HTTP]
         subgraph WORK["Background consumers"]
             SYNC[Multi-repo sync]
@@ -100,7 +100,7 @@ flowchart TB
 Under the hood, the system follows one simple rule:
 
 ```
-React (apps/web)  →  Node (apps/api)  →  Python (apps/rag)  →  PostgreSQL
+React (apps/web)  →  Node (apps/api)  →  Python (apps/engine)  →  PostgreSQL
 ```
 
 The Node API handles auth, CRUD, and WebSocket streaming — fast, non-blocking work only. Anything
@@ -109,7 +109,7 @@ a **single PostgreSQL database** — vectors, graph, job queue, and encrypted re
 there, with no separate Redis, Qdrant, or Neo4j. Node either enqueues a background job or calls
 Python and streams the result back. Manual re-index (`POST …/repos/:repoId/sync`) returns **409**
 when indexing is already in progress (younger than `WORKER_STALE_JOB_SECONDS`, default 10 min).
-All business logic lives in `apps/rag/src/services/`.
+All business logic lives in `apps/engine/src/services/`.
 See [`AGENTS.md`](./AGENTS.md) before editing.
 
 Expert answers are treated as authoritative: they outrank LLM-inferred values and survive
@@ -153,7 +153,7 @@ incremental updates after that are much faster. See [`docs/final-solution.md`](.
 | Tool | Version | Required for |
 |---|---|---|
 | **Node.js** | 20+ (24 recommended) | JS workspaces (`web`, `api`, `shared-types`) |
-| **Python** | 3.12+ | `apps/rag` dev and tests |
+| **Python** | 3.12+ | `apps/engine` dev and tests |
 | **[uv](https://docs.astral.sh/uv/)** | latest | Python deps and test runner (matches CI) |
 | **PostgreSQL + pgvector** | 16+ | Single datastore — metadata, pgvector, graph, job queue ([setup](./docs/db-setup.md)) |
 | **[Ollama](https://ollama.com)** | latest | Optional — local LLM + embeddings (deterministic fallback if absent) |
@@ -172,7 +172,7 @@ templates and set `DATABASE_URL` to your local Postgres (URL-encode `@` in passw
 
 ```bash
 cp apps/api/.env.example apps/api/.env  # Node API
-cp apps/rag/.env.example apps/rag/.env  # Python RAG
+cp apps/engine/.env.example apps/engine/.env  # Python RAG
 ```
 
 > The **root** [`.env.example`](./.env.example) is for **Docker Compose only** — it interpolates
@@ -182,7 +182,7 @@ cp apps/rag/.env.example apps/rag/.env  # Python RAG
 **4. Install dependencies:**
 
 ```bash
-npm run setup                 # npm install + uv sync --dev (apps/rag)
+npm run setup                 # npm install + uv sync --dev (apps/engine)
 ```
 
 > Types generated from `contracts/` are **checked into git**, so a fresh clone needs no codegen.
@@ -194,11 +194,11 @@ dev data on startup — no separate migrate step:
 ```bash
 npm run dev:api               # migrates + seeds, then http://localhost:3000/health
 npm run dev:web               # http://localhost:5173
-npm run dev:rag               # http://localhost:8001/health
+npm run dev:engine            # http://localhost:8001/health
 ```
 
 > **Local LLM + embeddings:** install [Ollama](https://ollama.com) and pull the models — see
-> [`apps/rag/README.md`](./apps/rag/README.md). Without it, RAG uses deterministic fallbacks.
+> [`apps/engine/README.md`](./apps/engine/README.md). Without it, RAG uses deterministic fallbacks.
 
 ### Quality gates
 
@@ -230,7 +230,7 @@ On Linux/macOS: `make setup`, `make test`, `make lint`, `make typecheck` — see
 (The `make up`/`down`/`migrate`/`logs` targets are optional Docker helpers, not the local dev path.)
 
 Per-component runbooks: [`apps/api/README.md`](./apps/api/README.md) ·
-[`apps/web/README.md`](./apps/web/README.md) · [`apps/rag/README.md`](./apps/rag/README.md).
+[`apps/web/README.md`](./apps/web/README.md) · [`apps/engine/README.md`](./apps/engine/README.md).
 
 Cross-service API shapes are defined once in `contracts/` and types are generated — never
 hand-written. Edit contract → `npm run codegen` → implement against generated types.
@@ -271,7 +271,7 @@ codesage/
 ├─ apps/
 │  ├─ web/                   # React + TypeScript frontend
 │  ├─ api/                   # Node + TypeScript non-blocking APIs
-│  └─ rag/                   # Python RAG / QA + background job consumers
+│  └─ engine/                # Python RAG / QA + background job consumers
 ├─ packages/
 │  └─ shared-types/          # TS types generated from contracts/
 ├─ contracts/                # single source of truth for cross-service APIs
@@ -282,7 +282,7 @@ codesage/
 │  └─ seed/                  # dev seed data
 ├─ deploy/
 │  ├─ db/                    # Machine 1 — PostgreSQL Compose
-│  └─ app/                   # Machine 2 — api, rag, vLLM, TEI Compose
+│  └─ app/                   # Machine 2 — api, engine, vLLM, TEI Compose
 ├─ scripts/                  # codegen, backup, reindex-cli
 ├─ .github/workflows/        # CI (JS + Python + Docker images)
 └─ .env.example              # documented env vars (never commit a real .env)

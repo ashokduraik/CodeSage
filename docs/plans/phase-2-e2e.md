@@ -37,7 +37,7 @@ Missing required env → **console error + non-zero exit** ([`validate-e2e-env.t
 
 | Requirement | Notes |
 |---|---|
-| Running stack | `npm run dev` + `dev:rag` + PostgreSQL |
+| Running stack | `npm run dev` + `dev:engine` + PostgreSQL |
 | `tests/e2e/.env` | `E2E_PRIVATE_REPO_URL`, `E2E_GITHUB_TOKEN` |
 | Playwright browser | `npx playwright install chromium` (first run) |
 

@@ -1,4 +1,4 @@
-# ADR 0015 — Single Python deployable for MVP (`apps/rag`)
+# ADR 0015 — Single Python deployable for MVP (`apps/engine`)
 
 - **Status:** Accepted
 - **Date:** 2026-06-22
@@ -11,7 +11,7 @@ For **MVP**, that added ops cost without independent scaling benefit.
 
 ## Decision
 
-**One Python deployable under `apps/rag`**, organized in **layers**:
+**One Python deployable under `apps/engine`**, organized in **layers**:
 
 | Layer | Role |
 |---|---|

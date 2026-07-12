@@ -11,7 +11,7 @@ export const TEST_APP_CONFIG: AppConfig = {
   jwtTtl: "3600",
   encryptionKey: "",
   mockMode: false,
-  ragBaseUrl: "http://127.0.0.1:8001",
+  engineBaseUrl: "http://127.0.0.1:8001",
   webhookBaseUrl: "",
   workerStaleJobSeconds: 600,
 };

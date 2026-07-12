@@ -10,7 +10,7 @@ Consumed by `apps/web` and `apps/api` so both speak exactly the same API/job sha
 ## The one rule
 
 **These types are generated, never hand-written.** The source of truth is `contracts/`
-(`openapi.node.yaml`, `openapi.rag.yaml`, `jobs.schema.json`). To change a type:
+(`openapi.node.yaml`, `openapi.engine.yaml`, `jobs.schema.json`). To change a type:
 
 ```
 1. Edit the relevant file in contracts/
@@ -32,7 +32,7 @@ gives AI agents an unambiguous, machine-checked spec to code against.
 - Request/response types for the public Node API (`openapi.node.yaml`).
 - Types relevant to the browser↔Node↔RAG flow as needed.
 - Job payload types mirrored from `jobs.schema.json` (Python's Pydantic models are generated
-  separately into `apps/rag/`).
+  separately into `apps/engine/`).
 
 ## Related docs
 

@@ -32,8 +32,8 @@ export interface AppConfig {
    * Activate by setting MOCK_MODE=true in the environment.
    */
   mockMode: boolean;
-  /** Base URL of the internal Python RAG service (e.g. http://127.0.0.1:8001). */
-  ragBaseUrl: string;
+  /** Base URL of the internal Python engine service (e.g. http://127.0.0.1:8001). */
+  engineBaseUrl: string;
   /**
    * Public base URL of this CodeSage instance for webhook callbacks
    * (WEBHOOK_BASE_URL). When unset, webhook registration is skipped.
@@ -41,7 +41,7 @@ export interface AppConfig {
   webhookBaseUrl: string;
   /**
    * Seconds before manual re-index is allowed while jobs are pending/running.
-   * Must match RAG `WORKER_STALE_JOB_SECONDS` (default 600).
+   * Must match engine `WORKER_STALE_JOB_SECONDS` (default 600).
    */
   workerStaleJobSeconds: number;
 }
@@ -77,7 +77,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     jwtTtl: normalizeJwtTtl(env.AUTH_TOKEN_TTL ?? "1h"),
     encryptionKey: env.TOKEN_ENC_KEY ?? "",
     mockMode: env.MOCK_MODE === "true",
-    ragBaseUrl: env.RAG_BASE_URL ?? "http://127.0.0.1:8001",
+    engineBaseUrl: env.ENGINE_BASE_URL ?? "http://127.0.0.1:8001",
     webhookBaseUrl: env.WEBHOOK_BASE_URL ?? "",
     workerStaleJobSeconds: Number(env.WORKER_STALE_JOB_SECONDS ?? "600"),
   };

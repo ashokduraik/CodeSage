@@ -23,7 +23,7 @@ and trust rules are load-bearing.
 
 ## Decision
 
-Implement distillation as a **background job** (`distill`) in `apps/rag/src/services/distill/`,
+Implement distillation as a **background job** (`distill`) in `apps/engine/src/services/distill/`,
 consuming the code graph and emitting the four derived-knowledge tables. No new datastore
 (ADR 0003); no framework ownership of the pipeline (ADR 0010).
 

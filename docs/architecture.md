@@ -15,7 +15,7 @@ clarifying questions and folds the answers back as authoritative overrides.
 ## 2. The hard boundary (memorize this)
 
 ```
-React (apps/web)  →  Node non-blocking APIs (apps/api)  →  Python (`apps/rag` layers)
+React (apps/web)  →  Node non-blocking APIs (apps/api)  →  Python (`apps/engine` layers)
                                    │                                   │
                                    └────────── PostgreSQL (single datastore) ───────────┘
 ```
@@ -25,10 +25,10 @@ React (apps/web)  →  Node non-blocking APIs (apps/api)  →  Python (`apps/rag
   service** and streams the result back.
 - **Python owns all heavy/blocking work:** repo sync, parsing, embedding, graph building,
   cross-repo linking, LLM distillation, retrieval, QA assembly.
-- **Business logic lives in `apps/rag/src/services/`.** `src/api/` (HTTP) and `src/workers/` (jobs) are thin
+- **Business logic lives in `apps/engine/src/services/`.** `src/api/` (HTTP) and `src/workers/` (jobs) are thin
   I/O layers only; `src/repositories/` + `src/models/` handle persistence.
 - **RAG is internal-only at deploy time.** The browser talks to `apps/api`; Node proxies to
-  `apps/rag` on the private network. Do not publish the RAG HTTP port publicly.
+  `apps/engine` on the private network. Do not publish the RAG HTTP port publicly.
 
 ## 3. Component map
 
@@ -36,7 +36,7 @@ React (apps/web)  →  Node non-blocking APIs (apps/api)  →  Python (`apps/rag
 |---|---|---|---|
 | Web | `apps/web` | React + TS | Project setup, QA chat, expert queue, workflow/page explorer. |
 | API | `apps/api` | Node + TS | Auth/RBAC, user/project/repo CRUD, WS gateway, webhooks, job enqueue. |
-| Python backend | `apps/rag` | Python | `src/` layers: `api/`, `workers/`, `services/`, `repositories/`, `models/`, `config/`. |
+| Python backend | `apps/engine` | Python | `src/` layers: `api/`, `workers/`, `services/`, `repositories/`, `models/`, `config/`. |
 | Shared TS types | `packages/shared-types` | TS | Types **generated** from `contracts/`; shared by web + api. |
 | Datastore | (deploy) | PostgreSQL + pgvector | Metadata, KB, vectors, graph adjacency, job queue, encrypted tokens. |
 | Inference | (deploy) | vLLM + TEI | LLM generation + embeddings, self-hosted on GPU. |
@@ -47,14 +47,14 @@ Node (TS) and Python don't share code, so the API contract is the one thing that
 drift. It is defined **once** in `contracts/` and **types are generated**, never hand-written:
 
 - `contracts/openapi.node.yaml` — public Node REST/WS API.
-- `contracts/openapi.rag.yaml` — internal Python RAG API.
+- `contracts/openapi.engine.yaml` — internal Python RAG API.
 - `contracts/jobs.schema.json` — job-queue payloads (Node enqueues → Python consumes).
 
 Flow: **edit `contracts/` → run codegen → TS types land in `packages/shared-types`, Pydantic
-models land in `apps/rag/` (when generated).** See [`development-workflow.md`](./development-workflow.md).
+models land in `apps/engine/` (when generated).** See [`development-workflow.md`](./development-workflow.md).
 
 > `contracts/` is the single source of truth; types are **generated** into `packages/shared-types`
-> (TS) and `apps/rag/src/generated/` (Pydantic). See each folder's `README.md` and
+> (TS) and `apps/engine/src/generated/` (Pydantic). See each folder's `README.md` and
 > [`development-workflow.md`](./development-workflow.md) §3.
 
 ## 5. Two knowledge layers

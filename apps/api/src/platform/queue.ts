@@ -2,7 +2,7 @@ import type { Sql } from "./db";
 
 /**
  * Valid job types that can be enqueued.
- * Each maps to a consumer in apps/rag.
+ * Each maps to a consumer in apps/engine.
  * Shapes of the payloads are defined in contracts/jobs.schema.json.
  */
 export type JobType = "sync" | "parse" | "embed" | "xrepo" | "distill";

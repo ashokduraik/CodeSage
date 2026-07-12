@@ -53,7 +53,7 @@ scheduled poll: [ADR 0024](../adr/0024-freshness-scheduled-poll.md).
 - [x] UI polls repo list during `indexing` / `connecting` / `stale`.
 - [x] `FRESHNESS_POLL_*` and `WEBHOOK_BASE_URL` documented in `.env.example`.
 - [x] Tests ≥ 80% on touched packages.
-- [x] `TODO.md` / `README.md` updated in `apps/api`, `apps/rag`, `apps/web`.
+- [x] `TODO.md` / `README.md` updated in `apps/api`, `apps/engine`, `apps/web`.
 
 ---
 

@@ -118,7 +118,7 @@ served via TEI `POST /rerank` — ADR 0008/0009 posture, no paid APIs):
   cross-encoder models in one instance. Ollama does not expose `/rerank`.
 - **Fallback:** on disable, missing URL, or HTTP error → M3.2 heuristic `prune_matches`.
 
-Implementation: [`apps/rag/src/services/retrieval/rerank.py`](../../apps/rag/src/services/retrieval/rerank.py).
+Implementation: [`apps/engine/src/services/retrieval/rerank.py`](../../apps/engine/src/services/retrieval/rerank.py).
 
 ## Consequences
 
@@ -126,7 +126,7 @@ Implementation: [`apps/rag/src/services/retrieval/rerank.py`](../../apps/rag/src
   conceptual questions.
 - **Fewer, better chunks** in the prompt → less survey behaviour, better citation focus.
 - **More config surface** — intent profiles, adaptive tiers, confidence weights, prune size, reranker
-  flags (documented in `apps/rag/.env.example`).
+  flags (documented in `apps/engine/.env.example`).
 - **M3.2 is mostly Python** in `services/retrieval/`; no schema change required for dynamic weights
   or hybrid confidence. Adaptive tiers may read `COUNT(*)` from `code_chunks` per project (cached per
   request).
@@ -148,4 +148,4 @@ Implementation: [`apps/rag/src/services/retrieval/rerank.py`](../../apps/rag/src
 - If TEI rerank serving is unsuitable on low-spec hosts, M3.2 alone (dynamic weights + prune +
   hybrid confidence) still ships value; reranker can wait or use a smaller local model.
 - Retrieval quality modules stay behind `services/retrieval/` per ADR 0010 so a future dedicated
-  search engine (ADR 0004 escape hatch) can replace individual legs without changing `/rag/query`.
+  search engine (ADR 0004 escape hatch) can replace individual legs without changing `/engine/query`.

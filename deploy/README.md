@@ -22,5 +22,5 @@ container-first so the same images later run under Kubernetes unchanged.
 - **No secrets in compose files.** Configuration comes from environment / `.env` (see
   [`../.env.example`](../.env.example)); real `.env` files are never committed.
 - ~4 app services, 1 datastore — keep it simple until scaling needs justify Kubernetes (ADR 0012).
-- Images are built from the deployables (`apps/api`, `apps/rag`) + upstream
+- Images are built from the deployables (`apps/api`, `apps/engine`) + upstream
   images for `postgres`, `vllm`, `tei`.

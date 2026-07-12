@@ -14,13 +14,13 @@ Full docs in `docs/` (start at `docs/README.md`). Decisions in `docs/adr/`.
 # The boundary you must respect
 
 ```
-React (apps/web) → Node non-blocking APIs (apps/api) → Python (`apps/rag`)
+React (apps/web) → Node non-blocking APIs (apps/api) → Python (`apps/engine`)
                                   └──────────── PostgreSQL: single datastore ───────────┘
 ```
 
 - **Node never blocks on heavy work.** It does auth/CRUD/static/WS/webhooks and **enqueues jobs**
   or **proxies to the Python RAG service**.
-- **Python owns all heavy/blocking work** in `apps/rag/services/`; `api/` and `workers/` are thin I/O.
+- **Python owns all heavy/blocking work** in `apps/engine/services/`; `api/` and `workers/` are thin I/O.
 - **Single datastore = PostgreSQL** (+pgvector). No Redis/Qdrant/Neo4j/broker in MVP — write an
   ADR before adding any data system.
 - **Open source only**; private code/tokens never leave the network.

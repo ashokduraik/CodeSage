@@ -14,11 +14,11 @@ update the matching **`.env`** in the **same directory** in the same change.
 | `.env.example` | Mirror to |
 |---|---|
 | `.env.example` (repo root) | `.env` (repo root) |
-| `apps/rag/.env.example` | `apps/rag/.env` |
+| `apps/engine/.env.example` | `apps/engine/.env` |
 | `apps/api/.env.example` | `apps/api/.env` |
 | `apps/web/.env.example` | `apps/web/.env` |
 
-`uv run` in `apps/rag` loads `apps/rag/.env`; Compose and Node often use the root `.env`.
+`uv run` in `apps/engine` loads `apps/engine/.env`; Compose and Node often use the root `.env`.
 When a variable is shared across services, update **both** the component `.env.example` and the
 root `.env.example`, then mirror each to its `.env`.
 
@@ -29,10 +29,10 @@ root `.env.example`, then mirror each to its `.env`.
 - **Never commit** `.env` files.
 - **Do not read or print** `.env` contents in chat or logs.
 
-## RAG tuning defaults
+## Engine tuning defaults
 
-For `apps/rag`, standard tuning defaults (retrieval weights, timeouts, worker timings, etc.)
-live in `apps/rag/src/config/constants.py`, **not** `.env.example` — see `rag-config.mdc`. This
+For `apps/engine`, standard tuning defaults (retrieval weights, timeouts, worker timings, etc.)
+live in `apps/engine/src/config/constants.py`, **not** `.env.example` — see `engine-config.mdc`. This
 sync rule applies only to keys that legitimately belong in `.env.example` (connections, secrets,
 endpoints, model ids, cross-service contracts, and feature toggles).
 

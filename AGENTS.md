@@ -12,13 +12,13 @@ A self-hosted, codebase-aware QA platform. See [`docs/README.md`](./docs/README.
 
 1. **Node never blocks on heavy work.** `apps/api` (Node) does auth, CRUD, static serving,
    WebSocket streaming, webhook intake, and **job enqueue**. All heavy/blocking work (sync,
-   parse, embed, graph, distill, retrieve, QA) is **Python** in `apps/rag` (layered: `api/`, `services/`, …).
-2. **Business logic lives in `apps/rag/src/services/`.** `src/api/` and `src/workers/` are **thin** I/O only.
+   parse, embed, graph, distill, retrieve, QA) is **Python** in `apps/engine` (layered: `api/`, `services/`, …).
+2. **Business logic lives in `apps/engine/src/services/`.** `src/api/` and `src/workers/` are **thin** I/O only.
 3. **Contracts are the single source of truth.** Cross-service shapes live in `contracts/`
    and types are **generated**, never hand-written. Edit contract → run codegen → implement
    against generated types. Never guess request/response shapes.
 4. **One concern, one place.** DB schema → `db/migrations/`. API shapes → `contracts/`.
-   Prompts → `apps/rag/src/services/llm` + `apps/rag/src/services/distill`. Persistence reference → `docs/data-model.md` + `docs/schema/`.
+   Prompts → `apps/engine/src/services/llm` + `apps/engine/src/services/distill`. Persistence reference → `docs/data-model.md` + `docs/schema/`.
 5. **Single datastore = PostgreSQL.** No Redis, Qdrant, Neo4j, or separate broker in the MVP
    (see ADRs 0003–0006). If you think you need one, write an ADR first.
 
@@ -44,7 +44,7 @@ A self-hosted, codebase-aware QA platform. See [`docs/README.md`](./docs/README.
 ## Before you finish a change
 
 Follow the **Definition of Done** in [`docs/development-workflow.md`](./docs/development-workflow.md)
-§7. In short: respect the boundary, update contracts + codegen, keep `rag/` wiring thin, add
+§7. In short: respect the boundary, update contracts + codegen, keep `engine/` wiring thin, add
 migration + update `docs/data-model.md` and `docs/schema/<table>.md` if schema changed, colocate tests, update the relevant
 `README/TODO/PLAN`, write an ADR for new decisions, commit no secrets.
 

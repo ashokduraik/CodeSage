@@ -16,7 +16,7 @@ Implement `POST /api/repos/probe` in `apps/api` (Node). The probe:
 - Calls provider REST APIs for repo metadata, top 5 branches, and README excerpt.
 - Accepts an optional token for private-repo validation; **never stores or logs the token**.
 
-Heavy git sync remains in the Python worker (`apps/rag`).
+Heavy git sync remains in the Python worker (`apps/engine`).
 
 ## Consequences
 

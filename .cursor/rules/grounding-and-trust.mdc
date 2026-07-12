@@ -1,6 +1,6 @@
 ---
 description: Grounding & trust — cite sources, show confidence, never hallucinate
-globs: apps/rag/**
+globs: apps/engine/**
 alwaysApply: false
 ---
 

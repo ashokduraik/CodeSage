@@ -12,7 +12,7 @@ cp tests/e2e/.env.example tests/e2e/.env
 
 docker compose up -d db
 npm run dev
-npm run dev:rag
+npm run dev:engine
 
 npm run test:e2e
 ```

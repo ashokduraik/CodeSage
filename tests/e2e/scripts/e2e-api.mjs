@@ -146,7 +146,7 @@ export async function waitForIndexed(jwt, apiBase, projectId, options = {}) {
     await sleep(pollMs);
   }
   throw new Error(
-    `Indexing did not complete within ${timeoutMs}ms — ensure RAG is running (npm run dev:rag).`,
+    `Indexing did not complete within ${timeoutMs}ms — ensure RAG is running (npm run dev:engine).`,
   );
 }
 

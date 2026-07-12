@@ -14,7 +14,7 @@ import openapiTS, { astToString } from "openapi-typescript";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
-const ragRoot = resolve(root, "apps/rag");
+const engineRoot = resolve(root, "apps/engine");
 const check = process.argv.includes("--check");
 const tsOnly = process.argv.includes("--ts-only");
 
@@ -37,8 +37,8 @@ const openapiTargets = [
     out: resolve(root, "packages/shared-types/src/generated/node.ts"),
   },
   {
-    spec: resolve(root, "contracts/openapi.rag.yaml"),
-    out: resolve(root, "packages/shared-types/src/generated/rag.ts"),
+    spec: resolve(root, "contracts/openapi.engine.yaml"),
+    out: resolve(root, "packages/shared-types/src/generated/engine.ts"),
   },
 ];
 
@@ -107,12 +107,12 @@ if (!tsOnly) {
   const pythonTargets = [
     {
       input: resolve(root, "contracts/jobs.schema.json"),
-      output: resolve(ragRoot, "src/generated/jobs.py"),
+      output: resolve(engineRoot, "src/generated/jobs.py"),
       fileType: "jsonschema",
     },
     {
-      input: resolve(root, "contracts/openapi.rag.yaml"),
-      output: resolve(ragRoot, "src/generated/rag_api.py"),
+      input: resolve(root, "contracts/openapi.engine.yaml"),
+      output: resolve(engineRoot, "src/generated/engine_api.py"),
       fileType: "openapi",
     },
   ];
@@ -123,7 +123,7 @@ if (!tsOnly) {
   }
 
   const pyInit = `${PY_HEADER}"""Generated contract models."""\n`;
-  await emitGenerated(resolve(ragRoot, "src/generated/__init__.py"), pyInit, "generated/__init__.py");
+  await emitGenerated(resolve(engineRoot, "src/generated/__init__.py"), pyInit, "generated/__init__.py");
 }
 
 if (check && drift) {
@@ -155,7 +155,7 @@ async function generatePythonModels(input, output, fileType) {
     tmpOutput,
   ];
   const result = spawnSync("uv", args, {
-    cwd: ragRoot,
+    cwd: engineRoot,
     encoding: "utf8",
   });
   if (result.status !== 0) {

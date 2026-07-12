@@ -5,15 +5,15 @@ vi.mock("postgres", () => {
   return { default: vi.fn(() => mockSql) };
 });
 
-vi.mock("../../platform/ragClient", () => ({
-  postRagQueryStream: vi.fn(),
+vi.mock("../../platform/engineClient", () => ({
+  postEngineQueryStream: vi.fn(),
 }));
 
 const { buildApp } = await import("../../http/app");
-import { postRagQueryStream } from "../../platform/ragClient";
+import { postEngineQueryStream } from "../../platform/engineClient";
 import type { JwtPayload } from "../../platform/auth.plugin";
 
-const mockPostRag = vi.mocked(postRagQueryStream);
+const mockPostEngine = vi.mocked(postEngineQueryStream);
 
 const TEST_CONFIG = {
   host: "127.0.0.1",
@@ -25,7 +25,7 @@ const TEST_CONFIG = {
   jwtTtl: "3600",
   encryptionKey: "",
   mockMode: false,
-  ragBaseUrl: "http://127.0.0.1:8001",
+  engineBaseUrl: "http://127.0.0.1:8001",
   webhookBaseUrl: "",
   workerStaleJobSeconds: 600,
 } as const;
@@ -111,7 +111,7 @@ describe("POST /chat/query", () => {
     await app.close();
   });
 
-  it("proxies the SSE stream from RAG and passes an abort signal", async () => {
+  it("proxies the SSE stream from the engine and passes an abort signal", async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream({
       start(controller) {
@@ -119,7 +119,7 @@ describe("POST /chat/query", () => {
         controller.close();
       },
     });
-    mockPostRag.mockResolvedValue(new Response(body, { status: 200 }));
+    mockPostEngine.mockResolvedValue(new Response(body, { status: 200 }));
 
     const app = buildApp(TEST_CONFIG);
     app.db = mockDbForChatQuery() as never;
@@ -136,7 +136,7 @@ describe("POST /chat/query", () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("text/event-stream");
     expect(res.body).toContain('"done"');
-    expect(mockPostRag).toHaveBeenCalledWith(
+    expect(mockPostEngine).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         question: "where is auth?",
@@ -156,7 +156,7 @@ describe("POST /chat/query", () => {
         controller.close();
       },
     });
-    mockPostRag.mockResolvedValue(new Response(body, { status: 200 }));
+    mockPostEngine.mockResolvedValue(new Response(body, { status: 200 }));
 
     const app = buildApp(TEST_CONFIG);
     app.db = mockDbForChatQuery() as never;
@@ -178,8 +178,8 @@ describe("POST /chat/query", () => {
     await app.close();
   });
 
-  it("returns 502 when RAG is unavailable", async () => {
-    mockPostRag.mockRejectedValue(new Error("connection refused"));
+  it("returns 502 when the engine is unavailable", async () => {
+    mockPostEngine.mockRejectedValue(new Error("connection refused"));
     const app = buildApp(TEST_CONFIG);
     app.db = mockDbForChatQuery() as never;
     await app.ready();

@@ -1,13 +1,13 @@
 ---
 description: Database standards (query optimization + security)
-globs: db/**,apps/rag/src/repositories/**,apps/rag/src/models/**,apps/api/**
+globs: db/**,apps/engine/src/repositories/**,apps/engine/src/models/**,apps/api/**
 alwaysApply: false
 ---
 
 # Database standards
 
 Complements `data-model.mdc` (schema source of truth + single datastore). These are the
-performance + security rules. All DB access goes through `repositories/` (`apps/rag/src/repositories/`, or the
+performance + security rules. All DB access goes through `repositories/` (`apps/engine/src/repositories/`, or the
 Node module's repository layer) — no ad-hoc queries scattered around.
 
 ## Query optimization

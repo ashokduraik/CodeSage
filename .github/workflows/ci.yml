@@ -17,7 +17,7 @@ jobs:
           cache: npm
       - uses: astral-sh/setup-uv@v5
       - name: Sync Python codegen deps
-        working-directory: apps/rag
+        working-directory: apps/engine
         run: uv lock && uv sync --dev
       - run: npm ci
       - name: Codegen up to date (contracts -> types)
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        project: [apps/rag]
+        project: [apps/engine]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -52,4 +52,4 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -f apps/api/Dockerfile -t codesage-api .
       - run: docker build -f apps/web/Dockerfile -t codesage-web .
-      - run: docker build -f apps/rag/Dockerfile -t codesage-rag .
+      - run: docker build -f apps/engine/Dockerfile -t codesage-engine .

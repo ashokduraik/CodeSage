@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://codesage.local/contracts/jobs.schema.json",
   "title": "CodeSage job-queue payloads",
-  "description": "Single source of truth for job payloads that apps/api enqueues and apps/rag consumes. Edit here, then run codegen -> TS (shared-types) + Pydantic (py-core). See docs/final-solution.md §6 and ADR 0006.",
+  "description": "Single source of truth for job payloads that apps/api enqueues and apps/engine consumes. Edit here, then run codegen -> TS (shared-types) + Pydantic (py-core). See docs/final-solution.md §6 and ADR 0006.",
   "type": "object",
   "required": ["type", "payload"],
   "discriminator": {

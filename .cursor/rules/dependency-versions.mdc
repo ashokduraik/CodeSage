@@ -14,7 +14,7 @@ confirmation (see `no-assumptions.mdc`).
 | Ecosystem | Manifest | Lockfile | Install command |
 |-----------|----------|----------|-----------------|
 | npm (JS/TS) | `package.json` (root + workspaces) | `package-lock.json` | `npm install <pkg>@latest` |
-| Python (`apps/rag`) | `apps/rag/pyproject.toml` | `apps/rag/uv.lock` | `uv add <pkg>` (resolves latest compatible) |
+| Python (`apps/engine`) | `apps/engine/pyproject.toml` | `apps/engine/uv.lock` | `uv add <pkg>` (resolves latest compatible) |
 
 ## Default workflow
 
@@ -53,7 +53,7 @@ version**, or **transitive conflict**:
 npm install -w @codesage/web some-package@latest
 
 # ✅ Python — latest resolved into pyproject.toml + uv.lock
-cd apps/rag && uv add httpx
+cd apps/engine && uv add httpx
 ```
 
 ```text

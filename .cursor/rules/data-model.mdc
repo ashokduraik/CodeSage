@@ -1,6 +1,6 @@
 ---
 description: Database schema source-of-truth and migration rules
-globs: db/**,apps/rag/src/repositories/**,apps/rag/src/models/**,docs/data-model.md,docs/schema/**
+globs: db/**,apps/engine/src/repositories/**,apps/engine/src/models/**,docs/data-model.md,docs/schema/**
 alwaysApply: false
 ---
 

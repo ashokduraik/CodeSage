@@ -31,7 +31,7 @@ Consequences · Alternatives considered · Escape hatch**.
 | [0012](./0012-docker-compose-deployment.md) | Docker Compose on two machines (Kubernetes deferred) | Accepted |
 | [0013](./0013-launch-identity-compliance-scale.md) | Launch posture: identity (SSO), compliance, and user scale | Accepted |
 | [0014](./0014-phase0-implementation-tooling.md) | Phase 0 implementation tooling | Accepted |
-| [0015](./0015-single-python-deployable-mvp.md) | Single Python deployable for MVP (`apps/rag`) | Accepted |
+| [0015](./0015-single-python-deployable-mvp.md) | Single Python deployable for MVP (`apps/engine`) | Accepted |
 | [0016](./0016-repo-probe-in-node-api.md) | Repo probe runs in Node API | Accepted |
 | [0017](./0017-webhook-registration-on-connect.md) | Webhook registration during repo connect | Accepted |
 | [0018](./0018-mandatory-audit-columns.md) | Mandatory audit columns on domain tables | Accepted |

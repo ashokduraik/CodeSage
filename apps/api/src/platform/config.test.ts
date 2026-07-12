@@ -13,7 +13,7 @@ describe("loadConfig", () => {
     expect(cfg.jwtTtl).toBe("1h");
     expect(cfg.encryptionKey).toBe("");
     expect(cfg.mockMode).toBe(false);
-    expect(cfg.ragBaseUrl).toBe("http://127.0.0.1:8001");
+    expect(cfg.engineBaseUrl).toBe("http://127.0.0.1:8001");
     expect(cfg.workerStaleJobSeconds).toBe(600);
   });
 

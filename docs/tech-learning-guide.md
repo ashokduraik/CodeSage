@@ -11,7 +11,7 @@
 CodeSage is a **monorepo** with a strict boundary:
 
 ```
-React (apps/web) → Node API (apps/api) → Python (apps/rag) → PostgreSQL
+React (apps/web) → Node API (apps/api) → Python (apps/engine) → PostgreSQL
 ```
 
 Learn the layer you will touch first, then read upstream/downstream sections so you understand
@@ -46,7 +46,7 @@ OpenAPI describes REST APIs in a machine-readable YAML file. Codegen turns that 
 **Why here:** Node and Python do not share code. `contracts/` is the **single source of truth**
 — drift between services is a production bug.
 
-**How used:** Edit `contracts/openapi.node.yaml`, `openapi.rag.yaml`, or `jobs.schema.json` →
+**How used:** Edit `contracts/openapi.node.yaml`, `openapi.engine.yaml`, or `jobs.schema.json` →
 run `npm run codegen` → import from `@codesage/shared-types` (TS) or generated Pydantic models
 (Python).
 
@@ -122,7 +122,7 @@ component.
 WebSockets keep a persistent connection so the server can **stream** tokens (LLM answers) to the
 browser.
 
-**Why here:** QA answers are streamed from `apps/rag` via the Node gateway — not a single
+**Why here:** QA answers are streamed from `apps/engine` via the Node gateway — not a single
 JSON response.
 
 **How used:** `apps/web` opens `WS /chat`; Node proxies to Python RAG; UI appends chunks and
@@ -227,7 +227,7 @@ and why Node only **enqueues**, never runs sync/parse/embed.
 
 ### WebSocket gateway
 
-The browser talks only to Node; Node proxies streaming QA to `apps/rag`.
+The browser talks only to Node; Node proxies streaming QA to `apps/engine`.
 
 **How used:** `modules/chat/` — WS upgrade, forward to Python internal API, stream citations
 back to the client.
@@ -236,7 +236,7 @@ back to the client.
 
 ---
 
-## 4. Python — `apps/rag` (layered)
+## 4. Python — `apps/engine` (layered)
 
 ### Python 3.12+
 
@@ -285,10 +285,10 @@ migrations in `db/migrations/`.
 
 FastAPI is a modern Python web framework with automatic OpenAPI docs and async support.
 
-**Why here:** Internal `POST /rag/query` service — streaming responses, typed bodies from
+**Why here:** Internal `POST /engine/query` service — streaming responses, typed bodies from
 contracts.
 
-**How used:** `apps/rag/api/` wires HTTP to `services/` retrieval + LLM modules; **not** exposed
+**How used:** `apps/engine/api/` wires HTTP to `services/` retrieval + LLM modules; **not** exposed
 to the browser directly.
 
 **Learn:** Path operations, dependency injection, streaming responses (SSE), and mounting
@@ -302,7 +302,7 @@ Procrastinate is a PostgreSQL-backed task queue for Python (alternative to raw `
 
 **Why here:** Worker job dispatch with retries and concurrency control.
 
-**How used:** `apps/rag` background consumers for `sync`, `parse`, `embed`, `xrepo`, `distill` job
+**How used:** `apps/engine` background consumers for `sync`, `parse`, `embed`, `xrepo`, `distill` job
 types.
 
 **Learn:** Task definitions, retries, concurrency limits, and idempotent job handlers.
@@ -527,7 +527,7 @@ linking and distillation.
 4. Job enqueue pattern  
 5. WebSocket proxy
 
-### Python / indexing contributor (`apps/rag`)
+### Python / indexing contributor (`apps/engine`)
 
 1. Python typing + Pydantic  
 2. SQLAlchemy + pgvector  

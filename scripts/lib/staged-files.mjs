@@ -31,9 +31,9 @@ export const WORKSPACES = [
 export const TS_FILE = /\.tsx?$/;
 export const LINTABLE_FILE = /\.(tsx?|jsx?|mjs|cjs)$/;
 
-export const RAG_PREFIX = "apps/rag/";
-export const RAG_SRC_PREFIX = "apps/rag/src/";
-export const RAG_TESTS_PREFIX = "apps/rag/tests/";
+export const ENGINE_PREFIX = "apps/engine/";
+export const ENGINE_SRC_PREFIX = "apps/engine/src/";
+export const ENGINE_TESTS_PREFIX = "apps/engine/tests/";
 
 /**
  * Returns staged file paths relative to the repo root.
@@ -234,16 +234,16 @@ export function restageFiles(repoRelativeFiles) {
 }
 
 /**
- * Builds candidate pytest paths (relative to apps/rag) for a staged source file.
- * @param {string} stagedSourcePath repo-relative path under apps/rag/src/
+ * Builds candidate pytest paths (relative to apps/engine) for a staged source file.
+ * @param {string} stagedSourcePath repo-relative path under apps/engine/src/
  * @returns {string[]}
  */
 export function resolvePythonTestCandidates(stagedSourcePath) {
-  if (!stagedSourcePath.startsWith(RAG_SRC_PREFIX)) {
+  if (!stagedSourcePath.startsWith(ENGINE_SRC_PREFIX)) {
     return [];
   }
 
-  const rel = stagedSourcePath.slice(RAG_SRC_PREFIX.length);
+  const rel = stagedSourcePath.slice(ENGINE_SRC_PREFIX.length);
   const parts = rel.split("/");
   const fileName = parts.at(-1) ?? "";
   const moduleStem = fileName.replace(/\.py$/, "");
@@ -276,28 +276,28 @@ export function resolvePythonTestCandidates(stagedSourcePath) {
 }
 
 /**
- * Resolves pytest targets (paths relative to apps/rag) for staged RAG paths.
+ * Resolves pytest targets (paths relative to apps/engine) for staged engine paths.
  * @param {string[]} stagedFiles repo-relative staged paths
- * @param {string} [ragRoot]
+ * @param {string} [engineRoot]
  * @returns {string[]}
  */
-export function resolvePythonTestsForStaged(stagedFiles, ragRoot = join(REPO_ROOT, "apps/rag")) {
+export function resolvePythonTestsForStaged(stagedFiles, engineRoot = join(REPO_ROOT, "apps/engine")) {
   /** @type {Set<string>} */
   const targets = new Set();
 
   for (const file of stagedFiles) {
-    if (file.startsWith(RAG_TESTS_PREFIX) && file.endsWith(".py")) {
-      targets.add(relative(ragRoot, join(REPO_ROOT, file)).replace(/\\/g, "/"));
+    if (file.startsWith(ENGINE_TESTS_PREFIX) && file.endsWith(".py")) {
+      targets.add(relative(engineRoot, join(REPO_ROOT, file)).replace(/\\/g, "/"));
       continue;
     }
 
-    if (!file.startsWith(RAG_SRC_PREFIX) || !file.endsWith(".py")) {
+    if (!file.startsWith(ENGINE_SRC_PREFIX) || !file.endsWith(".py")) {
       continue;
     }
 
     const candidates = resolvePythonTestCandidates(file);
     const existing = candidates.filter((candidate) =>
-      existsSync(join(ragRoot, candidate)),
+      existsSync(join(engineRoot, candidate)),
     );
 
     for (const candidate of existing) {
@@ -309,14 +309,14 @@ export function resolvePythonTestsForStaged(stagedFiles, ragRoot = join(REPO_ROO
 }
 
 /**
- * Returns true when staged files touch apps/rag source or tests.
+ * Returns true when staged files touch apps/engine source or tests.
  * @param {string[]} stagedFiles
  * @returns {boolean}
  */
-export function hasRagCodeChanges(stagedFiles) {
+export function hasEngineCodeChanges(stagedFiles) {
   return stagedFiles.some(
     (file) =>
-      (file.startsWith(RAG_SRC_PREFIX) || file.startsWith(RAG_TESTS_PREFIX)) &&
+      (file.startsWith(ENGINE_SRC_PREFIX) || file.startsWith(ENGINE_TESTS_PREFIX)) &&
       file.endsWith(".py"),
   );
 }

@@ -1,19 +1,19 @@
 ---
-description: Conventions for apps/rag layered Python backend
-globs: apps/rag/**
+description: Conventions for apps/engine layered Python backend
+globs: apps/engine/**
 alwaysApply: false
 ---
 
-# Python — apps/rag (`src/` layered layout)
+# Python — apps/engine (`src/` layered layout)
 
 ```
-apps/rag/src/
+apps/engine/src/
   api/  workers/  →  services/  →  repositories/  →  models/
                           ↑
                        config/
 ```
 
-All application code under `src/` only. Tests in `apps/rag/tests/`.
+All application code under `src/` only. Tests in `apps/engine/tests/`.
 
 - **Business logic only in `services/`.** `api/` (HTTP) and `workers/` (jobs) are thin — no algorithms.
 - **DB access only in `repositories/`** using `models/` ORM types.
@@ -22,4 +22,4 @@ All application code under `src/` only. Tests in `apps/rag/tests/`.
 - **Ground + confidence** on derived artifacts; abstain rather than hallucinate.
 - Type hints everywhere; Pydantic from `contracts/`; colocated `test_*.py`.
 - **Docstrings + WHY comments:** every function/method/class (including nested closures)
-  and non-obvious control flow — see `python-docstrings-rag.mdc`.
+  and non-obvious control flow — see `python-docstrings-engine.mdc`.

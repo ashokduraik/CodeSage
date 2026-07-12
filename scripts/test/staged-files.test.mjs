@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import {
   groupStagedByWorkspace,
   hasContractChanges,
-  hasRagCodeChanges,
+  hasEngineCodeChanges,
   LINTABLE_FILE,
   REPO_ROOT,
   resolveJsTestFilesForStaged,
@@ -109,24 +109,24 @@ describe("hasContractChanges", () => {
   });
 });
 
-describe("hasRagCodeChanges", () => {
+describe("hasEngineCodeChanges", () => {
   it("detects staged Python source or test files", () => {
     assert.equal(
-      hasRagCodeChanges(["apps/rag/src/services/retrieval/search.py"]),
+      hasEngineCodeChanges(["apps/engine/src/services/retrieval/search.py"]),
       true,
     );
     assert.equal(
-      hasRagCodeChanges(["apps/rag/tests/services/test_retrieval.py"]),
+      hasEngineCodeChanges(["apps/engine/tests/services/test_retrieval.py"]),
       true,
     );
-    assert.equal(hasRagCodeChanges(["apps/rag/README.md"]), false);
+    assert.equal(hasEngineCodeChanges(["apps/engine/README.md"]), false);
   });
 });
 
 describe("resolvePythonTestCandidates", () => {
   it("builds mirror and parent-dir candidate paths", () => {
     const candidates = resolvePythonTestCandidates(
-      "apps/rag/src/services/retrieval/search.py",
+      "apps/engine/src/services/retrieval/search.py",
     );
 
     assert.ok(candidates.includes("tests/services/retrieval/test_search.py"));
@@ -137,7 +137,7 @@ describe("resolvePythonTestCandidates", () => {
 
   it("builds graph module candidates", () => {
     const candidates = resolvePythonTestCandidates(
-      "apps/rag/src/services/graph/extract.py",
+      "apps/engine/src/services/graph/extract.py",
     );
 
     assert.ok(candidates.includes("tests/services/test_graph_extract.py"));
@@ -150,12 +150,12 @@ describe("resolvePythonTestCandidates", () => {
 });
 
 describe("resolvePythonTestsForStaged", () => {
-  const ragRoot = join(REPO_ROOT, "apps/rag");
+  const engineRoot = join(REPO_ROOT, "apps/engine");
 
   it("runs staged test files directly", () => {
     const targets = resolvePythonTestsForStaged(
-      ["apps/rag/tests/workers/test_dispatch.py"],
-      ragRoot,
+      ["apps/engine/tests/workers/test_dispatch.py"],
+      engineRoot,
     );
 
     assert.deepEqual(targets, ["tests/workers/test_dispatch.py"]);
@@ -163,8 +163,8 @@ describe("resolvePythonTestsForStaged", () => {
 
   it("resolves existing tests for staged source files", () => {
     const targets = resolvePythonTestsForStaged(
-      ["apps/rag/src/services/retrieval/search.py"],
-      ragRoot,
+      ["apps/engine/src/services/retrieval/search.py"],
+      engineRoot,
     );
 
     assert.ok(targets.includes("tests/services/test_retrieval.py"));
@@ -172,8 +172,8 @@ describe("resolvePythonTestsForStaged", () => {
 
   it("returns no targets when no matching test file exists", () => {
     const targets = resolvePythonTestsForStaged(
-      ["apps/rag/src/services/nonexistent_module/foo.py"],
-      ragRoot,
+      ["apps/engine/src/services/nonexistent_module/foo.py"],
+      engineRoot,
     );
 
     assert.deepEqual(targets, []);

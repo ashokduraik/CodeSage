@@ -7,7 +7,7 @@ import { join } from "node:path";
 import {
   getStagedFiles,
   groupStagedByWorkspace,
-  hasRagCodeChanges,
+  hasEngineCodeChanges,
   REPO_ROOT,
   resolveJsTestFilesForStaged,
   resolvePythonTestsForStaged,
@@ -16,7 +16,7 @@ import {
 } from "./lib/staged-files.mjs";
 
 const stagedFiles = getStagedFiles();
-const ragRoot = join(REPO_ROOT, "apps/rag");
+const engineRoot = join(REPO_ROOT, "apps/engine");
 
 /**
  * Runs vitest on explicit test files for a workspace.
@@ -55,21 +55,21 @@ for (const { entry, files } of jsGroups) {
   }
 }
 
-if (hasRagCodeChanges(stagedFiles)) {
-  const pytestTargets = resolvePythonTestsForStaged(stagedFiles, ragRoot);
+if (hasEngineCodeChanges(stagedFiles)) {
+  const pytestTargets = resolvePythonTestsForStaged(stagedFiles, engineRoot);
 
   if (pytestTargets.length === 0) {
-    console.log("test (staged): apps/rag — no pytest targets resolved, skipping");
+    console.log("test (staged): apps/engine — no pytest targets resolved, skipping");
     process.exit(0);
   }
 
   console.log(
-    `test (staged): apps/rag pytest (${pytestTargets.length} file(s))`,
+    `test (staged): apps/engine pytest (${pytestTargets.length} file(s))`,
   );
   const status = spawnCommand(
     "uv",
     ["run", "pytest", ...pytestTargets, "--no-cov"],
-    { cwd: ragRoot },
+    { cwd: engineRoot },
   );
 
   if (status !== 0) {

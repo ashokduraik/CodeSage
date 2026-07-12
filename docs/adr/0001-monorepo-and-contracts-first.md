@@ -16,7 +16,7 @@ navigate, with predictable conventions and an unambiguous spec to read before ed
 Use a **single Git monorepo** with strict module boundaries, and make `contracts/` the
 **single source of truth** for all cross-service shapes:
 
-- `openapi.node.yaml` (public Node API), `openapi.rag.yaml` (internal Python RAG API),
+- `openapi.node.yaml` (public Node API), `openapi.engine.yaml` (internal Python RAG API),
   `jobs.schema.json` (job-queue payloads).
 - TS types and Python Pydantic models are **generated** from these contracts, never
   hand-written.

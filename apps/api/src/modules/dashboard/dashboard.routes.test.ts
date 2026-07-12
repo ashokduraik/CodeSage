@@ -31,7 +31,7 @@ const TEST_CONFIG = {
   jwtTtl: "1h",
   encryptionKey: "",
   mockMode: false,
-  ragBaseUrl: "http://127.0.0.1:8001",
+  engineBaseUrl: "http://127.0.0.1:8001",
   webhookBaseUrl: "",
   workerStaleJobSeconds: 600,
 } as const;

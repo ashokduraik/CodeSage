@@ -24,7 +24,7 @@ const TEST_CONFIG = {
   jwtTtl: "3600",
   encryptionKey: Buffer.alloc(32, 1).toString("base64"),
   mockMode: false,
-  ragBaseUrl: "http://127.0.0.1:8001",
+  engineBaseUrl: "http://127.0.0.1:8001",
   webhookBaseUrl: "https://codesage.example.com",
   workerStaleJobSeconds: 600,
 } as const;

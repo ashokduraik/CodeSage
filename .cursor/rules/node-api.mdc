@@ -7,7 +7,7 @@ alwaysApply: false
 # apps/api — Node non-blocking API
 
 **Golden rule: Node never blocks on heavy work.** If a handler would parse, embed, build a graph,
-distill, or run retrieval — **enqueue a Postgres job** or **proxy to `apps/rag`** instead.
+distill, or run retrieval — **enqueue a Postgres job** or **proxy to `apps/engine`** instead.
 
 - **Module-per-domain:** each module = `routes + service + repository + tests`, public surface
   only, no cross-imports of another module's internals.

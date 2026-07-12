@@ -33,7 +33,7 @@ migrate:      ## Run DB migrations (dbmate)
 logs:         ## Tail stack logs
 	docker compose logs -f
 
-verify:       ## Bring up db + migrate + api + rag and check health
+verify:       ## Bring up db + migrate + api + engine and check health
 	docker compose up -d --build db
 	docker compose run --rm migrate up
-	docker compose up -d --build api rag
+	docker compose up -d --build api engine

@@ -4,7 +4,7 @@
 - **Date:** 2026-07-12
 - **Related:** ADR 0003 (single datastore), ADR 0004 (pgvector), ADR 0005 (Postgres graph),
   ADR 0007 (tree-sitter), ADR 0010 (thin RAG layer), [ADR 0021](./0021-retrieval-quality-pass.md)
-  (dynamic weights, prune, hybrid confidence, reranker); `final-solution.md` §8, `apps/rag/README.md` §3
+  (dynamic weights, prune, hybrid confidence, reranker); `final-solution.md` §8, `apps/engine/README.md` §3
 
 ## Context
 
@@ -70,7 +70,7 @@ Fixed at decision time:
     per-retriever weights (documented in `.env.example`, mirrored to `.env`).
 - **More query-time work**, but all inside Postgres and bounded by each retriever's top-k; no new
   service or network hop. Vectors, trigrams, and the graph are joined transactionally (ADR 0004).
-- **Backward compatible** — the `/rag/query` SSE contract, citations, metrics, and abstain
+- **Backward compatible** — the `/engine/query` SSE contract, citations, metrics, and abstain
   behaviour are unchanged; only ranking quality improves.
 
 ## Alternatives considered

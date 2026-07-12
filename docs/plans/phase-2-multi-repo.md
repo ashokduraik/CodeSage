@@ -52,14 +52,14 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 - [x] `xrepo` job handler idempotent; deduped enqueue per project.
 - [x] Graph expansion enabled for developer QA path.
 - [x] Tests ≥ 80% (line + branch) on touched packages.
-- [x] `TODO.md` / `PLAN.md` updated in `apps/rag`.
+- [x] `TODO.md` / `PLAN.md` updated in `apps/engine`.
 - [x] `.env.example` documents retrieval + graph expansion tunables (`RETRIEVAL_GRAPH_*`).
 
 ---
 
 ## Verification (manual / E2E)
 
-**Automated (fixture pair):** [`apps/rag/tests/services/test_cross_repo_exit_criteria.py`](../../apps/rag/tests/services/test_cross_repo_exit_criteria.py) — reads `tests/e2e/fixtures/frontend` + `backend`, asserts `GET /api/login` signals and cross-repo link resolution.
+**Automated (fixture pair):** [`apps/engine/tests/services/test_cross_repo_exit_criteria.py`](../../apps/engine/tests/services/test_cross_repo_exit_criteria.py) — reads `tests/e2e/fixtures/frontend` + `backend`, asserts `GET /api/login` signals and cross-repo link resolution.
 
 **Automated (onboarding):** [`tests/e2e/web/journey-project-onboarding.spec.ts`](../../tests/e2e/web/journey-project-onboarding.spec.ts) — create project, attach public + private repos via UI, repo actions, dashboard. Run: `npm run test:e2e` (see [`tests/e2e/README.md`](../../tests/e2e/README.md)).
 

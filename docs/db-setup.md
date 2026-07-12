@@ -124,8 +124,8 @@ Use the user, password, and database from [step 3](#3-create-user-and-database-p
 
 Fill the other vars from `apps/api/.env.example` (`JWT_SECRET`, `TOKEN_ENC_KEY`, etc.).
 
-If you run RAG locally, copy [`apps/rag/.env.example`](../apps/rag/.env.example) →
-`apps/rag/.env` and set the same `DATABASE_URL`.
+If you run RAG locally, copy [`apps/engine/.env.example`](../apps/engine/.env.example) →
+`apps/engine/.env` and set the same `DATABASE_URL`.
 
 **Where `POSTGRES_*` comes from:** the **root** [`.env.example`](../.env.example) documents
 `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` for

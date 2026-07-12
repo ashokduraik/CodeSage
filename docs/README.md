@@ -32,7 +32,7 @@ Each deployable/package documents itself locally. Each folder carries four files
 
 - `apps/web/` — React + TypeScript frontend
 - `apps/api/` — Node + TypeScript non-blocking APIs
-- `apps/rag/` — Python RAG / QA + background job consumers (sync, parse, embed, xrepo, distill)
+- `apps/engine/` — Python RAG / QA + background job consumers (sync, parse, embed, xrepo, distill)
 - `packages/shared-types/` — TS types generated from `contracts/`
 
 ## Reading order for a new contributor (human or AI)
