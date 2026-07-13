@@ -109,6 +109,13 @@ class Settings(BaseSettings):
     freshness_poll_enabled: bool = True
     freshness_poll_interval_seconds: int = constants.FRESHNESS_POLL_INTERVAL_SECONDS
 
+    vllm_distill_model: str = ""
+    distill_graph_max_depth: int = constants.DISTILL_GRAPH_MAX_DEPTH
+    distill_max_entrypoints: int = constants.DISTILL_MAX_ENTRYPOINTS
+    distill_batch_size: int = constants.DISTILL_BATCH_SIZE
+    distill_min_confidence: float = constants.DISTILL_MIN_CONFIDENCE
+    distill_heuristic_confidence: float = constants.DISTILL_HEURISTIC_CONFIDENCE
+
 
 def load_settings() -> Settings:
     """Construct settings from env vars and ``.env`` files.

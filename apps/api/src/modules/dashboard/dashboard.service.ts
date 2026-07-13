@@ -1,5 +1,6 @@
 import type { Sql } from "../../platform/db";
 import { getProjectCounts } from "./dashboard.repository";
+import { countAllKnowledgeEntries } from "../knowledge/knowledge.repository";
 import { MOCK_SESSIONS, MOCK_STATS } from "../../platform/mock-data";
 import type { NodeApi } from "@codesage/shared-types";
 import {
@@ -55,11 +56,12 @@ export async function getDashboardStats(
 
   const counts = await getProjectCounts(db);
   const sessionCount = await countConversationsByUser(db, userId);
+  const knowledgeCount = await countAllKnowledgeEntries(db);
   return {
     projectCount: counts.projectCount,
     indexedProjectCount: counts.indexedProjectCount,
     sessionCount,
-    knowledgeCount: 0,
+    knowledgeCount,
     pendingReviewCount: 0,
   };
 }

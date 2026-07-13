@@ -41,7 +41,7 @@ Consequences · Alternatives considered · Escape hatch**.
 | [0022](./0022-rag-config-constants.md) | RAG tuning defaults in `config/constants.py` (env.example = env-specific only) | Accepted |
 | [0023](./0023-cross-repo-linking.md) | Cross-repo linking — regex API signals, `xrepo` job, graph-augmented retrieval | Accepted |
 | [0024](./0024-freshness-scheduled-poll.md) | Freshness scheduled poll fallback (`git ls-remote` + `cron_poll` sync) | Accepted |
-| [0025](./0025-distillation-derived-knowledge.md) | Distillation of derived product knowledge (workflows, pages, permissions, data-flows) | Proposed |
+| [0025](./0025-distillation-derived-knowledge.md) | Distillation of derived product knowledge (workflows, pages, permissions, data-flows) | Accepted |
 
 ## Adding a new ADR
 

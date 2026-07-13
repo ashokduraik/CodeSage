@@ -17,7 +17,7 @@ from config.logging import (
     parse_progress_message,
     should_log_parse_milestone,
 )
-from repositories import CodeChunkRepository, JobRepository, RepoRepository
+from repositories import CodeChunkRepository, DerivedKnowledgeRepository, JobRepository, RepoRepository
 from services.graph.extract import persist_file_graph
 from services.indexing.context import resolve_indexing_context
 from services.indexing.job_context import JobExecutionContext, payload_trigger
@@ -157,6 +157,9 @@ def handle_parse_job(
         f"Step 2/3 finished — read {files_read} files, created {total_sections} code sections "
         f"for {context_label}",
     )
+
+    if valid_files:
+        DerivedKnowledgeRepository(session).mark_stale_by_files(repo.project_id, valid_files)
 
     downstream: dict[str, Any] = {
         "repoId": str(repo_id),

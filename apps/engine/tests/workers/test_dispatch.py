@@ -15,10 +15,11 @@ from workers.handlers.dispatch import UnsupportedJobError, build_job_handlers, d
 def test_build_job_handlers_includes_xrepo() -> None:
     handlers = build_job_handlers(Settings(), MagicMock())
     assert "xrepo" in handlers
+    assert "distill" in handlers
 
 
 def test_dispatch_job_unknown_type() -> None:
-    job = MagicMock(type="distill", payload={})
+    job = MagicMock(type="nope", payload={})
     with pytest.raises(UnsupportedJobError, match="Unknown job type"):
         dispatch_job(job, {}, MagicMock(), MagicMock())
 

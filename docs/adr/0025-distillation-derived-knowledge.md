@@ -1,6 +1,6 @@
 # ADR 0025 — Distillation of derived product knowledge (workflows, pages, permissions, data-flows)
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-12
 - **Related:** ADR 0005 (Postgres graph adjacency), ADR 0006 (Postgres job queue), ADR 0009
   (vLLM inference), ADR 0010 (thin RAG layer), ADR 0018 (audit columns), ADR 0023 (cross-repo

@@ -15,12 +15,16 @@ from models.enums import (
 from models import (
     AuditLog,
     CodeChunk,
+    DataFlow,
     GraphEdge,
     GraphNode,
     Job,
+    PageMap,
+    PermissionRule,
     Project,
     Repo,
     User,
+    Workflow,
 )
 from repositories.graph_queries import build_neighbor_expansion_query, expand_graph_neighbors
 from repositories.identity import UserRepository
@@ -28,6 +32,13 @@ from repositories.indexing import (
     CodeChunkRepository,
     GraphEdgeRepository,
     GraphNodeRepository,
+)
+from repositories.derived_knowledge import (
+    DataFlowRepository,
+    DerivedKnowledgeRepository,
+    PageMapRepository,
+    PermissionRuleRepository,
+    WorkflowRepository,
 )
 from repositories.keyword import build_keyword_query, keyword_search
 from repositories.operations import AuditLogRepository, JobRepository
@@ -42,6 +53,9 @@ __all__ = [
     "Base",
     "CodeChunk",
     "CodeChunkRepository",
+    "DataFlow",
+    "DataFlowRepository",
+    "DerivedKnowledgeRepository",
     "GraphEdge",
     "GraphEdgeRepository",
     "GraphNode",
@@ -51,6 +65,10 @@ __all__ = [
     "JobStatus",
     "Project",
     "ProjectRepository",
+    "PageMap",
+    "PageMapRepository",
+    "PermissionRule",
+    "PermissionRuleRepository",
     "ProjectStatus",
     "Repo",
     "RepoConnectionStatus",
@@ -58,7 +76,8 @@ __all__ = [
     "RepoRepository",
     "User",
     "UserRepository",
-    "UserRole",
+    "Workflow",
+    "WorkflowRepository",
     "build_keyword_query",
     "build_neighbor_expansion_query",
     "build_similarity_query",

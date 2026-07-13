@@ -68,3 +68,10 @@ SYNC_MAX_FILE_BYTES = 512_000  # skip indexing files larger than this
 
 # --- Freshness (Phase 3) ---
 FRESHNESS_POLL_INTERVAL_SECONDS = 1800  # fallback poll interval when webhooks miss pushes
+
+# --- Distillation (Phase 4) ---
+DISTILL_GRAPH_MAX_DEPTH = 3  # max hops from entrypoint seeds during graph walk
+DISTILL_MAX_ENTRYPOINTS = 50  # cap route/http_call seeds per full derive pass
+DISTILL_BATCH_SIZE = 8  # artifacts processed per LLM batch within one job
+DISTILL_MIN_CONFIDENCE = 0.45  # rows below this are persisted but flagged low-confidence
+DISTILL_HEURISTIC_CONFIDENCE = 0.55  # confidence for graph-heuristic fallback when LLM unset

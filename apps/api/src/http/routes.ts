@@ -7,6 +7,7 @@ import { projectsRoutes } from "../modules/projects";
 import { reposRoutes } from "../modules/repos";
 import { webhooksRoutes } from "../modules/webhooks";
 import { dashboardRoutes } from "../modules/dashboard";
+import { knowledgeRoutes } from "../modules/knowledge";
 import { chatRoutes } from "../modules/chat";
 import { auditRoutes } from "../modules/audit";
 
@@ -20,6 +21,7 @@ const ROUTE_PLUGINS: FastifyPluginAsync[] = [
   reposRoutes,
   webhooksRoutes,
   dashboardRoutes,
+  knowledgeRoutes,
   chatRoutes,
 ];
 

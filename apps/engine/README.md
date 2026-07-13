@@ -3,10 +3,11 @@
 Single Python deployable for MVP. **All application code lives under `src/`**; project root holds
 config, tests, and docs only.
 
-> **Status:** **Phases 1–2 implemented in `services/`** — indexing pipeline (`sync` → `parse` →
-> `embed` → `xrepo`), developer RAG with citations + abstain, and cross-repo graph linking.
-> Layers `config/`, `models/`, `repositories/`, `api/`, and `workers/` are wired with ≥ 80%
-> test coverage. Phases 3+ (webhooks, distillation, expert loop) are not started.
+> **Status:** **Phases 1–4 implemented in `services/`** — indexing pipeline (`sync` → `parse` →
+> `embed` → `xrepo` → `distill`), developer RAG with citations + abstain, cross-repo graph linking,
+> freshness (webhooks + cron poll), and derived product knowledge (workflows, pages, permissions,
+> data flows). Layers `config/`, `models/`, `repositories/`, `api/`, and `workers/` are wired with
+> ≥ 80% test coverage. Phases 5+ (expert loop, end-user product QA) are not started.
 
 Setup (deps, env, tests): root [`README.md`](../../README.md) — `npm run setup`, `npm run sync:python`,
 `npm run test:python`.

@@ -384,6 +384,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List distilled workflows for a project. */
+        get: operations["listProjectWorkflows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List distilled page map entries for a project. */
+        get: operations["listProjectPages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List distilled permission rules for a project. */
+        get: operations["listProjectPermissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/data-flows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List distilled data flows for a project. */
+        get: operations["listProjectDataFlows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -512,6 +580,53 @@ export interface components {
         CreateProjectRequest: {
             /** @description Human-readable project name. */
             name: string;
+        };
+        /** @description Citation pointer to a code chunk, graph node, or file path. */
+        SourceRef: {
+            [key: string]: unknown;
+        };
+        WorkflowEntry: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            steps: {
+                [key: string]: unknown;
+            }[];
+            confidence: number;
+            sourceRefs: components["schemas"]["SourceRef"][];
+        };
+        PageMapEntry: {
+            /** Format: uuid */
+            id: string;
+            route: string;
+            components: {
+                [key: string]: unknown;
+            }[];
+            dataSources: {
+                [key: string]: unknown;
+            }[];
+            confidence: number;
+            sourceRefs: components["schemas"]["SourceRef"][];
+        };
+        PermissionRuleEntry: {
+            /** Format: uuid */
+            id: string;
+            target: string;
+            requiredPermission: string;
+            confidence: number;
+            sourceRefs: components["schemas"]["SourceRef"][];
+        };
+        DataFlowEntry: {
+            /** Format: uuid */
+            id: string;
+            pageRef: string;
+            sourceChain: {
+                [key: string]: unknown;
+            }[];
+            /** @enum {string} */
+            freshnessType: "sync" | "async" | "cached" | "polled" | "event-driven";
+            confidence: number;
+            sourceRefs: components["schemas"]["SourceRef"][];
         };
         /**
          * @description Lifecycle state of a project's indexing pipeline.
@@ -1802,6 +1917,130 @@ export interface operations {
             };
             /** @description Indexing already in progress for this repository. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProjectWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Distilled workflows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowEntry"][];
+                };
+            };
+            /** @description Project not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProjectPages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Distilled page map rows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageMapEntry"][];
+                };
+            };
+            /** @description Project not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProjectPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Distilled permission rules. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionRuleEntry"][];
+                };
+            };
+            /** @description Project not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProjectDataFlows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Distilled data flow rows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataFlowEntry"][];
+                };
+            };
+            /** @description Project not found. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

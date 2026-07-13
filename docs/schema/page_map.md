@@ -1,6 +1,6 @@
 # `page_map`
 
-> **Status:** planned (no migration yet)  
+> **Status:** migrated (`20260712200000_derived_knowledge_tables.sql`)  
 > **Domain:** Derived product knowledge (end-user layer)
 
 Derived map of UI pages and routes inferred from front-end code and routing config within a project.
@@ -20,6 +20,8 @@ instead of definitive chat answers.
 | `data_sources` | `jsonb` | NO | — | APIs, stores, or queries feeding the page |
 | `confidence` | `numeric` | NO | — | Model confidence score (0–1) |
 | `source_refs` | `jsonb` | NO | — | Citation pointers to code chunks or graph nodes |
+| `is_stale` | `boolean` | NO | `false` | Set when incremental re-index touches cited files |
+| `is_expert_override` | `boolean` | NO | `false` | When true, distillation skips this row (Phase 5) |
 | `created_at` | `timestamptz` | NO | `now()` | Row creation time (UTC) |
 | `updated_at` | `timestamptz` | NO | `now()` | Last distillation or expert override (UTC); set by `BEFORE UPDATE` trigger |
 | `created_by` | `uuid` | NO | — | FK → `users.id`; actor who created the row |

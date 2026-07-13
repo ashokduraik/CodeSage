@@ -9,7 +9,7 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 
 ## workers/
 - [x] Job type registry + background thread.
-- [x] Postgres queue consumer + handler dispatch (`sync`, `parse`, `embed`, `xrepo`).
+- [x] Postgres queue consumer + handler dispatch (`sync`, `parse`, `embed`, `xrepo`, `distill`).
 - [x] Worker hardening — rollback-first failure handling, startup-only orphan reclaim, transient retries, per-repo freshness commits.
 
 ## Hardening (2026-07)
@@ -44,11 +44,12 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 - [x] `xrepo/` — cross-repo link resolver job (Phase 2).
 - [x] `llm/` — vLLM streaming provider with excerpt fallback when unset.
 - [x] `router/` — Phase 1 code-only path (`developer`; `end_user` abstains).
-- [ ] `distill/` — derived knowledge extractors (Phase 4).
+- [x] `distill/` — derived knowledge extractors (Phase 4).
 - [ ] `experts/` — expert loop (Phase 5).
 
 ## Cross-cutting
 - [x] Contract codegen wired (Pydantic in `src/generated/`).
 - [x] `indexing/xrepo_enqueue` — queue `xrepo` when all project repos are indexed (Phase 2).
+- [x] `indexing/distill_enqueue` — queue `distill` when indexing completes or artifacts go stale (Phase 4).
 - [x] `freshness/poll_repos` — scheduled poll fallback + `cron_poll` sync enqueue (Phase 3).
 - [x] Structured indexing logs (stdout, beginner-friendly, full activity). See `docs/engine-indexing-logs.md`.

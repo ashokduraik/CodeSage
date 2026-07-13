@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from config import Settings
 from config.logging import format_indexing_context, get_indexing_logger, log_event
 from models.enums import ProjectStatus
-from repositories import CodeChunkRepository, ProjectRepository, RepoRepository
+from repositories import CodeChunkRepository, DerivedKnowledgeRepository, ProjectRepository, RepoRepository
 from services.embedding.tei_client import EmbeddingClient
 from services.indexing.context import resolve_indexing_context
 from services.indexing.job_context import JobExecutionContext
@@ -23,6 +23,7 @@ from services.indexing.progress_messages import (
 from services.indexing.progress_recorder import IndexingProgressRecorder
 from services.indexing.failure_status import recompute_project_lifecycle
 from services.indexing.xrepo_enqueue import maybe_enqueue_xrepo
+from services.indexing.distill_enqueue import maybe_enqueue_distill
 
 logger = get_indexing_logger()
 
@@ -144,11 +145,26 @@ def handle_embed_job(
     projects.update_status(repo.project_id, ProjectStatus.INDEXED)
     repos.mark_index_complete(repo_id, sha=indexed_sha)
     recompute_project_lifecycle(session, repo.project_id)
-    if maybe_enqueue_xrepo(session, repo.project_id):
+    stale_ids = DerivedKnowledgeRepository(session).get_stale_ids(repo.project_id)
+    if stale_ids and maybe_enqueue_distill(
+        session, repo.project_id, stale_artifact_ids=stale_ids,
+    ):
+        log_event(
+            logger,
+            logging.INFO,
+            f"Queued incremental distillation for project {repo.project_id}",
+        )
+    elif maybe_enqueue_xrepo(session, repo.project_id):
         log_event(
             logger,
             logging.INFO,
             f"Queued cross-repo linking for project {repo.project_id}",
+        )
+    elif maybe_enqueue_distill(session, repo.project_id):
+        log_event(
+            logger,
+            logging.INFO,
+            f"Queued distillation for project {repo.project_id}",
         )
     recorder.record_finished(
         finished_embed_message(

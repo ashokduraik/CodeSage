@@ -1,6 +1,6 @@
 # `permission_rules`
 
-> **Status:** planned (no migration yet)  
+> **Status:** migrated (`20260712200000_derived_knowledge_tables.sql`)  
 > **Domain:** Derived product knowledge (end-user layer)
 
 Inferred permission and authorization rules — which roles or claims are required to reach a page or
@@ -19,6 +19,8 @@ for trust and auditability.
 | `required_permission` | `text` | NO | — | Role, scope, or claim required |
 | `source_refs` | `jsonb` | NO | — | Citation pointers to enforcing code |
 | `confidence` | `numeric` | NO | — | Model confidence score (0–1) |
+| `is_stale` | `boolean` | NO | `false` | Set when incremental re-index touches cited files |
+| `is_expert_override` | `boolean` | NO | `false` | When true, distillation skips this row (Phase 5) |
 | `created_at` | `timestamptz` | NO | `now()` | Row creation time (UTC) |
 | `updated_at` | `timestamptz` | NO | `now()` | Last distillation or expert override (UTC); set by `BEFORE UPDATE` trigger |
 | `created_by` | `uuid` | NO | — | FK → `users.id`; actor who created the row |

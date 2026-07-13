@@ -10,9 +10,8 @@ export interface ProjectCounts {
 /**
  * Returns aggregate project counts from the database.
  *
- * Sessions, knowledge entries, and expert reviews are not yet stored in the
- * database (Phase 1+), so their counts are not computed here. The service layer
- * returns zeros for those fields until the corresponding tables exist.
+ * Project counts are computed here. Knowledge entry totals and session counts
+ * are loaded by the dashboard service from their respective modules.
  *
  * @param db - The postgres.js SQL client.
  * @returns {@link ProjectCounts} computed from the `projects` table.

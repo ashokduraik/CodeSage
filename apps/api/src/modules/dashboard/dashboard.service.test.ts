@@ -9,17 +9,23 @@ vi.mock("../chat/chat.repository", () => ({
   findRecentConversationsByUser: vi.fn(),
 }));
 
+vi.mock("../knowledge/knowledge.repository", () => ({
+  countAllKnowledgeEntries: vi.fn(),
+}));
+
 const { getDashboardStats, listDashboardSessions } = await import("./dashboard.service");
 import { getProjectCounts } from "./dashboard.repository";
 import {
   countConversationsByUser,
   findRecentConversationsByUser,
 } from "../chat/chat.repository";
+import { countAllKnowledgeEntries } from "../knowledge/knowledge.repository";
 import { MOCK_STATS, MOCK_SESSIONS } from "../../platform/mock-data";
 import type { Sql } from "../../platform/db";
 
 const mockCounts = vi.mocked(getProjectCounts);
 const mockSessionCount = vi.mocked(countConversationsByUser);
+const mockKnowledgeCount = vi.mocked(countAllKnowledgeEntries);
 const mockRecentSessions = vi.mocked(findRecentConversationsByUser);
 const DB = {} as Sql;
 const USER_ID = "u1";
@@ -36,14 +42,16 @@ describe("getDashboardStats", () => {
   it("queries the database when mockMode is false", async () => {
     mockCounts.mockResolvedValue({ projectCount: 7, indexedProjectCount: 4 });
     mockSessionCount.mockResolvedValue(3);
+    mockKnowledgeCount.mockResolvedValue(12);
     const stats = await getDashboardStats(DB, USER_ID, false);
     expect(stats.projectCount).toBe(7);
     expect(stats.indexedProjectCount).toBe(4);
     expect(stats.sessionCount).toBe(3);
-    expect(stats.knowledgeCount).toBe(0);
+    expect(stats.knowledgeCount).toBe(12);
     expect(stats.pendingReviewCount).toBe(0);
     expect(mockCounts).toHaveBeenCalledWith(DB);
     expect(mockSessionCount).toHaveBeenCalledWith(DB, USER_ID);
+    expect(mockKnowledgeCount).toHaveBeenCalledWith(DB);
   });
 });
 

@@ -861,6 +861,122 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /projects/{projectId}/workflows:
+    get:
+      operationId: listProjectWorkflows
+      summary: List distilled workflows for a project.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Distilled workflows.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowEntry'
+        '404':
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{projectId}/pages:
+    get:
+      operationId: listProjectPages
+      summary: List distilled page map entries for a project.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Distilled page map rows.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PageMapEntry'
+        '404':
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{projectId}/permissions:
+    get:
+      operationId: listProjectPermissions
+      summary: List distilled permission rules for a project.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Distilled permission rules.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionRuleEntry'
+        '404':
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{projectId}/data-flows:
+    get:
+      operationId: listProjectDataFlows
+      summary: List distilled data flows for a project.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Distilled data flow rows.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DataFlowEntry'
+        '404':
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1090,6 +1206,135 @@ components:
           minLength: 1
           maxLength: 200
           description: Human-readable project name.
+
+    SourceRef:
+      type: object
+      additionalProperties: true
+      description: Citation pointer to a code chunk, graph node, or file path.
+
+    WorkflowEntry:
+      type: object
+      required:
+        - id
+        - name
+        - steps
+        - confidence
+        - sourceRefs
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        sourceRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceRef'
+
+    PageMapEntry:
+      type: object
+      required:
+        - id
+        - route
+        - components
+        - dataSources
+        - confidence
+        - sourceRefs
+      properties:
+        id:
+          type: string
+          format: uuid
+        route:
+          type: string
+        components:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        dataSources:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        sourceRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceRef'
+
+    PermissionRuleEntry:
+      type: object
+      required:
+        - id
+        - target
+        - requiredPermission
+        - confidence
+        - sourceRefs
+      properties:
+        id:
+          type: string
+          format: uuid
+        target:
+          type: string
+        requiredPermission:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        sourceRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceRef'
+
+    DataFlowEntry:
+      type: object
+      required:
+        - id
+        - pageRef
+        - sourceChain
+        - freshnessType
+        - confidence
+        - sourceRefs
+      properties:
+        id:
+          type: string
+          format: uuid
+        pageRef:
+          type: string
+        sourceChain:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        freshnessType:
+          type: string
+          enum:
+            - sync
+            - async
+            - cached
+            - polled
+            - event-driven
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        sourceRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceRef'
 
     ProjectStatus:
       type: string

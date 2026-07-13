@@ -44,10 +44,10 @@ Postgres covers everything the MVP needs, eliminating extra services:
 
 | Table | Purpose | Column reference |
 |---|---|---|
-| `workflows` | Derived business/user flows | [`schema/workflows.md`](./schema/workflows.md) *(planned)* |
-| `page_map` | UI pages/routes | [`schema/page_map.md`](./schema/page_map.md) *(planned)* |
-| `permission_rules` | Per page/action permission | [`schema/permission_rules.md`](./schema/permission_rules.md) *(planned)* |
-| `data_flows` | Per-page data origin/freshness | [`schema/data_flows.md`](./schema/data_flows.md) *(planned)* |
+| `workflows` | Derived business/user flows | [`schema/workflows.md`](./schema/workflows.md) |
+| `page_map` | UI pages/routes | [`schema/page_map.md`](./schema/page_map.md) |
+| `permission_rules` | Per page/action permission | [`schema/permission_rules.md`](./schema/permission_rules.md) |
+| `data_flows` | Per-page data origin/freshness | [`schema/data_flows.md`](./schema/data_flows.md) |
 
 ### 2.4 Expert-in-the-loop
 

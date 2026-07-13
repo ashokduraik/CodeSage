@@ -1,6 +1,6 @@
 # `data_flows`
 
-> **Status:** planned (no migration yet)  
+> **Status:** migrated (`20260712200000_derived_knowledge_tables.sql`)  
 > **Domain:** Derived product knowledge (end-user layer)
 
 Per-page or per-feature data-flow summaries: where displayed data originates (API, cache, local
@@ -20,6 +20,8 @@ flows should lower confidence or spawn expert questions.
 | `freshness_type` | `text` | NO | — | `sync`, `async`, `cached`, `polled`, or `event-driven` |
 | `confidence` | `numeric` | NO | — | Model confidence score (0–1) |
 | `source_refs` | `jsonb` | NO | — | Citation pointers to code chunks or graph nodes |
+| `is_stale` | `boolean` | NO | `false` | Set when incremental re-index touches cited files |
+| `is_expert_override` | `boolean` | NO | `false` | When true, distillation skips this row (Phase 5) |
 | `created_at` | `timestamptz` | NO | `now()` | Row creation time (UTC) |
 | `updated_at` | `timestamptz` | NO | `now()` | Last distillation or expert override (UTC); set by `BEFORE UPDATE` trigger |
 | `created_by` | `uuid` | NO | — | FK → `users.id`; actor who created the row |

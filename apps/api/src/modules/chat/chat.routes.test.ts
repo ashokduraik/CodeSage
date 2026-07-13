@@ -9,11 +9,35 @@ vi.mock("../../platform/engineClient", () => ({
   postEngineQueryStream: vi.fn(),
 }));
 
+vi.mock("./chat.service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./chat.service")>();
+  return {
+    ...actual,
+    listConversations: vi.fn(),
+    createConversation: vi.fn(),
+    getConversation: vi.fn(),
+    deleteConversation: vi.fn(),
+    listConversationMessages: vi.fn(),
+  };
+});
+
 const { buildApp } = await import("../../http/app");
 import { postEngineQueryStream } from "../../platform/engineClient";
+import {
+  createConversation,
+  deleteConversation,
+  getConversation,
+  listConversationMessages,
+  listConversations,
+} from "./chat.service";
 import type { JwtPayload } from "../../platform/auth.plugin";
 
 const mockPostEngine = vi.mocked(postEngineQueryStream);
+const mockListConversations = vi.mocked(listConversations);
+const mockCreateConversation = vi.mocked(createConversation);
+const mockGetConversation = vi.mocked(getConversation);
+const mockDeleteConversation = vi.mocked(deleteConversation);
+const mockListMessages = vi.mocked(listConversationMessages);
 
 const TEST_CONFIG = {
   host: "127.0.0.1",
@@ -220,6 +244,114 @@ describe("conversation routes", () => {
     const app = buildApp(TEST_CONFIG);
     const res = await app.inject({ method: "GET", url: "/api/conversations" });
     expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("lists conversations for the authenticated user", async () => {
+    mockListConversations.mockResolvedValue([
+      {
+        id: CONVERSATION_ID,
+        title: "Auth",
+        mode: "developer",
+        projectId: "p1",
+        projectName: "demo",
+        messageCount: 2,
+        lastMessageAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/conversations",
+      headers: { authorization: `Bearer ${devToken(app)}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()[0]?.title).toBe("Auth");
+    await app.close();
+  });
+
+  it("creates a conversation", async () => {
+    mockCreateConversation.mockResolvedValue({
+      id: CONVERSATION_ID,
+      title: "New Chat",
+      mode: "developer",
+      projectId: "p1",
+      projectName: "demo",
+      messageCount: 0,
+      lastMessageAt: null,
+    });
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/conversations",
+      headers: { authorization: `Bearer ${devToken(app)}` },
+      payload: { projectId: "p1", mode: "developer" },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().id).toBe(CONVERSATION_ID);
+    await app.close();
+  });
+
+  it("returns one conversation by id", async () => {
+    mockGetConversation.mockResolvedValue({
+      id: CONVERSATION_ID,
+      title: "Auth",
+      mode: "developer",
+      projectId: "p1",
+      projectName: "demo",
+      messageCount: 1,
+      lastMessageAt: "2026-01-01T00:00:00.000Z",
+    });
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/conversations/${CONVERSATION_ID}`,
+      headers: { authorization: `Bearer ${devToken(app)}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().id).toBe(CONVERSATION_ID);
+    await app.close();
+  });
+
+  it("soft-deletes a conversation", async () => {
+    mockDeleteConversation.mockResolvedValue(undefined);
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/conversations/${CONVERSATION_ID}`,
+      headers: { authorization: `Bearer ${devToken(app)}` },
+    });
+    expect(res.statusCode).toBe(204);
+    await app.close();
+  });
+
+  it("lists messages for a conversation", async () => {
+    mockListMessages.mockResolvedValue([
+      {
+        id: "m1",
+        conversationId: CONVERSATION_ID,
+        role: "user",
+        content: "hello",
+        citations: undefined,
+        metrics: undefined,
+        needsReview: false,
+        stopped: false,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    const app = buildApp(TEST_CONFIG);
+    await app.ready();
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/conversations/${CONVERSATION_ID}/messages`,
+      headers: { authorization: `Bearer ${devToken(app)}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()[0]?.content).toBe("hello");
     await app.close();
   });
 });

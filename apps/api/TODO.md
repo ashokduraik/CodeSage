@@ -47,7 +47,7 @@ Checklist organized by module. (Global sequencing lives in `docs/final-solution.
 - [ ] WebSocket gateway (deferred; SSE satisfies Phase 1 exit criteria).
 
 ## knowledge
-- [ ] Read workflows / pages / permissions / data-flows for a project.
+- [x] Read workflows / pages / permissions / data-flows for a project.
 
 ## questions
 - [ ] Read expert question queue.

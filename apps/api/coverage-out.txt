@@ -1,0 +1,18 @@
+﻿node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+> @codesage/api@0.0.0 test
+> vitest run --coverage
+
+
+ RUN  v4.1.8 D:/project/CodeSage/apps/api
+      Coverage enabled with v8
+
+ ÔØ» src/modules/auth/auth.service.test.ts (3 tests | 1 failed) 9896ms
+     ├ù returns a token and user profile for valid credentials 5276ms

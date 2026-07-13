@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from config import Settings
 from config.logging import get_indexing_logger, log_event
 from repositories import ProjectRepository
+from services.indexing.distill_enqueue import maybe_enqueue_distill
 from services.indexing.job_context import JobExecutionContext
 from services.xrepo.link_resolver import resolve_cross_repo_links
 
@@ -61,6 +62,12 @@ def handle_xrepo_job(
             f"{result.route_nodes} routes"
         ),
     )
+    if maybe_enqueue_distill(session, project_id):
+        log_event(
+            logger,
+            logging.INFO,
+            f"Queued distillation for project {project_id}",
+        )
 
 
 def create_xrepo_handler(
