@@ -53,7 +53,7 @@ After the worker thread starts, log:
 
 1. Clone directory and poll interval (`Worker ready — clone directory …, poll every Ns`)
 2. Pending job counts by type, or `Job queue: empty — attach a repo in the UI`
-3. **WARN** when failed or stuck `running` jobs exist — header with type breakdown (`3 failed (1 embed, 2 sync)`) plus **one line per failed job** (up to 5), each including job type and step
+3. **WARN** when stuck `running` jobs exist — count plus auto-reclaim hint (`2 running (possibly stuck) — jobs running longer than N min are auto-reclaimed`)
 
 Implemented in `services.indexing.startup_log.log_startup_queue_state()`.
 
@@ -140,7 +140,7 @@ User-facing indexing timeline lives in `repo_indexing_events` (append-only, full
 |---|---|---|
 | `info` | yes | Step story — start, finish, queue, milestones |
 | `debug` | optional | Per-file progress, skipped large files |
-| `warning` | startup | Failed / stuck `running` jobs |
+| `warning` | startup | Stuck `running` jobs |
 | `error` | on failure | Summary + sanitized traceback via `log_failure()` |
 
 Env: `LOG_LEVEL=info` in `apps/engine/.env.example` (sync to `.env` per `env-example-sync.mdc`).

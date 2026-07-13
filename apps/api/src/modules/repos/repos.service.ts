@@ -327,6 +327,7 @@ export async function detachRepo(
   repoId: string,
   encryptionKey: string,
   actorId: string,
+  cleanupReason: "repo_detach" | "project_delete" = "repo_detach",
 ): Promise<void> {
   const row = await findRepoSecretsById(db, projectId, repoId);
   if (!row) {
@@ -353,8 +354,17 @@ export async function detachRepo(
     );
   }
 
+  await cancelPendingJobsForRepo(db, repoId, actorId);
+
   const deleted = await softDeleteRepo(db, projectId, repoId, actorId);
   if (!deleted) {
     throw new ApiError(404, "NOT_FOUND", "Repo not found in this project.");
   }
+
+  await enqueueJob(
+    db,
+    "repo_cleanup",
+    { repoId, reason: cleanupReason },
+    actorId,
+  );
 }

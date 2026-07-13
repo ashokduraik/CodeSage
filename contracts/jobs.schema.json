@@ -43,6 +43,13 @@
         "payload": { "$ref": "#/$defs/DistillPayload" }
       },
       "required": ["type", "payload"]
+    },
+    {
+      "properties": {
+        "type": { "const": "repo_cleanup" },
+        "payload": { "$ref": "#/$defs/RepoCleanupPayload" }
+      },
+      "required": ["type", "payload"]
     }
   ],
   "$defs": {
@@ -145,6 +152,23 @@
           "type": "array",
           "items": { "type": "string", "format": "uuid" },
           "description": "IDs of stale derived artifacts to re-derive. If absent, derive all."
+        }
+      }
+    },
+    "RepoCleanupPayload": {
+      "type": "object",
+      "description": "Remove a detached repository clone from the engine filesystem.",
+      "required": ["repoId"],
+      "properties": {
+        "repoId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID of the soft-deleted repo row whose clone directory should be removed."
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["repo_detach", "project_delete"],
+          "description": "Why the cleanup job was enqueued (audit/debug only)."
         }
       }
     }

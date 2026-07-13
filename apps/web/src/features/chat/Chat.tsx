@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { MessageSquare, PanelLeft, PanelLeftClose } from "lucide-react";
-import { Button, Spinner } from "@/shared/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Spinner,
+} from "@/shared/ui";
 import { cn } from "@/shared/lib/cn";
 import type { ChatSession } from "./chatTypes";
 import { ChatSidebar } from "./ChatSidebar";
@@ -14,6 +21,7 @@ import { useChatSessions } from "./useChatSessions";
 import { useChatSession } from "./useChatSession";
 import { useChatMessages } from "./useChatMessages";
 import { useSendMessage } from "./useSendMessage";
+import { useDeleteSession } from "./useDeleteSession";
 
 /** Chat workspace: session list, conversation thread and composer. */
 export function Chat() {
@@ -23,6 +31,8 @@ export function Chat() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ChatSession | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -30,6 +40,7 @@ export function Chat() {
   const { data: currentSession } = useChatSession(sessionId);
   const { data: messages } = useChatMessages(sessionId);
   const sendMessage = useSendMessage(sessionId ?? "");
+  const deleteSession = useDeleteSession();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -41,6 +52,30 @@ export function Chat() {
 
   const handleNewChat = (session: ChatSession) => {
     navigate(`/chat/${session.id}`);
+  };
+
+  const handleDeleteRequest = (session: ChatSession) => {
+    setDeleteError(null);
+    setDeleteTarget(session);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) {
+      return;
+    }
+    deleteSession.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        const deletedId = deleteTarget.id;
+        setDeleteTarget(null);
+        setDeleteError(null);
+        if (sessionId === deletedId) {
+          navigate("/chat");
+        }
+      },
+      onError: () => {
+        setDeleteError(t("chat.delete.error"));
+      },
+    });
   };
 
   const filteredSessions = (sessions ?? []).filter((session) =>
@@ -74,6 +109,7 @@ export function Chat() {
         <ChatSidebar
           sessions={filteredSessions}
           onNewChat={() => setDialogOpen(true)}
+          onDeleteSession={handleDeleteRequest}
           search={search}
           onSearchChange={setSearch}
         />
@@ -159,6 +195,57 @@ export function Chat() {
       </div>
 
       <NewChatDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreated={handleNewChat} />
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteSession.isPending) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <DialogContent
+          aria-describedby={undefined}
+          closeLabel={t("common.close")}
+          className="sm:max-w-sm"
+        >
+          <DialogHeader>
+            <DialogTitle>{t("chat.delete.confirmTitle")}</DialogTitle>
+          </DialogHeader>
+          {deleteTarget ? (
+            <p className="text-sm text-muted-foreground">
+              {t("chat.delete.confirmBody", { title: deleteTarget.title })}
+            </p>
+          ) : null}
+          {deleteError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {deleteError}
+            </p>
+          ) : null}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleteSession.isPending}
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteError(null);
+              }}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteSession.isPending}
+              onClick={handleDeleteConfirm}
+            >
+              {deleteSession.isPending ? t("chat.delete.deleting") : t("chat.delete.confirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

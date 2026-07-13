@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderGit2, Plus, Trash2 } from "lucide-react";
+import { FolderGit2, GitBranchPlus, Plus, Trash2 } from "lucide-react";
 import { useProjects } from "./useProjects";
 import { useDeleteProject } from "./useDeleteProject";
 import { CreateProjectDialog } from "./CreateProjectDialog";
@@ -84,9 +84,11 @@ export function ProjectsPage(): JSX.Element {
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <button
+                      type="button"
                       onClick={() => setAttachProjectId(project.id)}
-                      className="text-sm text-primary hover:underline"
+                      className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
                     >
+                      <GitBranchPlus className="h-4 w-4" aria-hidden="true" />
                       {t("projects.attachRepo")}
                     </button>
                     <button

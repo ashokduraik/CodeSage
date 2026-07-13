@@ -32,6 +32,13 @@ src/config/                → settings, env
 - Jobs: **idempotent**, **incremental**, isolate per-file failures.
 - Use generated Pydantic models from `contracts/`.
 - **Indexing logs:** follow [`docs/engine-indexing-logs.md`](../../docs/engine-indexing-logs.md) — uniform `[ENGINE]` format via `log_event()`; start with `python -m api.run`.
+- **Every new repo process or activity must write a user-facing indexing event.** Any new job
+  type or step that acts on a repo (or a project's repos) must record `started` and a terminal
+  `finished`/`skipped`/`failed` event via `IndexingProgressRecorder` so it appears in the repo
+  Indexing Logs modal — not just the `[ENGINE]` console log. Project-level jobs (no `repoId`, e.g.
+  `distill`) fan out one event per active repo. Add the new step to the `IndexingEventStep` enum in
+  `contracts/openapi.node.yaml`, widen the `repo_indexing_events.step` DB check constraint, and give
+  it a plain-language UI label (technical term in parentheses) in `apps/web`.
 
 ## Don't
 

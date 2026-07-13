@@ -770,8 +770,8 @@ paths:
       operationId: listRepoIndexingEvents
       summary: List indexing progress events for a repository (newest first).
       description: >-
-        Cursor-paginated timeline of sync/parse/embed step events for one repo.
-        Use nextCursor to load older rows (infinite scroll).
+        Cursor-paginated timeline of sync/parse/embed/distill step events for one
+        repo. Use nextCursor to load older rows (infinite scroll).
       security:
         - bearerAuth: []
       parameters:
@@ -1643,8 +1643,10 @@ components:
 
     IndexingEventStep:
       type: string
-      enum: [sync, parse, embed]
-      description: Indexing pipeline step.
+      enum: [sync, parse, embed, distill]
+      description: >-
+        Indexing pipeline step. Distill is project-level knowledge building;
+        events are mirrored onto each active repo so repo timelines stay complete.
 
     IndexingEventPhase:
       type: string
@@ -1673,7 +1675,9 @@ components:
         runId:
           type: string
           format: uuid
-          description: Groups sync, parse, and embed for one indexing attempt.
+          description: >-
+            Groups sync, parse, and embed for one indexing attempt. Distill events
+            use the distill job id as runId.
         step:
           $ref: '#/components/schemas/IndexingEventStep'
         phase:

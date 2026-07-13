@@ -215,25 +215,6 @@ def format_pending_queue_message(counts: list[tuple[str, int]]) -> str:
     return f"Job queue: {total} pending ({parts}) — processing now"
 
 
-def format_failed_queue_message(
-    failed_count: int,
-    latest_label: str | None,
-    latest_reason: str | None,
-) -> str:
-    """Build a startup warning when failed jobs exist.
-
-    @param failed_count - Number of failed active jobs.
-    @param latest_label - Context label for the most recent failure.
-    @param latest_reason - Sanitized error summary.
-    @returns Warning message for the failed queue state.
-    """
-    if latest_label and latest_reason:
-        return (
-            f"Job queue: {failed_count} failed — latest {latest_label}: {latest_reason}"
-        )
-    return f"Job queue: {failed_count} failed — retry sync from the UI or check the jobs table"
-
-
 def format_running_queue_message(running_count: int, stale_seconds: int = 600) -> str:
     """Build a startup warning when jobs are stuck in ``running`` state.
 
@@ -264,44 +245,6 @@ def format_orphaned_reclaimed_jobs_message(reclaimed_count: int) -> str:
     @returns WARNING message for the indexing worker log.
     """
     return f"Reclaimed {reclaimed_count} orphaned running job(s) from previous worker"
-
-
-def format_failed_queue_header(failed_count: int, by_type: list[tuple[str, int]]) -> str:
-    """Build a startup warning header when failed jobs exist.
-
-    @param failed_count - Total failed active jobs.
-    @param by_type - Failed counts grouped by job type.
-    @returns Header line with type breakdown.
-    """
-    if not by_type:
-        return f"Job queue: {failed_count} failed"
-    parts = ", ".join(f"{count} {job_type}" for job_type, count in by_type)
-    return f"Job queue: {failed_count} failed ({parts})"
-
-
-def format_failed_job_line(
-    job_type: str,
-    step_num: int,
-    step_name: str,
-    context_label: str,
-    reason: str,
-) -> str:
-    """Build one startup WARN line for a single failed job.
-
-    @param job_type - Queue job discriminator.
-    @param step_num - Pipeline step number (0 when unknown).
-    @param step_name - Plain-English step name.
-    @param context_label - Project/repo context label.
-    @param reason - Sanitized failure explanation.
-    @returns Per-job failure warning line.
-    """
-    if step_num > 0:
-        step_part = f"Step {step_num}/3, "
-    else:
-        step_part = ""
-    return (
-        f"Job queue failure — {job_type} job, {step_part}{context_label}: {reason}"
-    )
 
 
 def log_failure(

@@ -73,12 +73,27 @@ export interface DistillPayload {
   staleArtifactIds?: string[];
 }
 
+/**
+ * Remove a detached repository clone from the engine filesystem.
+ */
+export interface RepoCleanupPayload {
+  /**
+   * ID of the soft-deleted repo row whose clone directory should be removed.
+   */
+  repoId: string;
+  /**
+   * Why the cleanup job was enqueued (audit/debug only).
+   */
+  reason?: "repo_detach" | "project_delete";
+}
 
-export type JobType = 'sync' | 'parse' | 'embed' | 'xrepo' | 'distill';
+
+export type JobType = 'sync' | 'parse' | 'embed' | 'xrepo' | 'distill' | 'repo_cleanup';
 
 export type JobEnvelope =
   | { type: 'sync'; payload: SyncPayload }
   | { type: 'parse'; payload: ParsePayload }
   | { type: 'embed'; payload: EmbedPayload }
   | { type: 'xrepo'; payload: XrepoPayload }
-  | { type: 'distill'; payload: DistillPayload };
+  | { type: 'distill'; payload: DistillPayload }
+  | { type: 'repo_cleanup'; payload: RepoCleanupPayload };

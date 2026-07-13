@@ -17,6 +17,7 @@ describe("indexingEventDisplay", () => {
     expect(indexingEventStepLabelKey("sync")).toBe("sync");
     expect(indexingEventStepLabelKey("parse")).toBe("parse");
     expect(indexingEventStepLabelKey("embed")).toBe("embed");
+    expect(indexingEventStepLabelKey("distill")).toBe("distill");
   });
 
   it("maps sync step to fetch or clone when details provide sync_mode", () => {
@@ -46,6 +47,22 @@ describe("indexingEventDisplay", () => {
     );
     expect(title).toContain("embed");
     expect(title).toContain("success");
+  });
+
+  it("formats distill title with distill step key", () => {
+    const title = formatIndexingEventTitle(
+      {
+        id: "e2",
+        runId: "r2",
+        step: "distill",
+        phase: "started",
+        startedAt: "2026-07-04T14:36:00.000Z",
+        message: "Building project knowledge from indexed code",
+      },
+      t,
+    );
+    expect(title).toContain("distill");
+    expect(title).toContain("running");
   });
 
   it("formats sub-second duration in milliseconds", () => {

@@ -44,22 +44,21 @@ def test_started_message_sync_fetch_update() -> None:
     assert "manual re-index" in msg
 
 
-def test_finished_sync_message_clone_vs_update() -> None:
-    ctx = IndexingContext(project_name=None, repo_label="github.com/org/repo")
-    clone_msg = finished_sync_message(
-        ctx,
-        fallback="repo x",
-        commit_sha="abc123def456",
-        file_count=3,
-        is_update=False,
+def test_started_message_distill() -> None:
+    msg = started_message("distill", None, fallback="project")
+    assert msg == "Building project knowledge from indexed code"
+
+
+def test_finished_distill_message_includes_counts() -> None:
+    from services.indexing.progress_messages import finished_distill_message
+
+    msg = finished_distill_message(
+        workflows=1,
+        page_map=2,
+        permission_rules=0,
+        data_flows=3,
     )
-    update_msg = finished_sync_message(
-        ctx,
-        fallback="repo x",
-        commit_sha="abc123def456",
-        file_count=3,
-        is_update=True,
-    )
-    assert "download complete" in clone_msg
-    assert "updated" in update_msg
-    assert "abc123d" in clone_msg
+    assert "1 workflows" in msg
+    assert "2 pages" in msg
+    assert "0 permissions" in msg
+    assert "3 data flows" in msg

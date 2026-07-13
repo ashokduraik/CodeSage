@@ -82,39 +82,6 @@ def test_job_count_by_status() -> None:
     assert repo.count_by_status("failed") == 3
 
 
-def test_job_latest_failed_summary() -> None:
-    session = MagicMock()
-    repo_id = uuid.uuid4()
-    job = Job(
-        type="sync",
-        payload={"repoId": str(repo_id)},
-        job_status=JobStatus.FAILED,
-        error_message="clone failed",
-    )
-    session.scalars.return_value = iter([job])
-
-    summaries = JobRepository(session).latest_failed_summary()
-    assert len(summaries) == 1
-    assert summaries[0].job_type == "sync"
-    assert summaries[0].repo_id == repo_id
-    assert summaries[0].error_message == "clone failed"
-
-
-def test_job_latest_failed_summary_ignores_invalid_repo_uuid() -> None:
-    session = MagicMock()
-    job = Job(
-        type="sync",
-        payload={"repoId": "not-a-uuid"},
-        job_status=JobStatus.FAILED,
-        error_message="clone failed",
-    )
-    session.scalars.return_value = iter([job])
-
-    summaries = JobRepository(session).latest_failed_summary()
-    assert len(summaries) == 1
-    assert summaries[0].repo_id is None
-
-
 def test_job_reclaim_stale_running_jobs_returns_count() -> None:
     session = MagicMock()
     session.execute.return_value.fetchall.return_value = [(uuid.uuid4(),), (uuid.uuid4(),)]

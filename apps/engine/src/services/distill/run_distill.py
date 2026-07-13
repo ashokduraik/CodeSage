@@ -13,6 +13,7 @@ from config.logging import get_indexing_logger, log_event
 from repositories import ProjectRepository
 from services.distill.pipeline import run_distillation
 from services.indexing.job_context import JobExecutionContext
+from services.indexing.progress_messages import finished_distill_message
 
 logger = get_indexing_logger()
 
@@ -26,7 +27,9 @@ def handle_distill_job(
     """Run LLM distillation for a project (full or incremental).
 
     Consumes the code graph and writes workflows, page_map, permission_rules,
-    and data_flows with confidence and source citations (ADR 0025).
+    and data_flows with confidence and source citations (ADR 0025). Writes
+    user-facing finished progress events for each active project repo when a
+    progress recorder is attached.
 
     @param session - Open SQLAlchemy session; the worker commits after return.
     @param settings - Application settings including distillation tunables.
@@ -34,11 +37,12 @@ def handle_distill_job(
     @param exec_ctx - Job execution context for progress recording.
     @raises ValueError when the payload is invalid or the project row is missing.
     """
-    _ = exec_ctx
     project_id_raw = payload.get("projectId")
     if not project_id_raw:
         raise ValueError("distill payload requires projectId.")
     project_id = uuid.UUID(str(project_id_raw))
+    if exec_ctx.project_id is None:
+        exec_ctx.project_id = project_id
 
     projects = ProjectRepository(session)
     project = projects.get_by_id(project_id)
@@ -71,6 +75,21 @@ def handle_distill_job(
             f"{result.permission_rules} permissions, {result.data_flows} data flows"
         ),
     )
+    if exec_ctx.progress_recorder is not None:
+        exec_ctx.progress_recorder.record_finished(
+            finished_distill_message(
+                workflows=result.workflows,
+                page_map=result.page_map,
+                permission_rules=result.permission_rules,
+                data_flows=result.data_flows,
+            ),
+            details={
+                "workflows": result.workflows,
+                "page_map": result.page_map,
+                "permission_rules": result.permission_rules,
+                "data_flows": result.data_flows,
+            },
+        )
 
 
 def create_distill_handler(

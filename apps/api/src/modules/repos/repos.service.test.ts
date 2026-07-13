@@ -277,7 +277,7 @@ describe("syncRepo", () => {
 });
 
 describe("detachRepo", () => {
-  it("unregisters webhook and soft-deletes the repo", async () => {
+  it("unregisters webhook, cancels pending jobs, soft-deletes the repo, and enqueues clone cleanup", async () => {
     mockFindSecrets.mockResolvedValue({
       ...REPO_ROW,
       token_enc: null,
@@ -285,14 +285,25 @@ describe("detachRepo", () => {
       webhook_id: "1",
     });
     mockSoftDeleteRepo.mockResolvedValue(true);
+    mockCancelPending.mockResolvedValue(2);
+    mockEnqueue.mockResolvedValue("job-cleanup");
     await detachRepo(DB, "p1", "r1", "", ACTOR);
     expect(mockUnregisterWebhook).toHaveBeenCalled();
+    expect(mockCancelPending).toHaveBeenCalledWith(DB, "r1", ACTOR);
     expect(mockSoftDeleteRepo).toHaveBeenCalledWith(DB, "p1", "r1", ACTOR);
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      DB,
+      "repo_cleanup",
+      { repoId: "r1", reason: "repo_detach" },
+      ACTOR,
+    );
   });
 
   it("throws 404 when the repo does not exist", async () => {
     mockFindSecrets.mockResolvedValue(undefined);
     await expect(detachRepo(DB, "p1", "missing", "", ACTOR)).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockCancelPending).not.toHaveBeenCalled();
+    expect(mockEnqueue).not.toHaveBeenCalled();
   });
 });
 
@@ -344,16 +355,24 @@ describe("listRepoIndexingEvents", () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  it("maps durationMs from details.elapsed_ms when column is null", async () => {
+  it("maps distill events to the public response shape", async () => {
     mockFindRepoById.mockResolvedValue(REPO_ROW);
     mockFindIndexingEvents.mockResolvedValue([
       {
         ...EVENT_ROW,
-        duration_ms: null,
-        details: { elapsed_ms: 820 },
+        id: "e-distill",
+        step: "distill",
+        phase: "finished",
+        message: "Built project knowledge — 0 workflows, 0 pages, 0 permissions, 0 data flows",
+        trigger: null,
+        details: { workflows: 0, page_map: 0, permission_rules: 0, data_flows: 0 },
       },
     ]);
     const result = await listRepoIndexingEvents(DB, "p1", "r1");
-    expect(result.items[0]?.durationMs).toBe(820);
+    expect(result.items[0]).toMatchObject({
+      step: "distill",
+      phase: "finished",
+      message: expect.stringContaining("Built project knowledge"),
+    });
   });
 });

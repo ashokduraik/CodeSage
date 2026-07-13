@@ -1,5 +1,6 @@
 import type { Sql } from "../../platform/db";
 import { ApiError } from "../../platform/errors";
+import { cancelPendingJobsForProject } from "../../platform/queue";
 import { detachRepo } from "../repos/repos.service";
 import { findReposByProject } from "../repos/repos.repository";
 import {
@@ -91,9 +92,11 @@ export async function removeProject(
     throw new ApiError(404, "NOT_FOUND", "Project not found.");
   }
 
+  await cancelPendingJobsForProject(db, id, actorId);
+
   const repos = await findReposByProject(db, id);
   for (const repo of repos) {
-    await detachRepo(db, id, repo.id, encryptionKey, actorId);
+    await detachRepo(db, id, repo.id, encryptionKey, actorId, "project_delete");
   }
 
   const deleted = await softDeleteProject(db, id, actorId);

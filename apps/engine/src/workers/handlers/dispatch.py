@@ -14,6 +14,7 @@ from services.indexing.job_context import JobExecutionContext
 from services.parsing.run_parse import create_parse_handler
 from services.sync.run_sync import create_sync_handler
 from services.distill.run_distill import create_distill_handler
+from services.sync.run_cleanup import create_repo_cleanup_handler
 from services.xrepo.run_xrepo import create_xrepo_handler
 from workers.jobs import is_known_job
 
@@ -41,6 +42,7 @@ def build_job_handlers(
         "embed": create_embed_handler(settings, session_factory),
         "xrepo": create_xrepo_handler(settings, session_factory),
         "distill": create_distill_handler(settings, session_factory),
+        "repo_cleanup": create_repo_cleanup_handler(settings, session_factory),
     }
 
 

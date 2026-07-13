@@ -15,6 +15,10 @@ vi.mock("../repos/repos.service", () => ({
   detachRepo: vi.fn(),
 }));
 
+vi.mock("../../platform/queue", () => ({
+  cancelPendingJobsForProject: vi.fn(),
+}));
+
 const { listProjects, getProject, createProject, removeProject } = await import("./projects.service");
 import {
   findAllProjects,
@@ -24,6 +28,7 @@ import {
 } from "./projects.repository";
 import { findReposByProject } from "../repos/repos.repository";
 import { detachRepo } from "../repos/repos.service";
+import { cancelPendingJobsForProject } from "../../platform/queue";
 import type { Sql } from "../../platform/db";
 
 const mockList = vi.mocked(findAllProjects);
@@ -32,6 +37,7 @@ const mockInsert = vi.mocked(insertProject);
 const mockSoftDelete = vi.mocked(softDeleteProject);
 const mockFindRepos = vi.mocked(findReposByProject);
 const mockDetach = vi.mocked(detachRepo);
+const mockCancelProjectJobs = vi.mocked(cancelPendingJobsForProject);
 
 const ACTOR = "u1";
 const DB = {} as Sql;
@@ -74,11 +80,13 @@ describe("removeProject", () => {
       },
     ]);
     mockDetach.mockResolvedValue(undefined);
+    mockCancelProjectJobs.mockResolvedValue(1);
     mockSoftDelete.mockResolvedValue(true);
 
     await removeProject(DB, "p1", "enc-key", ACTOR);
 
-    expect(mockDetach).toHaveBeenCalledWith(DB, "p1", "r1", "enc-key", ACTOR);
+    expect(mockCancelProjectJobs).toHaveBeenCalledWith(DB, "p1", ACTOR);
+    expect(mockDetach).toHaveBeenCalledWith(DB, "p1", "r1", "enc-key", ACTOR, "project_delete");
     expect(mockSoftDelete).toHaveBeenCalledWith(DB, "p1", ACTOR);
   });
 

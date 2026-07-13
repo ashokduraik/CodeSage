@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { MessageSquare, Plus, Search } from "lucide-react";
+import { MessageSquare, Plus, Search, Trash2 } from "lucide-react";
 import { Button, Input } from "@/shared/ui";
 import { cn } from "@/shared/lib/cn";
 import { formatRelativeTime } from "@/shared/lib";
@@ -10,12 +10,19 @@ import type { ChatSession } from "./chatTypes";
 export interface ChatSidebarProps {
   sessions: ChatSession[];
   onNewChat: () => void;
+  onDeleteSession: (session: ChatSession) => void;
   search: string;
   onSearchChange: (value: string) => void;
 }
 
 /** Conversation list with new-chat action and search filter. */
-export function ChatSidebar({ sessions, onNewChat, search, onSearchChange }: ChatSidebarProps) {
+export function ChatSidebar({
+  sessions,
+  onNewChat,
+  onDeleteSession,
+  search,
+  onSearchChange,
+}: ChatSidebarProps) {
   const { t, i18n } = useTranslation();
   const { sessionId } = useParams();
 
@@ -68,6 +75,20 @@ export function ChatSidebar({ sessions, onNewChat, search, onSearchChange }: Cha
                       : "—"}
                   </p>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  aria-label={t("chat.delete.action", { title: session.title })}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onDeleteSession(session);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </Link>
           ))

@@ -12,7 +12,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from config import Settings
 from config.logging import format_indexing_context, get_indexing_logger, log_event
 from models.enums import ProjectStatus
-from repositories import CodeChunkRepository, DerivedKnowledgeRepository, ProjectRepository, RepoRepository
+from repositories import (
+    CodeChunkRepository,
+    DerivedKnowledgeRepository,
+    JobRepository,
+    ProjectRepository,
+    RepoRepository,
+)
 from services.embedding.tei_client import EmbeddingClient
 from services.indexing.context import resolve_indexing_context
 from services.indexing.job_context import JobExecutionContext
@@ -67,6 +73,7 @@ def handle_embed_job(
     repos = RepoRepository(session)
     projects = ProjectRepository(session)
     chunks_repo = CodeChunkRepository(session)
+    jobs = JobRepository(session)
     client = EmbeddingClient(settings)
     recorder = exec_ctx.progress_recorder or IndexingProgressRecorder(session, exec_ctx)
 
@@ -146,25 +153,34 @@ def handle_embed_job(
     repos.mark_index_complete(repo_id, sha=indexed_sha)
     recompute_project_lifecycle(session, repo.project_id)
     stale_ids = DerivedKnowledgeRepository(session).get_stale_ids(repo.project_id)
-    if stale_ids and maybe_enqueue_distill(
-        session, repo.project_id, stale_artifact_ids=stale_ids,
-    ):
+    if jobs.is_job_active(exec_ctx.job_id):
+        if stale_ids and maybe_enqueue_distill(
+            session, repo.project_id, stale_artifact_ids=stale_ids,
+        ):
+            log_event(
+                logger,
+                logging.INFO,
+                f"Queued incremental distillation for project {repo.project_id}",
+            )
+        elif maybe_enqueue_xrepo(session, repo.project_id):
+            log_event(
+                logger,
+                logging.INFO,
+                f"Queued cross-repo linking for project {repo.project_id}",
+            )
+        elif maybe_enqueue_distill(session, repo.project_id):
+            log_event(
+                logger,
+                logging.INFO,
+                f"Queued distillation for project {repo.project_id}",
+            )
+    else:
+        # A newer sync superseded this embed job. Skip project-level follow-up jobs so
+        # distillation and cross-repo linking do not run for a detached repository.
         log_event(
             logger,
             logging.INFO,
-            f"Queued incremental distillation for project {repo.project_id}",
-        )
-    elif maybe_enqueue_xrepo(session, repo.project_id):
-        log_event(
-            logger,
-            logging.INFO,
-            f"Queued cross-repo linking for project {repo.project_id}",
-        )
-    elif maybe_enqueue_distill(session, repo.project_id):
-        log_event(
-            logger,
-            logging.INFO,
-            f"Queued distillation for project {repo.project_id}",
+            f"Embed job superseded — skipping project follow-up jobs for {context_label}",
         )
     recorder.record_finished(
         finished_embed_message(

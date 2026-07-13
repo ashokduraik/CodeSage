@@ -118,7 +118,64 @@ def test_process_next_job_marks_failed_on_error(caplog: pytest.LogCaptureFixture
     assert "embed" in caplog.text
 
 
-def test_process_next_job_marks_failed_for_unsupported_type() -> None:
+def test_process_next_job_records_distill_failure_for_project_repos(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    project_id = uuid.uuid4()
+    job = SimpleNamespace(
+        id=uuid.uuid4(),
+        type="distill",
+        payload={"projectId": str(project_id)},
+        created_by=uuid.uuid4(),
+        attempts=3,
+    )
+    claim_session = MagicMock()
+    work_session = MagicMock()
+    factory = MagicMock(side_effect=[claim_session, work_session])
+    jobs_claim = MagicMock()
+    jobs_claim.reclaim_stale_running_jobs.return_value = 0
+    jobs_claim.claim_next.return_value = job
+    jobs_work = MagicMock()
+    jobs_work.is_job_active.return_value = True
+    recorder = MagicMock()
+
+    def job_repo(session: MagicMock) -> MagicMock:
+        return jobs_claim if session is claim_session else jobs_work
+
+    def boom(_payload: dict, _ctx: object, _session: MagicMock) -> None:
+        raise RuntimeError("distill exploded")
+
+    with patch("workers.consumer.JobRepository", job_repo):
+        with patch(
+            "workers.consumer.build_job_handlers",
+            lambda *a, **k: {"distill": boom},
+        ):
+            with patch(
+                "workers.consumer.IndexingProgressRecorder",
+                return_value=recorder,
+            ):
+                assert process_next_job(factory, Settings()) is True
+
+    jobs_work.mark_failed.assert_called_once()
+    recorder.record_failed.assert_called_once()
+    assert "Building project knowledge" in recorder.record_failed.call_args.args[0]
+    assert "Job failed" in caplog.text
+
+
+def test_build_execution_context_reads_project_id_from_payload() -> None:
+    from workers.consumer import _build_execution_context
+
+    project_id = uuid.uuid4()
+    job = SimpleNamespace(
+        id=uuid.uuid4(),
+        type="distill",
+        payload={"projectId": str(project_id)},
+        created_by=uuid.uuid4(),
+    )
+    ctx = _build_execution_context(MagicMock(), job)
+    assert ctx.project_id == project_id
+    assert ctx.repo_id is None
+
     job = SimpleNamespace(
         id=uuid.uuid4(),
         type="distill",

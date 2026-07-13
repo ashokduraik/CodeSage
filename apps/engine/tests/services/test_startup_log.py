@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import re
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from config import Settings
-from repositories.operations import FailedJobSummary
 from services.indexing.startup_log import log_startup_queue_state
+
+_FAILED_STARTUP_RE = re.compile(r"Job queue: \d+ failed|Job queue failure")
 
 
 def _log_messages(mock_log_event: MagicMock) -> list[str]:
     return [call.args[2] for call in mock_log_event.call_args_list]
+
+
+def _has_failed_startup_warning(messages: list[str]) -> bool:
+    return any(_FAILED_STARTUP_RE.search(message) for message in messages)
 
 
 def test_log_startup_queue_state_empty() -> None:
@@ -77,17 +81,13 @@ def test_log_startup_queue_state_reclaims_stale_on_startup() -> None:
     assert any("Reclaimed 1 stale running job(s)" in message for message in messages)
 
 
-def test_log_startup_queue_state_warns_on_failed() -> None:
+def test_log_startup_queue_state_warns_on_running() -> None:
     session = MagicMock()
     factory = MagicMock(return_value=session)
     jobs = MagicMock()
     jobs.reclaim_stale_running_jobs.return_value = 0
     jobs.summarize_pending.return_value = []
-    jobs.count_by_status.side_effect = lambda status: 1 if status == "failed" else 0
-    jobs.count_pending.return_value = 0
-    jobs.latest_failed_summary.return_value = [
-        FailedJobSummary(job_type="sync", error_message="clone failed", repo_id=None),
-    ]
+    jobs.count_by_status.side_effect = lambda status: 2 if status == "running" else 0
 
     with (
         patch("services.indexing.startup_log.JobRepository", return_value=jobs),
@@ -96,4 +96,24 @@ def test_log_startup_queue_state_warns_on_failed() -> None:
         log_startup_queue_state(Settings(), factory)
 
     messages = _log_messages(mock_log_event)
-    assert any("failed" in message.lower() for message in messages)
+    assert any("2 running" in message for message in messages)
+    assert not _has_failed_startup_warning(messages)
+
+
+def test_log_startup_queue_state_does_not_warn_on_failed_jobs() -> None:
+    """Failed jobs are not surfaced at startup — they already failed in the worker."""
+    session = MagicMock()
+    factory = MagicMock(return_value=session)
+    jobs = MagicMock()
+    jobs.reclaim_stale_running_jobs.return_value = 0
+    jobs.summarize_pending.return_value = []
+    jobs.count_by_status.return_value = 0
+
+    with (
+        patch("services.indexing.startup_log.JobRepository", return_value=jobs),
+        patch("services.indexing.startup_log.log_event") as mock_log_event,
+    ):
+        log_startup_queue_state(Settings(), factory)
+
+    messages = _log_messages(mock_log_event)
+    assert not _has_failed_startup_warning(messages)

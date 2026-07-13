@@ -8,6 +8,7 @@ const STEP_LABEL_KEYS: Record<RepoIndexingEvent["step"], string> = {
   sync: "sync",
   parse: "parse",
   embed: "embed",
+  distill: "distill",
 };
 
 /** Maps DB phase to UI status label key (started → running, finished → success). */
@@ -83,7 +84,7 @@ export function shouldShowIndexingEventDuration(phase: RepoIndexingEvent["phase"
  *
  * @param event - Indexing event from the API.
  * @param t - i18n translate function.
- * @returns Localized step name (Clone, Fetch, Parse, Embed).
+ * @returns Localized step name (Clone the Code (Syncing), Read Files (Parsing), …).
  */
 export function formatIndexingEventStepLabel(event: RepoIndexingEvent, t: TFunction): string {
   const syncMode =
@@ -165,4 +166,5 @@ export const INDEXING_STEP_ACCENT_CLASSES: Record<RepoIndexingEvent["step"], str
   sync: "border-l-sky-500",
   parse: "border-l-violet-500",
   embed: "border-l-emerald-500",
+  distill: "border-l-amber-500",
 };

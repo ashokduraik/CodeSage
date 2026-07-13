@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
+  cancelPendingJobsForProject,
   cancelPendingJobsForRepo,
   enqueueJob,
   findActiveJobsForRepo,
@@ -69,6 +70,15 @@ describe("cancelPendingJobsForRepo", () => {
     expect(count).toBe(2);
     expect(db).toHaveBeenCalledOnce();
     expect(SUPERSEDED_JOB_MESSAGE).toContain("Superseded");
+  });
+});
+
+describe("cancelPendingJobsForProject", () => {
+  it("soft-deletes pending xrepo and distill rows for projectId", async () => {
+    const db = makeMockSql([{ id: "j1" }]);
+    const count = await cancelPendingJobsForProject(db, "project-1", API_SYSTEM_USER_ID);
+    expect(count).toBe(1);
+    expect(db).toHaveBeenCalledOnce();
   });
 });
 

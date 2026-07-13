@@ -57,6 +57,25 @@ def _repo_id_from_payload(payload: object) -> uuid.UUID | None:
         return None
 
 
+def _project_id_from_payload(payload: object) -> uuid.UUID | None:
+    """Extract projectId from a job payload when present.
+
+    Used by project-scoped jobs such as ``distill`` that have no ``repoId``.
+
+    @param payload - Job JSON payload.
+    @returns Project UUID or ``None`` when missing or invalid.
+    """
+    if not isinstance(payload, dict):
+        return None
+    raw = payload.get("projectId")
+    if not raw:
+        return None
+    try:
+        return uuid.UUID(str(raw))
+    except ValueError:
+        return None
+
+
 def _project_id_for_repo(session: Session, repo_id: uuid.UUID) -> uuid.UUID | None:
     """Load the owning project id for an active repo.
 
@@ -80,7 +99,9 @@ def _build_execution_context(session: Session, job: object) -> JobExecutionConte
     payload = job.payload if isinstance(job.payload, dict) else {}
     repo_id = _repo_id_from_payload(payload)
     indexing_ctx = resolve_indexing_context(session, repo_id) if repo_id else None
-    project_id = _project_id_for_repo(session, repo_id) if repo_id else None
+    project_id = _project_id_from_payload(payload)
+    if project_id is None and repo_id is not None:
+        project_id = _project_id_for_repo(session, repo_id)
     created_by = getattr(job, "created_by", None)
     trigger = payload_trigger(payload)
     if trigger is None and job.type == "sync":
@@ -223,21 +244,27 @@ def _handle_job_failure(
     try:
         if exec_ctx.repo_id is not None:
             mark_repo_indexing_failed(work_session, exec_ctx.repo_id, explanation=explanation)
-            if recorder is not None:
-                sync_is_update = (
-                    _sync_is_update(settings, exec_ctx.repo_id) if job.type == "sync" else None
-                )
-                fail_message = started_message(
-                    job.type,
-                    exec_ctx.indexing_ctx,
-                    fallback=f"repo {exec_ctx.repo_id}",
-                    trigger=exec_ctx.trigger if job.type == "sync" else None,
-                    sync_is_update=sync_is_update,
-                )
-                recorder.record_failed(
-                    f"{fail_message} — failed",
-                    failure_reason=explanation,
-                )
+        can_record_progress = recorder is not None and (
+            exec_ctx.repo_id is not None
+            or (job.type == "distill" and exec_ctx.project_id is not None)
+        )
+        if can_record_progress:
+            assert recorder is not None
+            sync_is_update = (
+                _sync_is_update(settings, exec_ctx.repo_id) if job.type == "sync" else None
+            )
+            fail_message = started_message(
+                job.type,
+                exec_ctx.indexing_ctx,
+                fallback=f"repo {exec_ctx.repo_id}" if exec_ctx.repo_id else "project",
+                trigger=exec_ctx.trigger if job.type == "sync" else None,
+                sync_is_update=sync_is_update,
+            )
+            recorder.record_failed(
+                f"{fail_message} — failed",
+                failure_reason=explanation,
+            )
+        if exec_ctx.repo_id is not None or can_record_progress:
             work_session.commit()
     except Exception as secondary:
         # The job row is already marked failed and committed above. If updating repo

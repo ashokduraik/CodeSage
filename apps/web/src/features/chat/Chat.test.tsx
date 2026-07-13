@@ -69,6 +69,7 @@ vi.mock("./chatClient", () => ({
   getConversation: vi.fn(),
   listConversationMessages: vi.fn(),
   createConversation: vi.fn(),
+  deleteConversation: vi.fn(),
   streamChatQuery: vi.fn().mockResolvedValue({
     content: "Logout is handled in src/auth/logout.ts",
     sources: ["src/auth/logout.ts"],
@@ -104,6 +105,7 @@ beforeEach(async () => {
     return MESSAGES;
   });
   vi.mocked(client.createConversation).mockResolvedValue(EMPTY_SESSION);
+  vi.mocked(client.deleteConversation).mockResolvedValue(undefined);
 });
 
 afterEach(cleanup);
@@ -196,5 +198,28 @@ describe("Chat", () => {
       expect(screen.queryByText("Select or start a conversation")).toBeNull();
     });
     expect(await screen.findByText("Ask your first question about this project.")).toBeTruthy();
+  });
+
+  it("opens delete confirmation from the sidebar and deletes the active conversation", async () => {
+    const client = await import("./chatClient");
+    renderChat(`/chat/${SESSION_ID}`);
+    await screen.findByText(/validates credentials/);
+    fireEvent.click(screen.getByRole("button", { name: "Delete conversation Auth flow questions" }));
+    expect(await screen.findByText("Delete conversation?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => {
+      expect(client.deleteConversation).toHaveBeenCalledWith(SESSION_ID);
+    });
+    expect(await screen.findByText("Select or start a conversation")).toBeTruthy();
+  });
+
+  it("shows an error when delete fails", async () => {
+    const client = await import("./chatClient");
+    vi.mocked(client.deleteConversation).mockRejectedValueOnce(new Error("fail"));
+    renderChat(`/chat/${SESSION_ID}`);
+    await screen.findByText(/validates credentials/);
+    fireEvent.click(screen.getByRole("button", { name: "Delete conversation Auth flow questions" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    expect(await screen.findByText("Could not delete conversation. Please try again.")).toBeTruthy();
   });
 });

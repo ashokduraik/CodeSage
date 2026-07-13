@@ -5,7 +5,7 @@ import type { Sql } from "./db";
  * Each maps to a consumer in apps/engine.
  * Shapes of the payloads are defined in contracts/jobs.schema.json.
  */
-export type JobType = "sync" | "parse" | "embed" | "xrepo" | "distill";
+export type JobType = "sync" | "parse" | "embed" | "xrepo" | "distill" | "repo_cleanup";
 
 /** User-facing message stored on superseded pending job rows. */
 export const SUPERSEDED_JOB_MESSAGE = "Superseded by newer indexing run";
@@ -59,7 +59,35 @@ export async function cancelPendingJobsForRepo(
         updated_by = ${actorId}
     WHERE status = 'A'
       AND job_status = 'pending'
+      AND type <> 'repo_cleanup'
       AND payload->>'repoId' = ${repoId}
+    RETURNING id
+  `;
+  return rows.length;
+}
+
+/**
+ * Soft-deletes pending project-scoped jobs when a project is deleted.
+ *
+ * @param db - The postgres.js SQL client.
+ * @param projectId - Project UUID from job payloads.
+ * @param actorId - User or service UUID performing the cancellation.
+ * @returns Number of rows cancelled.
+ */
+export async function cancelPendingJobsForProject(
+  db: Sql,
+  projectId: string,
+  actorId: string,
+): Promise<number> {
+  const rows = await db<{ id: string }[]>`
+    UPDATE jobs
+    SET status = 'D',
+        error_message = ${SUPERSEDED_JOB_MESSAGE},
+        updated_by = ${actorId}
+    WHERE status = 'A'
+      AND job_status = 'pending'
+      AND type IN ('xrepo', 'distill')
+      AND payload->>'projectId' = ${projectId}
     RETURNING id
   `;
   return rows.length;

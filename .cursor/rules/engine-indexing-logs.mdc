@@ -34,7 +34,7 @@ Fallback: `format_job_fallback_context(job_type)` when no `repoId`.
 
 ## Startup queue (once)
 
-Log worker config + pending/failed/running job summary via `log_startup_queue_state()`.
+Log worker config + pending/running job summary via `log_startup_queue_state()`.
 No repeat idle logs between polls.
 
 ## Content rules

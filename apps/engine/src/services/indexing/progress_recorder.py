@@ -16,7 +16,12 @@ from services.indexing.progress_messages import started_message
 
 
 class IndexingProgressRecorder:
-    """Append-only writer for ``repo_indexing_events`` rows."""
+    """Append-only writer for ``repo_indexing_events`` rows.
+
+    Repo-scoped jobs (sync/parse/embed) write one row per event for ``ctx.repo_id``.
+    Project-scoped ``distill`` jobs fan out the same event to every active repo in
+    the project so the existing repo Indexing Logs modal can show the final step.
+    """
 
     def __init__(self, session: Session, ctx: JobExecutionContext) -> None:
         """Bind a recorder to a session and job execution context.
@@ -42,14 +47,14 @@ class IndexingProgressRecorder:
         @param section_count - Sections to embed (embed step).
         @param sync_is_update - True when sync fetches an existing clone.
         """
-        if self._ctx.project_id is None or self._ctx.repo_id is None:
+        if self._ctx.project_id is None or not self._target_repo_ids():
             return
         now = datetime.now(UTC)
         self._step_started_at = now
         message = started_message(
             self._ctx.job_type,
             self._ctx.indexing_ctx,
-            fallback=f"repo {self._ctx.repo_id}",
+            fallback=f"repo {self._ctx.repo_id}" if self._ctx.repo_id else "project",
             trigger=self._ctx.trigger if self._ctx.job_type == "sync" else None,
             file_count=file_count,
             section_count=section_count,
@@ -77,7 +82,7 @@ class IndexingProgressRecorder:
         @param message - User-facing finished message.
         @param details - Optional metrics (commit_sha, file_count, …).
         """
-        if self._ctx.project_id is None or self._ctx.repo_id is None:
+        if self._ctx.project_id is None or not self._target_repo_ids():
             return
         self._ctx.step_completed = True
         self._insert(
@@ -94,7 +99,7 @@ class IndexingProgressRecorder:
         @param message - User-facing skipped message.
         @param details - Optional context (e.g. incremental flag).
         """
-        if self._ctx.project_id is None or self._ctx.repo_id is None:
+        if self._ctx.project_id is None or not self._target_repo_ids():
             return
         self._ctx.step_completed = True
         self._insert(
@@ -111,7 +116,7 @@ class IndexingProgressRecorder:
         @param message - User-facing failure summary.
         @param failure_reason - Sanitized explanation for the UI.
         """
-        if self._ctx.project_id is None or self._ctx.repo_id is None:
+        if self._ctx.project_id is None or not self._target_repo_ids():
             return
         self._insert(
             phase="failed",
@@ -121,6 +126,20 @@ class IndexingProgressRecorder:
             failure_reason=failure_reason,
             details=None,
         )
+
+    def _target_repo_ids(self) -> list[uuid.UUID]:
+        """Resolve the repo ids that should receive this progress event.
+
+        @returns One repo for sync/parse/embed, or all active project repos for distill.
+        """
+        if self._ctx.repo_id is not None:
+            return [self._ctx.repo_id]
+        if self._ctx.job_type != "distill" or self._ctx.project_id is None:
+            return []
+        from repositories import RepoRepository
+
+        repos = RepoRepository(self._session).list_by_project(self._ctx.project_id)
+        return [repo.id for repo in repos]
 
     def _elapsed_ms(self) -> int | None:
         """Return milliseconds since ``record_started`` when available.
@@ -142,7 +161,7 @@ class IndexingProgressRecorder:
         failure_reason: str | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
-        """Insert one progress event row.
+        """Insert one progress event row per target repo.
 
         @param phase - Event phase (started, finished, failed, skipped).
         @param message - User-facing message.
@@ -152,21 +171,21 @@ class IndexingProgressRecorder:
         @param details - Optional JSON metrics.
         """
         assert self._ctx.project_id is not None
-        assert self._ctx.repo_id is not None
-        row = stamp_created(
-            RepoIndexingEvent(
-                project_id=self._ctx.project_id,
-                repo_id=self._ctx.repo_id,
-                run_id=self._ctx.run_id,
-                job_id=self._ctx.job_id,
-                trigger=self._ctx.trigger,
-                step=self._ctx.job_type,
-                phase=phase,
-                started_at=started_at,
-                duration_ms=duration_ms,
-                message=message[:2000],
-                failure_reason=failure_reason[:2000] if failure_reason else None,
-                details=details,
-            ),
-        )
-        self._repo.insert(row)
+        for repo_id in self._target_repo_ids():
+            row = stamp_created(
+                RepoIndexingEvent(
+                    project_id=self._ctx.project_id,
+                    repo_id=repo_id,
+                    run_id=self._ctx.run_id,
+                    job_id=self._ctx.job_id,
+                    trigger=self._ctx.trigger,
+                    step=self._ctx.job_type,
+                    phase=phase,
+                    started_at=started_at,
+                    duration_ms=duration_ms,
+                    message=message[:2000],
+                    failure_reason=failure_reason[:2000] if failure_reason else None,
+                    details=details,
+                ),
+            )
+            self._repo.insert(row)

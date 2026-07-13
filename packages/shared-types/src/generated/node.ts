@@ -356,7 +356,7 @@ export interface paths {
         };
         /**
          * List indexing progress events for a repository (newest first).
-         * @description Cursor-paginated timeline of sync/parse/embed step events for one repo. Use nextCursor to load older rows (infinite scroll).
+         * @description Cursor-paginated timeline of sync/parse/embed/distill step events for one repo. Use nextCursor to load older rows (infinite scroll).
          */
         get: operations["listRepoIndexingEvents"];
         put?: never;
@@ -802,10 +802,10 @@ export interface components {
             jobId: string;
         };
         /**
-         * @description Indexing pipeline step.
+         * @description Indexing pipeline step. Distill is project-level knowledge building; events are mirrored onto each active repo so repo timelines stay complete.
          * @enum {string}
          */
-        IndexingEventStep: "sync" | "parse" | "embed";
+        IndexingEventStep: "sync" | "parse" | "embed" | "distill";
         /**
          * @description Step lifecycle phase.
          * @enum {string}
@@ -824,7 +824,7 @@ export interface components {
             id: string;
             /**
              * Format: uuid
-             * @description Groups sync, parse, and embed for one indexing attempt.
+             * @description Groups sync, parse, and embed for one indexing attempt. Distill events use the distill job id as runId.
              */
             runId: string;
             step: components["schemas"]["IndexingEventStep"];

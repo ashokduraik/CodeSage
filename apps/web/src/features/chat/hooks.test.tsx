@@ -7,6 +7,7 @@ import { useChatMessages } from "./useChatMessages";
 import { useProjects } from "./useProjects";
 import { useCreateSession } from "./useCreateSession";
 import { useSendMessage } from "./useSendMessage";
+import { useDeleteSession } from "./useDeleteSession";
 
 vi.mock("@/features/projects/projectsClient", () => ({
   fetchProjects: vi.fn().mockResolvedValue([
@@ -24,6 +25,7 @@ const mockListConversations = vi.fn().mockResolvedValue([]);
 const mockGetConversation = vi.fn();
 const mockListMessages = vi.fn();
 const mockCreateConversation = vi.fn();
+const mockDeleteConversation = vi.fn();
 const mockStreamChatQuery = vi.fn();
 
 vi.mock("./chatClient", () => ({
@@ -31,6 +33,7 @@ vi.mock("./chatClient", () => ({
   getConversation: (...args: unknown[]) => mockGetConversation(...args),
   listConversationMessages: (...args: unknown[]) => mockListMessages(...args),
   createConversation: (...args: unknown[]) => mockCreateConversation(...args),
+  deleteConversation: (...args: unknown[]) => mockDeleteConversation(...args),
   streamChatQuery: (...args: unknown[]) => mockStreamChatQuery(...args),
   parseChatSseLine: vi.fn(),
   formatCitationSource: vi.fn((c: { filePath: string }) => c.filePath),
@@ -72,6 +75,7 @@ beforeEach(() => {
     messageCount: 0,
     lastMessageAt: null,
   });
+  mockDeleteConversation.mockResolvedValue(undefined);
   mockStreamChatQuery.mockResolvedValue({
     content: "Mock answer",
     sources: ["src/auth.ts"],
@@ -138,5 +142,11 @@ describe("chat mutation hooks", () => {
   it("exposes stop to abort the in-flight stream", async () => {
     const { result } = renderHook(() => useSendMessage("s1"), { wrapper: HookWrapper });
     expect(typeof result.current.stop).toBe("function");
+  });
+
+  it("deletes a session by conversation id", async () => {
+    const { result } = renderHook(() => useDeleteSession(), { wrapper: HookWrapper });
+    await result.current.mutateAsync("s1");
+    expect(mockDeleteConversation).toHaveBeenCalledWith("s1");
   });
 });

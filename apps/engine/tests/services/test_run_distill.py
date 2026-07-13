@@ -36,6 +36,9 @@ def test_handle_distill_job_runs_pipeline(monkeypatch: pytest.MonkeyPatch) -> No
     project_repo = MagicMock()
     project_repo.get_by_id.return_value = project
     result = DistillResult(workflows=1, page_map=2, permission_rules=0, data_flows=3)
+    recorder = MagicMock()
+    ctx = make_exec_ctx(job_type="distill")
+    ctx.progress_recorder = recorder
 
     monkeypatch.setattr("services.distill.run_distill.ProjectRepository", lambda _s: project_repo)
     monkeypatch.setattr(
@@ -47,8 +50,47 @@ def test_handle_distill_job_runs_pipeline(monkeypatch: pytest.MonkeyPatch) -> No
         MagicMock(),
         Settings(),
         {"projectId": str(project_id)},
-        make_exec_ctx(job_type="distill"),
+        ctx,
     )
+
+    assert ctx.project_id == project_id
+    recorder.record_finished.assert_called_once()
+    finished_message = recorder.record_finished.call_args.args[0]
+    assert "1 workflows" in finished_message
+    assert "2 pages" in finished_message
+
+
+def test_handle_distill_job_records_finished_with_zero_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id = uuid.uuid4()
+    project_repo = MagicMock()
+    project_repo.get_by_id.return_value = MagicMock(id=project_id)
+    recorder = MagicMock()
+    ctx = make_exec_ctx(job_type="distill", project_id=project_id)
+    ctx.progress_recorder = recorder
+    result = DistillResult(workflows=0, page_map=0, permission_rules=0, data_flows=0)
+
+    monkeypatch.setattr("services.distill.run_distill.ProjectRepository", lambda _s: project_repo)
+    monkeypatch.setattr(
+        "services.distill.run_distill.run_distillation",
+        lambda *a, **k: result,
+    )
+
+    handle_distill_job(
+        MagicMock(),
+        Settings(),
+        {"projectId": str(project_id)},
+        ctx,
+    )
+
+    details = recorder.record_finished.call_args.kwargs["details"]
+    assert details == {
+        "workflows": 0,
+        "page_map": 0,
+        "permission_rules": 0,
+        "data_flows": 0,
+    }
 
 
 def test_create_distill_handler_delegates() -> None:

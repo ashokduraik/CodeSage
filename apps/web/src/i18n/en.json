@@ -144,11 +144,12 @@
       "indexingLogsLoadMore": "Loading more…",
       "indexingLogsScrollHint": "Scroll down for older events",
       "indexingLogsSteps": {
-        "sync": "Sync",
-        "clone": "Clone",
-        "fetch": "Fetch",
-        "parse": "Parse",
-        "embed": "Embed"
+        "sync": "Sync the Code (Syncing)",
+        "clone": "Clone the Code (Syncing)",
+        "fetch": "Update the Code (Syncing)",
+        "parse": "Read Files (Parsing)",
+        "embed": "Make Searchable (Embedding)",
+        "distill": "Build Project Knowledge (Distillation)"
       },
       "indexingLogsPhases": {
         "running": "Running",
@@ -223,6 +224,14 @@
       "title": "Ask CodeSage",
       "body": "Start a conversation to ask questions about your codebase. Choose Developer mode for code-level queries or End-User mode for navigation and workflow help.",
       "cta": "Start a Conversation"
+    },
+    "delete": {
+      "action": "Delete conversation {{title}}",
+      "confirmTitle": "Delete conversation?",
+      "confirmBody": "Remove \"{{title}}\" from your history? Messages stay in the database but will no longer appear here.",
+      "confirm": "Delete",
+      "deleting": "Deleting\u2026",
+      "error": "Could not delete conversation. Please try again."
     },
     "new": {
       "title": "New Conversation",

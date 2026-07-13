@@ -90,14 +90,15 @@ const jobsTs = [
   TS_HEADER,
   ...payloadTypes,
   "",
-  "export type JobType = 'sync' | 'parse' | 'embed' | 'xrepo' | 'distill';",
+  "export type JobType = 'sync' | 'parse' | 'embed' | 'xrepo' | 'distill' | 'repo_cleanup';",
   "",
   "export type JobEnvelope =",
   "  | { type: 'sync'; payload: SyncPayload }",
   "  | { type: 'parse'; payload: ParsePayload }",
   "  | { type: 'embed'; payload: EmbedPayload }",
   "  | { type: 'xrepo'; payload: XrepoPayload }",
-  "  | { type: 'distill'; payload: DistillPayload };",
+  "  | { type: 'distill'; payload: DistillPayload }",
+  "  | { type: 'repo_cleanup'; payload: RepoCleanupPayload };",
   "",
 ].join("\n");
 await emitGenerated(resolve(root, "packages/shared-types/src/generated/jobs.ts"), jobsTs, "jobs.ts");

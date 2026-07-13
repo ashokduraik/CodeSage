@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import func, select, text
@@ -12,15 +11,6 @@ from sqlalchemy.orm import Session
 from models.enums import JobStatus, RowStatus
 from models import AuditLog, Job
 from repositories.audit import RAG_ACTOR_ID, stamp_created, stamp_updated
-
-
-@dataclass(frozen=True)
-class FailedJobSummary:
-    """Sanitized summary of a failed job for startup warnings."""
-
-    job_type: str
-    error_message: str | None
-    repo_id: uuid.UUID | None
 
 
 STALE_JOB_ERROR_MESSAGE = "Job exceeded maximum runtime and was not completed"
@@ -203,19 +193,6 @@ class JobRepository:
         )
         return [(row[0], int(row[1])) for row in self._session.execute(stmt)]
 
-    def summarize_failed(self) -> list[tuple[str, int]]:
-        """Return failed job counts grouped by type.
-
-        @returns ``[(job_type, count), ...]`` ordered by job type name.
-        """
-        stmt = (
-            select(Job.type, func.count())
-            .where(Job.job_status == JobStatus.FAILED, Job.status == RowStatus.ACTIVE)
-            .group_by(Job.type)
-            .order_by(Job.type)
-        )
-        return [(row[0], int(row[1])) for row in self._session.execute(stmt)]
-
     def has_active_job(self, job_type: str, *, project_id: uuid.UUID) -> bool:
         """Return True when a pending or running job already exists for a project.
 
@@ -293,37 +270,6 @@ class JobRepository:
         if cancelled:
             self._session.flush()
         return cancelled
-
-    def latest_failed_summary(self, limit: int = 3) -> list[FailedJobSummary]:
-        """Return the most recent failed jobs for startup diagnostics.
-
-        @param limit - Maximum rows to return.
-        @returns Failed job summaries newest first.
-        """
-        stmt = (
-            select(Job)
-            .where(Job.job_status == JobStatus.FAILED, Job.status == RowStatus.ACTIVE)
-            .order_by(Job.updated_at.desc())
-            .limit(limit)
-        )
-        rows = list(self._session.scalars(stmt))
-        summaries: list[FailedJobSummary] = []
-        for job in rows:
-            repo_id_raw = job.payload.get("repoId") if isinstance(job.payload, dict) else None
-            repo_id: uuid.UUID | None = None
-            if repo_id_raw:
-                try:
-                    repo_id = uuid.UUID(str(repo_id_raw))
-                except ValueError:
-                    repo_id = None
-            summaries.append(
-                FailedJobSummary(
-                    job_type=job.type,
-                    error_message=job.error_message,
-                    repo_id=repo_id,
-                ),
-            )
-        return summaries
 
     def mark_done(self, job_id: uuid.UUID) -> Job | None:
         """Mark a job as successfully completed.

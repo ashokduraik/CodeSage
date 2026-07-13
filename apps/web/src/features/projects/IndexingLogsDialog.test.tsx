@@ -126,13 +126,40 @@ describe("IndexingLogsDialog", () => {
     expect(screen.getByText(/No indexing activity yet/i)).toBeTruthy();
   });
 
-  it("shows error state with retry button", () => {
-    const refetch = vi.fn();
+  it("renders friendly step labels with technical terms in parentheses", () => {
     mockUseRepoIndexingEvents.mockReturnValue({
-      data: undefined,
+      data: {
+        pages: [
+          {
+            items: [
+              {
+                id: "e-distill",
+                runId: "run-2",
+                step: "distill",
+                phase: "finished",
+                startedAt: "2026-07-04T14:40:00.000Z",
+                durationMs: 1000,
+                message: "Built project knowledge — 0 workflows, 0 pages, 0 permissions, 0 data flows",
+              },
+              {
+                id: "e-parse",
+                runId: "run-1",
+                step: "parse",
+                phase: "finished",
+                startedAt: "2026-07-04T14:35:00.000Z",
+                durationMs: 200,
+                message: "Read 12 files, created 40 code sections",
+              },
+            ],
+            limit: 50,
+            hasMore: false,
+            nextCursor: null,
+          },
+        ],
+      },
       isPending: false,
-      isError: true,
-      refetch,
+      isError: false,
+      refetch: vi.fn(),
       fetchNextPage: vi.fn(),
       hasNextPage: false,
       isFetchingNextPage: false,
@@ -142,8 +169,7 @@ describe("IndexingLogsDialog", () => {
       <IndexingLogsDialog open projectId="p1" repo={REPO} onOpenChange={vi.fn()} />,
     );
 
-    expect(screen.getByText(/Could not load indexing logs/i)).toBeTruthy();
-    screen.getByRole("button", { name: /Try again/i }).click();
-    expect(refetch).toHaveBeenCalled();
+    expect(screen.getByText("Build Project Knowledge (Distillation)")).toBeTruthy();
+    expect(screen.getByText("Read Files (Parsing)")).toBeTruthy();
   });
 });

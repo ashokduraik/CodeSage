@@ -1,9 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { formatCitationSource, parseChatSseLine, streamChatQuery } from "./chatClient";
+import {
+  deleteConversation,
+  formatCitationSource,
+  parseChatSseLine,
+  streamChatQuery,
+} from "./chatClient";
+
+vi.mock("@/shared/lib/apiClient", () => ({
+  apiFetch: vi.fn(),
+}));
 
 vi.mock("@/shared/lib/authTokenStorage", () => ({
   getAuthToken: vi.fn(() => "test-token"),
 }));
+
+import { apiFetch } from "@/shared/lib/apiClient";
+const mockFetch = vi.mocked(apiFetch);
 
 describe("parseChatSseLine", () => {
   it("parses a token chunk", () => {
@@ -147,5 +159,18 @@ describe("formatCitationSource", () => {
         filePath: "src/auth.ts",
       }),
     ).toBe("src/auth.ts");
+  });
+});
+
+describe("deleteConversation", () => {
+  beforeEach(() => {
+    mockFetch.mockResolvedValue(undefined);
+  });
+
+  it("calls DELETE /conversations/:id", async () => {
+    await deleteConversation("11111111-1111-1111-1111-111111111111");
+    expect(mockFetch).toHaveBeenCalledWith("/conversations/11111111-1111-1111-1111-111111111111", {
+      method: "DELETE",
+    });
   });
 });

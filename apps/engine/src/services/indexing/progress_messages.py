@@ -36,7 +36,7 @@ def started_message(
 ) -> str:
     """Build the user-facing message for a step ``started`` event.
 
-    @param step - Pipeline step (sync, parse, embed).
+    @param step - Pipeline step (sync, parse, embed, distill).
     @param ctx - Resolved indexing context.
     @param fallback - Repo label fallback.
     @param trigger - Optional indexing run trigger (sync step only).
@@ -60,6 +60,8 @@ def started_message(
     if step == "embed":
         count = section_count if section_count is not None else 0
         return f"Making {count} code sections searchable for {label}"
+    if step == "distill":
+        return "Building project knowledge from indexed code"
     return f"Indexing step {step} started for {label}"
 
 
@@ -161,3 +163,25 @@ def skipped_no_chunks_message(ctx: IndexingContext | None, *, fallback: str) -> 
     """
     label = repo_label(ctx, fallback)
     return f"No valid code sections to index for {label}"
+
+
+def finished_distill_message(
+    *,
+    workflows: int,
+    page_map: int,
+    permission_rules: int,
+    data_flows: int,
+) -> str:
+    """Build a distill ``finished`` message with derived knowledge counts.
+
+    @param workflows - Workflow rows written.
+    @param page_map - Page map rows written.
+    @param permission_rules - Permission rule rows written.
+    @param data_flows - Data flow rows written.
+    @returns Plain-English finished message.
+    """
+    return (
+        "Built project knowledge — "
+        f"{workflows} workflows, {page_map} pages, "
+        f"{permission_rules} permissions, {data_flows} data flows"
+    )

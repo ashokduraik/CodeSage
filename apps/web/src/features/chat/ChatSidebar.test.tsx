@@ -30,7 +30,13 @@ const SESSIONS: ChatSession[] = [
 describe("ChatSidebar", () => {
   it("shows an empty message when there are no sessions", () => {
     renderWithRouter(
-      <ChatSidebar sessions={[]} onNewChat={() => undefined} search="" onSearchChange={() => undefined} />,
+      <ChatSidebar
+        sessions={[]}
+        onNewChat={() => undefined}
+        onDeleteSession={() => undefined}
+        search=""
+        onSearchChange={() => undefined}
+      />,
       { route: "/chat" },
     );
     expect(screen.getByText("No conversations yet")).toBeTruthy();
@@ -38,7 +44,13 @@ describe("ChatSidebar", () => {
 
   it("renders sessions with mode labels, project fallback and timestamps", () => {
     renderWithRouter(
-      <ChatSidebar sessions={SESSIONS} onNewChat={() => undefined} search="" onSearchChange={() => undefined} />,
+      <ChatSidebar
+        sessions={SESSIONS}
+        onNewChat={() => undefined}
+        onDeleteSession={() => undefined}
+        search=""
+        onSearchChange={() => undefined}
+      />,
       { route: "/chat" },
     );
     expect(screen.getByText("Auth flow")).toBeTruthy();
@@ -50,12 +62,34 @@ describe("ChatSidebar", () => {
     const onNewChat = vi.fn();
     const onSearchChange = vi.fn();
     renderWithRouter(
-      <ChatSidebar sessions={SESSIONS} onNewChat={onNewChat} search="" onSearchChange={onSearchChange} />,
+      <ChatSidebar
+        sessions={SESSIONS}
+        onNewChat={onNewChat}
+        onDeleteSession={() => undefined}
+        search=""
+        onSearchChange={onSearchChange}
+      />,
       { route: "/chat" },
     );
     fireEvent.click(screen.getByRole("button", { name: "New Chat" }));
     expect(onNewChat).toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Search chats\u2026"), { target: { value: "auth" } });
     expect(onSearchChange).toHaveBeenCalledWith("auth");
+  });
+
+  it("calls delete handler without navigating when delete is clicked", () => {
+    const onDeleteSession = vi.fn();
+    renderWithRouter(
+      <ChatSidebar
+        sessions={SESSIONS}
+        onNewChat={() => undefined}
+        onDeleteSession={onDeleteSession}
+        search=""
+        onSearchChange={() => undefined}
+      />,
+      { route: "/chat" },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete conversation Auth flow" }));
+    expect(onDeleteSession).toHaveBeenCalledWith(SESSIONS[0]);
   });
 });

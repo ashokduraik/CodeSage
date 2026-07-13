@@ -62,6 +62,21 @@ class DistillPayload(BaseModel):
     )
 
 
+class Reason(Enum):
+    repo_detach = 'repo_detach'
+    project_delete = 'project_delete'
+
+
+class RepoCleanupPayload(BaseModel):
+    repoId: UUID = Field(
+        ...,
+        description='ID of the soft-deleted repo row whose clone directory should be removed.',
+    )
+    reason: Reason | None = Field(
+        None, description='Why the cleanup job was enqueued (audit/debug only).'
+    )
+
+
 class CodesageJobQueuePayloads1(BaseModel):
     type: Literal['sync']
     payload: SyncPayload
@@ -87,6 +102,11 @@ class CodesageJobQueuePayloads5(BaseModel):
     payload: DistillPayload
 
 
+class CodesageJobQueuePayloads6(BaseModel):
+    type: Literal['repo_cleanup']
+    payload: RepoCleanupPayload
+
+
 class CodesageJobQueuePayloads(
     RootModel[
         CodesageJobQueuePayloads1
@@ -94,6 +114,7 @@ class CodesageJobQueuePayloads(
         | CodesageJobQueuePayloads3
         | CodesageJobQueuePayloads4
         | CodesageJobQueuePayloads5
+        | CodesageJobQueuePayloads6
     ]
 ):
     root: (
@@ -102,6 +123,7 @@ class CodesageJobQueuePayloads(
         | CodesageJobQueuePayloads3
         | CodesageJobQueuePayloads4
         | CodesageJobQueuePayloads5
+        | CodesageJobQueuePayloads6
     ) = Field(
         ...,
         description='Single source of truth for job payloads that apps/api enqueues and apps/engine consumes. Edit here, then run codegen -> TS (shared-types) + Pydantic (py-core). See docs/final-solution.md §6 and ADR 0006.',
