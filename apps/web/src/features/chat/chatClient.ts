@@ -1,4 +1,5 @@
-import { apiFetch } from "@/shared/lib/apiClient";
+import { apiFetch, ApiClientError, type ApiErrorBody } from "@/shared/lib/apiClient";
+import { notifyUnauthorized } from "@/shared/lib/unauthorizedHandler";
 import type { NodeApi } from "@codesage/shared-types";
 
 type ChatQueryRequest = NodeApi.components["schemas"]["ChatQueryRequest"];
@@ -154,8 +155,24 @@ export async function streamChatQuery(
     throw error;
   }
 
-  if (!response.ok || !response.body) {
-    throw new Error(`Chat query failed (${response.status})`);
+  if (!response.ok) {
+    let code = "REQUEST_ERROR";
+    let message = response.statusText || `Chat query failed (${response.status})`;
+    try {
+      const errBody = (await response.json()) as ApiErrorBody;
+      code = errBody.error?.code ?? code;
+      message = errBody.error?.message ?? message;
+    } catch {
+      // Response body was not valid JSON; use defaults above.
+    }
+    if (response.status === 401) {
+      notifyUnauthorized();
+    }
+    throw new ApiClientError(response.status, code, message);
+  }
+
+  if (!response.body) {
+    throw new ApiClientError(502, "ENGINE_UNAVAILABLE", "Empty response from chat service.");
   }
 
   const reader = response.body.getReader();
@@ -167,6 +184,8 @@ export async function streamChatQuery(
   let title: string | undefined;
   let metrics: AnswerMetrics | undefined;
   let aborted = false;
+  let sawTerminal = false;
+  let streamError: { code: string; message: string } | undefined;
 
   try {
     for (;;) {
@@ -200,9 +219,20 @@ export async function streamChatQuery(
         if (chunk.type === "abstain") {
           content = chunk.content ?? "Not certain — no sufficiently relevant code was retrieved.";
           needsReview = true;
+          sawTerminal = true;
         }
         if (chunk.type === "metrics" && chunk.metrics) {
           metrics = chunk.metrics;
+        }
+        if (chunk.type === "done") {
+          sawTerminal = true;
+        }
+        if (chunk.type === "error") {
+          sawTerminal = true;
+          streamError = {
+            code: chunk.code ?? "STREAM_INTERRUPTED",
+            message: chunk.content ?? "The answer stream was interrupted.",
+          };
         }
       }
     }
@@ -218,6 +248,18 @@ export async function streamChatQuery(
     } catch {
       // Reader may already be closed after abort.
     }
+  }
+
+  if (streamError) {
+    throw new ApiClientError(502, streamError.code, streamError.message);
+  }
+
+  if (!aborted && !sawTerminal) {
+    throw new ApiClientError(
+      502,
+      "STREAM_INTERRUPTED",
+      "The answer stream ended before the reply finished.",
+    );
   }
 
   const confidence = needsReview ? 0.4 : sources.length > 0 ? 0.9 : 0.75;

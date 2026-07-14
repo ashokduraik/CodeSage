@@ -916,7 +916,7 @@ export interface components {
             excerpt?: string;
         };
         /** @enum {string} */
-        ChatAnswerChunkType: "token" | "citation" | "title" | "abstain" | "metrics" | "done";
+        ChatAnswerChunkType: "token" | "citation" | "title" | "abstain" | "metrics" | "done" | "error";
         /** @description Per-answer metrics for display in the chat UI. Emitted only on the grounded LLM path; token/timing fields are absent when the backend does not report usage. */
         AnswerMetrics: {
             contextChunks: number;
@@ -931,7 +931,10 @@ export interface components {
         };
         ChatAnswerChunk: {
             type: components["schemas"]["ChatAnswerChunkType"];
+            /** @description Text fragment when type is `token`, abstain reason when type is `abstain`, or human-readable failure message when type is `error`. */
             content?: string;
+            /** @description Machine-readable error code when type is `error` (e.g. ENGINE_UNAVAILABLE, STREAM_INTERRUPTED, ENGINE_ERROR). */
+            code?: string;
             citation?: components["schemas"]["CodeCitation"];
             metrics?: components["schemas"]["AnswerMetrics"];
         };

@@ -1,0 +1,55 @@
+---
+description: Cross-service error handling — REST, SSE, process/FastAPI global handlers, and UI feedback
+globs: apps/api/**,apps/web/**,apps/engine/**,contracts/**
+alwaysApply: false
+---
+
+# Error handling (Node, Engine, Web, contracts)
+
+Complements `backend-api-standards.mdc` and `ui-action-feedback.mdc`.
+
+## REST JSON errors
+
+- Always return `{ error: { code: string, message: string, details?: unknown } }`.
+- Node: throw `ApiError` and rely on Fastify `setErrorHandler` (Express
+  `app.use((err, req, res, next) => …)` equivalent).
+- Engine: register FastAPI `@app.exception_handler` for validation + unhandled
+  `Exception`, returning `EngineErrorResponse`.
+- Log with request context (req id / method / path). Unexpected 500s use a
+  **stable client message** (`Internal server error`); put real detail in logs only.
+- Never call `reply.status().send()` again when headers are already sent.
+
+## SSE / streaming
+
+- After stream headers are sent, HTTP status cannot carry failure — emit a
+  contract terminal chunk (`error`, or successful `done` / `abstain`).
+- Empty `catch` that only ends the stream without user feedback is **forbidden**.
+- Await async cleanup (`await reader.cancel().catch(() => {})`).
+- Abort upstream fetches only on real client disconnect while still writable.
+- New chunk types / error codes → edit `contracts/` → run codegen (never hand-write).
+
+## Process safety nets (Node)
+
+Every long-running Node entrypoint **must** register:
+
+- `process.on('unhandledRejection')` — log, **keep alive**
+- `process.on('uncaughtException')` — log, **exit(1)**
+
+These are safety nets, not a substitute for correct stream/request handling.
+
+## Frontend
+
+- Pre-stream HTTP failures → `ApiClientError` + localized map (`role="alert"`).
+- Mid-stream `error` chunk or truncated stream (no terminal event) → treat as
+  failure; never silently succeed.
+- Do not show opaque transport strings (`fetch failed`, `terminated`) to users.
+
+```ts
+// ❌ BAD: truncated SSE treated as success
+return { content, aborted: false };
+
+// ✅ GOOD: missing done/abstain/error → fail loudly
+if (!aborted && !sawTerminal) {
+  throw new ApiClientError(502, 'STREAM_INTERRUPTED', '…');
+}
+```

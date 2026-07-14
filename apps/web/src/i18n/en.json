@@ -213,6 +213,16 @@
     "send": "Send message",
     "stop": "Stop generating",
     "stopped": "Generation stopped",
+    "sendError": "Could not get a reply. Please try again.",
+    "errors": {
+      "ENGINE_UNAVAILABLE": "The answer engine is unavailable right now. Check that the engine service is running, then try again.",
+      "STREAM_INTERRUPTED": "The reply was interrupted before it finished. Please try again.",
+      "ENGINE_ERROR": "The answer engine failed while generating a reply. Please try again.",
+      "VALIDATION_ERROR": "That message could not be sent. Check your question and try again.",
+      "NOT_FOUND": "This conversation was not found or is no longer available.",
+      "UNAUTHORIZED": "Your session expired. Please sign in again.",
+      "FORBIDDEN": "You do not have permission to chat in this conversation."
+    },
     "toggleSidebar": "Toggle conversation list",
     "selectConversation": "Select or start a conversation",
     "firstQuestion": "Ask your first question about this project.",

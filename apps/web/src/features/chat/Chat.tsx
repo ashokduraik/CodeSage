@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { MessageSquare, PanelLeft, PanelLeftClose } from "lucide-react";
+import { MessageSquare, PanelLeft, PanelLeftClose, AlertCircle } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -22,6 +22,7 @@ import { useChatSession } from "./useChatSession";
 import { useChatMessages } from "./useChatMessages";
 import { useSendMessage } from "./useSendMessage";
 import { useDeleteSession } from "./useDeleteSession";
+import { chatSendErrorMessage } from "./chatSendError";
 
 /** Chat workspace: session list, conversation thread and composer. */
 export function Chat() {
@@ -40,11 +41,16 @@ export function Chat() {
   const { data: currentSession } = useChatSession(sessionId);
   const { data: messages } = useChatMessages(sessionId);
   const sendMessage = useSendMessage(sessionId ?? "");
+  const { reset: resetSendMessage, error: sendError } = sendMessage;
   const deleteSession = useDeleteSession();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, sendError]);
+
+  useEffect(() => {
+    resetSendMessage();
+  }, [sessionId, resetSendMessage]);
 
   const handleSend = (text: string) => {
     sendMessage.mutate(text);
@@ -182,6 +188,15 @@ export function Chat() {
               {(messages ?? []).map((message) => (
                 <MessageBubble key={message.id} message={message} />
               ))}
+              {sendError ? (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                  <p>{chatSendErrorMessage(sendError, t)}</p>
+                </div>
+              ) : null}
               <div ref={messagesEndRef} />
             </div>
             <ChatInput

@@ -217,6 +217,36 @@ describe("POST /chat/query", () => {
       },
     });
     expect(res.statusCode).toBe(502);
+    expect(res.json()).toMatchObject({
+      error: { code: "ENGINE_UNAVAILABLE" },
+    });
+    await app.close();
+  });
+
+  it("emits an SSE error event when the engine stream fails mid-flight", async () => {
+    const body = new ReadableStream({
+      start(controller) {
+        controller.error(new Error("socket closed"));
+      },
+    });
+    mockPostEngine.mockResolvedValue(new Response(body, { status: 200 }));
+
+    const app = buildApp(TEST_CONFIG);
+    app.db = mockDbForChatQuery() as never;
+    await app.ready();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/chat/query",
+      headers: { authorization: `Bearer ${devToken(app)}` },
+      payload: {
+        question: "where is auth?",
+        conversationId: CONVERSATION_ID,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/event-stream");
+    expect(res.body).toContain('"type":"error"');
+    expect(res.body).toContain("STREAM_INTERRUPTED");
     await app.close();
   });
 

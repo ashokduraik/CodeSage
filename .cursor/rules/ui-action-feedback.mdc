@@ -67,6 +67,9 @@ const apiMessage = error instanceof ApiError ? error.message : t('errors.unexpec
 
 - Source the text from the API's `error.message` field (the `{ error: { code, message } }`
   shape the Node API always returns) — do not fabricate messages in the frontend.
+- For known codes (especially chat), prefer localized copy via a code→i18n map
+  (see `chatSendErrorMessage`) instead of opaque transport strings like `fetch failed`.
+  Full stream rules: `error-handling.mdc`.
 - Fall back to a localised generic string (`t('errors.unexpected')`) only when the API does
   not return a parseable error body (network failure, 5xx with no body, etc.).
 - Place the error **adjacent to the button** that triggered it, not in a distant toast only.

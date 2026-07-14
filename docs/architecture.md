@@ -88,6 +88,18 @@ questions get an honest "unknown" and may raise an expert question.
 
 See [`final-solution.md`](./final-solution.md) §6–§8 for full detail and the mermaid diagrams.
 
+## 6b. Error handling (chat / cross-service)
+
+- **REST:** Node uses Fastify `setErrorHandler`; Engine uses FastAPI
+  `@app.exception_handler`. Both return `{ error: { code, message } }` (see
+  `contracts/` `ApiError` / `EngineErrorResponse`).
+- **Process (Node):** `unhandledRejection` is logged and the process stays up;
+  `uncaughtException` logs and exits. Registered from `apps/api` entrypoint.
+- **Chat SSE:** After `200` stream headers, failures must emit a terminal
+  `type: "error"` chunk (contracts). The web client treats `error` or a truncated
+  stream (no `done`/`abstain`/`error`) as a failed send and shows a localized alert.
+- Conventions: `.cursor/rules/error-handling.mdc`.
+
 ## 7. Deployment shape (MVP)
 
 Two on-prem machines, Docker Compose: **Machine 1** = PostgreSQL (+pgvector); **Machine 2** =

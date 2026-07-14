@@ -23,8 +23,14 @@ instead. Heavy/blocking work is Python's job.
 The API runs migrations and seeds the database automatically on every boot (`src/index.ts`):
 
 ```
-loadConfig() → buildApp() → runMigrations() → runSeed() [non-prod only] → app.listen()
+registerProcessHandlers() → loadConfig() → buildApp() → runMigrations() → runSeed() [non-prod only] → app.listen()
 ```
+
+Startup also registers `unhandledRejection` / `uncaughtException` safety nets
+(`platform/processHandlers.ts`) so stray promise rejections (e.g. undici abort after SSE)
+do not take down the process. Route errors go through Fastify `setErrorHandler`
+(`platform/errors.ts`). Streaming chat failures emit an SSE `error` chunk — see
+`.cursor/rules/error-handling.mdc`.
 
 - **`runMigrations`** (`platform/migrate.ts`) applies every unapplied `*.sql` file in
   `platform/migrations/` (sorted by filename). Startup aborts if any migration fails.

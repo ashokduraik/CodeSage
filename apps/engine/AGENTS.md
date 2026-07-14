@@ -29,6 +29,9 @@ src/config/                → settings, env
 - Put **all business logic** in `src/services/` (`sync`, `parse`, `embed`, `xrepo`, `retrieval`, `qa`, …).
 - Use **repositories** for DB access; **models** for ORM shapes only.
 - **Stream** QA answers with **citations**; implement abstain path (NFR-7).
+- Register FastAPI **global exception handlers** (`api/error_handlers.py`) so unhandled
+  route errors return `EngineErrorResponse`. Mid-stream query failures must yield an SSE
+  `error` chunk (see `.cursor/rules/error-handling.mdc`).
 - Jobs: **idempotent**, **incremental**, isolate per-file failures.
 - Use generated Pydantic models from `contracts/`.
 - **Indexing logs:** follow [`docs/engine-indexing-logs.md`](../../docs/engine-indexing-logs.md) — uniform `[ENGINE]` format via `log_event()`; start with `python -m api.run`.

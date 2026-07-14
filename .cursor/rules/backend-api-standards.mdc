@@ -25,6 +25,11 @@ return reply.status(400).send({
 });
 ```
 
+- Use Fastify **`setErrorHandler`** (global route error catcher — Express
+  `app.use((err, req, res, next))` equivalent). Log with request id / method / URL;
+  send `{ error: { code, message } }` to the client. See `error-handling.mdc`.
 - **Log every error with context** (request id, route, user id where available).
 - Use **appropriate HTTP status codes** (400/401/403/404/409/422/500…).
 - **Validate every request** (params, query, body) at the edge before business logic.
+- Register process **`unhandledRejection`** / **`uncaughtException`** handlers on
+  the API entrypoint (`processHandlers.ts`) — see `error-handling.mdc`.

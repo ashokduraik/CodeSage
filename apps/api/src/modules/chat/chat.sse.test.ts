@@ -35,4 +35,15 @@ describe("chat.sse", () => {
     expect(acc.content).toBe("x");
     expect(remainder).toBe("");
   });
+
+  it("marks error chunks as completed with streamError", () => {
+    const acc = createStreamAccumulator();
+    applyChatChunk(acc, {
+      type: "error",
+      code: "ENGINE_ERROR",
+      content: "boom",
+    });
+    expect(acc.completed).toBe(true);
+    expect(acc.streamError).toEqual({ code: "ENGINE_ERROR", message: "boom" });
+  });
 });

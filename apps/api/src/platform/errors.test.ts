@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { ApiError } from "./errors";
+import { ApiError, canSendJsonError } from "./errors";
+import type { FastifyReply } from "fastify";
 
 vi.mock('postgres', () => {
   const mockSql = Object.assign(vi.fn(), { end: vi.fn().mockResolvedValue(undefined) });
@@ -42,6 +43,40 @@ describe("ApiError", () => {
   });
 });
 
+describe("canSendJsonError", () => {
+  it("returns false when headers were already sent", () => {
+    const reply = {
+      sent: false,
+      raw: { headersSent: true, writableEnded: false },
+    } as unknown as FastifyReply;
+    expect(canSendJsonError(reply)).toBe(false);
+  });
+
+  it("returns false when the reply was already sent or ended", () => {
+    expect(
+      canSendJsonError({
+        sent: true,
+        raw: { headersSent: false, writableEnded: false },
+      } as unknown as FastifyReply),
+    ).toBe(false);
+    expect(
+      canSendJsonError({
+        sent: false,
+        raw: { headersSent: false, writableEnded: true },
+      } as unknown as FastifyReply),
+    ).toBe(false);
+  });
+
+  it("returns true when a JSON body can still be written", () => {
+    expect(
+      canSendJsonError({
+        sent: false,
+        raw: { headersSent: false, writableEnded: false },
+      } as unknown as FastifyReply),
+    ).toBe(true);
+  });
+});
+
 describe("registerErrorHandler (integration via buildApp)", () => {
   it("returns 404 NOT_FOUND for unknown routes", async () => {
     const app = buildApp(TEST_CONFIG);
@@ -58,7 +93,10 @@ describe("registerErrorHandler (integration via buildApp)", () => {
     });
     const res = await app.inject({ method: "GET", url: "/boom" });
     expect(res.statusCode).toBe(500);
-    expect(res.json()).toMatchObject({ error: { code: "INTERNAL_ERROR" } });
+    expect(res.json()).toMatchObject({
+      error: { code: "INTERNAL_ERROR", message: "Internal server error" },
+    });
+    expect(res.json().error.message).not.toBe("something broke");
     await app.close();
   });
 
@@ -87,4 +125,3 @@ describe("registerErrorHandler (integration via buildApp)", () => {
     await app.close();
   });
 });
-

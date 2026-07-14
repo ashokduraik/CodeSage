@@ -222,4 +222,19 @@ describe("Chat", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     expect(await screen.findByText("Could not delete conversation. Please try again.")).toBeTruthy();
   });
+
+  it("shows a meaningful error when the chat query fails", async () => {
+    const client = await import("./chatClient");
+    const { ApiClientError } = await import("@/shared/lib/apiClient");
+    vi.mocked(client.streamChatQuery).mockRejectedValueOnce(
+      new ApiClientError(502, "ENGINE_UNAVAILABLE", "fetch failed"),
+    );
+    renderChat(`/chat/${SESSION_ID}`);
+    await screen.findByText(/validates credentials/);
+    fireEvent.change(screen.getByLabelText("Ask about your codebase\u2026"), {
+      target: { value: "hi" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByText(/answer engine is unavailable/i)).toBeTruthy();
+  });
 });

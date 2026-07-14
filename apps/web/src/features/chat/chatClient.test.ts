@@ -6,12 +6,20 @@ import {
   streamChatQuery,
 } from "./chatClient";
 
-vi.mock("@/shared/lib/apiClient", () => ({
-  apiFetch: vi.fn(),
-}));
+vi.mock("@/shared/lib/apiClient", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/shared/lib/apiClient")>();
+  return {
+    ...actual,
+    apiFetch: vi.fn(),
+  };
+});
 
 vi.mock("@/shared/lib/authTokenStorage", () => ({
   getAuthToken: vi.fn(() => "test-token"),
+}));
+
+vi.mock("@/shared/lib/unauthorizedHandler", () => ({
+  notifyUnauthorized: vi.fn(),
 }));
 
 import { apiFetch } from "@/shared/lib/apiClient";
@@ -50,7 +58,8 @@ describe("streamChatQuery", () => {
           encoder.encode(
             'data: {"type":"title","content":"Auth flow"}\n\n' +
               'data: {"type":"citation","citation":{"kind":"code","repoId":"r1","filePath":"src/auth.ts"}}\n\n' +
-              'data: {"type":"token","content":"Answer"}\n\n',
+              'data: {"type":"token","content":"Answer"}\n\n' +
+              'data: {"type":"done"}\n\n',
           ),
         );
         controller.close();
@@ -73,14 +82,63 @@ describe("streamChatQuery", () => {
     expect(result.aborted).toBe(false);
   });
 
-  it("throws when the API returns a non-OK status", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 502 })));
+  it("throws ApiClientError with parsed code and message on non-OK status", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ error: { code: "ENGINE_UNAVAILABLE", message: "fetch failed" } }),
+            { status: 502, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      ),
+    );
     await expect(
       streamChatQuery({
         conversationId: "11111111-1111-1111-1111-111111111111",
         question: "hi",
       }),
-    ).rejects.toThrow(/502/);
+    ).rejects.toMatchObject({
+      name: "ApiClientError",
+      status: 502,
+      code: "ENGINE_UNAVAILABLE",
+      message: "fetch failed",
+    });
+  });
+
+  it("throws ApiClientError with defaults when the error body is not JSON", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("oops", { status: 502 })));
+    await expect(
+      streamChatQuery({
+        conversationId: "11111111-1111-1111-1111-111111111111",
+        question: "hi",
+      }),
+    ).rejects.toMatchObject({
+      name: "ApiClientError",
+      status: 502,
+      code: "REQUEST_ERROR",
+    });
+  });
+
+  it("throws when the response is OK but has no body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: null,
+        json: async () => ({}),
+      }),
+    );
+    await expect(
+      streamChatQuery({
+        conversationId: "11111111-1111-1111-1111-111111111111",
+        question: "hi",
+      }),
+    ).rejects.toMatchObject({
+      code: "ENGINE_UNAVAILABLE",
+    });
   });
 
   it("captures a metrics chunk from the stream", async () => {
@@ -90,7 +148,8 @@ describe("streamChatQuery", () => {
         controller.enqueue(
           encoder.encode(
             'data: {"type":"token","content":"Answer"}\n\n' +
-              'data: {"type":"metrics","metrics":{"contextChunks":3,"contextTokens":800,"maxContextTokens":32768,"totalTokens":950,"tokensPerSecond":24.6}}\n\n',
+              'data: {"type":"metrics","metrics":{"contextChunks":3,"contextTokens":800,"maxContextTokens":32768,"totalTokens":950,"tokensPerSecond":24.6}}\n\n' +
+              'data: {"type":"done"}\n\n',
           ),
         );
         controller.close();
@@ -129,6 +188,51 @@ describe("streamChatQuery", () => {
     });
     expect(result.content).toBe("Not certain");
     expect(result.needsReview).toBe(true);
+  });
+
+  it("throws STREAM_INTERRUPTED when the stream ends without a terminal event", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"type":"token","content":"partial"}\n\n'));
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+
+    await expect(
+      streamChatQuery({
+        conversationId: "11111111-1111-1111-1111-111111111111",
+        question: "hi",
+      }),
+    ).rejects.toMatchObject({
+      code: "STREAM_INTERRUPTED",
+    });
+  });
+
+  it("throws ApiClientError when an error SSE chunk arrives", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"error","code":"ENGINE_ERROR","content":"generator failed"}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+
+    await expect(
+      streamChatQuery({
+        conversationId: "11111111-1111-1111-1111-111111111111",
+        question: "hi",
+      }),
+    ).rejects.toMatchObject({
+      code: "ENGINE_ERROR",
+      message: "generator failed",
+    });
   });
 
   it("returns aborted when the signal is already aborted", async () => {

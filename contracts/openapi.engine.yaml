@@ -181,6 +181,7 @@ components:
         - abstain
         - metrics
         - done
+        - error
       description: >-
         token — streamed answer text fragment.
         citation — a grounding reference emitted before or during the answer.
@@ -188,6 +189,7 @@ components:
         abstain — model could not ground an answer; stream ends.
         metrics — answer metrics (context window, tokens, tokens/sec) emitted before done.
         done — successful completion marker.
+        error — transport/runtime failure after the stream started; stream ends.
 
     AnswerMetrics:
       type: object
@@ -234,7 +236,12 @@ components:
           $ref: '#/components/schemas/EngineAnswerChunkType'
         content:
           type: string
-          description: Text fragment when type is `token` or abstain reason when type is `abstain`.
+          description: >-
+            Text fragment when type is `token`, abstain reason when type is `abstain`,
+            or human-readable failure message when type is `error`.
+        code:
+          type: string
+          description: Machine-readable error code when type is `error` (e.g. ENGINE_ERROR).
         citation:
           $ref: '#/components/schemas/CodeCitation'
         metrics:

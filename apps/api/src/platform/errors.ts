@@ -1,4 +1,4 @@
-import type { FastifyError, FastifyInstance } from "fastify";
+import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 /**
  * Standard API error response body returned for every HTTP error.
@@ -41,10 +41,22 @@ export class ApiError extends Error {
 }
 
 /**
+ * True when the reply can no longer send a JSON error body (headers already sent
+ * or the raw stream was hijacked for SSE).
+ *
+ * @param reply - Fastify reply under consideration.
+ */
+export function canSendJsonError(reply: FastifyReply): boolean {
+  return !reply.sent && !reply.raw.headersSent && !reply.raw.writableEnded;
+}
+
+/**
  * Registers a global error handler and a 404 handler on the Fastify instance.
- * Every error is mapped to {@link ApiErrorBody} so clients always receive a
- * consistent response shape regardless of the error source.
+ * Equivalent to Express `app.use((err, req, res, next) => …)` — every thrown
+ * route error is logged with request context and mapped to {@link ApiErrorBody}.
  * - 5xx errors are logged at `error` level; 4xx errors at `warn` level.
+ * - Unexpected 500 responses use a stable client message (no stack leakage).
+ * - If headers were already sent (e.g. SSE), the error is logged only.
  * @param app - The Fastify application instance to register handlers on.
  */
 export function registerErrorHandler(app: FastifyInstance): void {
@@ -54,7 +66,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
     } satisfies ApiErrorBody);
   });
 
-  app.setErrorHandler((error: FastifyError, _request, reply) => {
+  app.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
     const statusCode = error.statusCode ?? 500;
     const isApiError = error instanceof ApiError;
     const code = isApiError
@@ -63,15 +75,32 @@ export function registerErrorHandler(app: FastifyInstance): void {
         ? "INTERNAL_ERROR"
         : "REQUEST_ERROR";
     const details = isApiError ? error.details : undefined;
+    const clientMessage =
+      isApiError || statusCode < 500 ? error.message : "Internal server error";
+
+    const logPayload = {
+      err: error,
+      reqId: request.id,
+      method: request.method,
+      url: request.url,
+    };
 
     if (statusCode >= 500) {
-      app.log.error({ err: error }, "unhandled server error");
+      request.log.error(logPayload, "unhandled server error");
     } else {
-      app.log.warn({ err: error }, "request error");
+      request.log.warn(logPayload, "request error");
+    }
+
+    if (!canSendJsonError(reply)) {
+      request.log.warn(
+        { reqId: request.id },
+        "error after headers sent — skipping JSON error body",
+      );
+      return;
     }
 
     return reply.status(statusCode).send({
-      error: { code, message: error.message, details },
+      error: { code, message: clientMessage, details },
     } satisfies ApiErrorBody);
   });
 }

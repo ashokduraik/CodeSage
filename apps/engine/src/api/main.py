@@ -8,6 +8,7 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 
+from api.error_handlers import register_exception_handlers
 from api.routes.query import router as query_router
 from config import load_settings
 from config.logging import configure_logging, get_indexing_logger, log_event
@@ -98,6 +99,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="CodeSage Engine", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.session_factory = session_factory
+    register_exception_handlers(app)
 
     @app.get("/health")
     def health() -> dict[str, str]:

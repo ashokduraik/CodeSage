@@ -20,6 +20,7 @@ import {
 import {
   createStreamAccumulator,
   feedSseBytes,
+  formatSseErrorEvent,
   type StreamAccumulator,
 } from "./chat.sse";
 
@@ -225,6 +226,10 @@ export async function listConversationMessages(
 /**
  * Proxies a chat query to RAG, persists messages, and pipes the SSE stream to the client.
  *
+ * Mid-stream engine failures are turned into an SSE `error` event (HTTP status stays 200
+ * after headers are sent). Cleanup awaits `reader.cancel()` so undici abort rejections
+ * do not become unhandled and kill the process.
+ *
  * @param app - Fastify instance (config + db).
  * @param request - Incoming request (JWT + disconnect detection).
  * @param body - Validated chat query request.
@@ -256,7 +261,11 @@ export async function streamChatQuery(
 
   const abortController = new AbortController();
   const onClientClose = () => {
-    abortController.abort();
+    // Only abort the engine fetch for a real client disconnect while still writing.
+    // Aborting during normal teardown races undici and can emit TypeError: terminated.
+    if (!reply.raw.writableEnded && !reply.raw.writableFinished) {
+      abortController.abort();
+    }
   };
   request.raw.on("close", onClientClose);
 
@@ -287,6 +296,7 @@ export async function streamChatQuery(
     }
   }
 
+  reply.hijack();
   reply.raw.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -297,6 +307,7 @@ export async function streamChatQuery(
   const acc = createStreamAccumulator();
   let lineBuffer = "";
   let clientDisconnected = false;
+  let streamFailed = false;
 
   const reader = engineResponse.body!.getReader();
   try {
@@ -318,17 +329,69 @@ export async function streamChatQuery(
         break;
       }
 
-      reply.raw.write(value);
+      if (!reply.raw.writableEnded) {
+        try {
+          reply.raw.write(value);
+        } catch (writeErr) {
+          streamFailed = true;
+          clientDisconnected = true;
+          request.log.warn(
+            { err: writeErr, conversationId: body.conversationId, reqId: request.id },
+            "chat SSE write failed",
+          );
+          break;
+        }
+      }
     }
-  } catch {
-    clientDisconnected = true;
+
+    if (
+      !clientDisconnected
+      && !acc.completed
+      && !acc.streamError
+    ) {
+      // Upstream closed without a terminal done/abstain/error chunk.
+      streamFailed = true;
+    }
+  } catch (readErr) {
+    streamFailed = true;
+    if (abortController.signal.aborted) {
+      clientDisconnected = true;
+    } else {
+      request.log.error(
+        { err: readErr, conversationId: body.conversationId, reqId: request.id },
+        "chat SSE engine stream failed",
+      );
+    }
   } finally {
-    try {
-      reader.cancel();
-    } catch {
+    await reader.cancel().catch(() => {
       // Reader may already be closed when the upstream aborted.
+    });
+
+    if (
+      streamFailed
+      && !acc.streamError
+      && !clientDisconnected
+      && !reply.raw.writableEnded
+    ) {
+      const errorEvent = formatSseErrorEvent(
+        "STREAM_INTERRUPTED",
+        "The answer engine closed the stream before the reply finished.",
+      );
+      try {
+        reply.raw.write(errorEvent);
+      } catch {
+        // Client may have gone away while writing the terminal error event.
+      }
+      acc.completed = true;
+      acc.streamError = {
+        code: "STREAM_INTERRUPTED",
+        message: "The answer engine closed the stream before the reply finished.",
+      };
     }
-    reply.raw.end();
+
+    if (!reply.raw.writableEnded) {
+      reply.raw.end();
+    }
     request.raw.off("close", onClientClose);
 
     await persistAssistantMessage(
@@ -336,7 +399,7 @@ export async function streamChatQuery(
       body.conversationId,
       sub,
       acc,
-      clientDisconnected,
+      clientDisconnected || streamFailed,
     );
 
     if (acc.title?.trim()) {

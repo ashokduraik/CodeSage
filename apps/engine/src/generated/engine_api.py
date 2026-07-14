@@ -88,6 +88,7 @@ class EngineAnswerChunkType(Enum):
     abstain = 'abstain'
     metrics = 'metrics'
     done = 'done'
+    error = 'error'
 
 
 class AnswerMetrics(BaseModel):
@@ -123,7 +124,11 @@ class EngineAnswerChunk(BaseModel):
     type: EngineAnswerChunkType
     content: str | None = Field(
         None,
-        description='Text fragment when type is `token` or abstain reason when type is `abstain`.',
+        description='Text fragment when type is `token`, abstain reason when type is `abstain`, or human-readable failure message when type is `error`.',
+    )
+    code: str | None = Field(
+        None,
+        description='Machine-readable error code when type is `error` (e.g. ENGINE_ERROR).',
     )
     citation: CodeCitation | None = None
     metrics: AnswerMetrics | None = None

@@ -11,7 +11,10 @@ export interface StreamAccumulator {
   title?: string;
   metrics?: AnswerMetrics;
   needsReview: boolean;
+  /** True when done/abstain/error terminal chunk was seen. */
   completed: boolean;
+  /** Set when an `error` chunk arrived (terminal transport/runtime failure). */
+  streamError?: { code: string; message: string };
 }
 
 /**
@@ -30,6 +33,17 @@ export function parseChatSseLine(line: string): ChatAnswerChunk | null {
     return null;
   }
   return JSON.parse(json) as ChatAnswerChunk;
+}
+
+/**
+ * Serializes one SSE error event for the chat client.
+ *
+ * @param code - Machine-readable error code.
+ * @param content - Human-readable failure message.
+ * @returns SSE `data:` line including trailing newlines.
+ */
+export function formatSseErrorEvent(code: string, content: string): string {
+  return `data: ${JSON.stringify({ type: "error", code, content })}\n\n`;
 }
 
 /**
@@ -59,6 +73,13 @@ export function applyChatChunk(acc: StreamAccumulator, chunk: ChatAnswerChunk): 
   }
   if (chunk.type === "done") {
     acc.completed = true;
+  }
+  if (chunk.type === "error") {
+    acc.completed = true;
+    acc.streamError = {
+      code: chunk.code ?? "STREAM_INTERRUPTED",
+      message: chunk.content ?? "The answer stream was interrupted.",
+    };
   }
 }
 

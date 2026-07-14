@@ -1835,6 +1835,7 @@ components:
         - abstain
         - metrics
         - done
+        - error
 
     AnswerMetrics:
       type: object
@@ -1872,6 +1873,14 @@ components:
           $ref: '#/components/schemas/ChatAnswerChunkType'
         content:
           type: string
+          description: >-
+            Text fragment when type is `token`, abstain reason when type is `abstain`,
+            or human-readable failure message when type is `error`.
+        code:
+          type: string
+          description: >-
+            Machine-readable error code when type is `error`
+            (e.g. ENGINE_UNAVAILABLE, STREAM_INTERRUPTED, ENGINE_ERROR).
         citation:
           $ref: '#/components/schemas/CodeCitation'
         metrics:
