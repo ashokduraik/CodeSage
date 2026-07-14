@@ -81,13 +81,16 @@ function toChatMessage(row: MessageRow): ChatMessage {
 
 /**
  * Builds LLM history turns from stored messages (user/assistant only).
+ * Drops empty/whitespace content — the engine ChatTurn schema requires minLength 1,
+ * and aborted streams can leave citation-only rows with blank content.
  *
  * @param rows - Chronological message rows (excluding the current user turn).
  * @returns ChatTurn list oldest-first for the RAG request.
  */
-function buildHistoryFromMessages(rows: MessageRow[]): ChatTurn[] {
+export function buildHistoryFromMessages(rows: MessageRow[]): ChatTurn[] {
   return rows
     .filter((row) => row.role === "user" || row.role === "assistant")
+    .filter((row) => row.content.trim().length > 0)
     .map((row) => ({
       role: row.role as ChatTurn["role"],
       content: row.content,
@@ -110,11 +113,14 @@ async function persistAssistantMessage(
   acc: StreamAccumulator,
   stopped: boolean,
 ): Promise<void> {
-  if (!acc.content && acc.citations.length === 0 && !acc.needsReview) {
+  const content = acc.content.trim();
+  // Citations can arrive before the first token. Abort/error in that window must not
+  // store an empty assistant turn — it breaks the next engine history validation.
+  if (!content) {
     return;
   }
 
-  await insertMessage(db, conversationId, "assistant", acc.content, actorId, {
+  await insertMessage(db, conversationId, "assistant", content, actorId, {
     citations: acc.citations.length > 0 ? acc.citations : undefined,
     metrics: acc.metrics,
     needsReview: acc.needsReview,
@@ -332,6 +338,9 @@ export async function streamChatQuery(
       if (!reply.raw.writableEnded) {
         try {
           reply.raw.write(value);
+          // Flush so token SSE frames reach the browser as they arrive (not after done).
+          const raw = reply.raw as typeof reply.raw & { flush?: () => void };
+          raw.flush?.();
         } catch (writeErr) {
           streamFailed = true;
           clientDisconnected = true;
@@ -389,21 +398,29 @@ export async function streamChatQuery(
       };
     }
 
+    // Persist before ending the SSE response so the client's post-stream message
+    // refetch cannot race ahead of the assistant INSERT and wipe the optimistic answer.
+    try {
+      await persistAssistantMessage(
+        app.db,
+        body.conversationId,
+        sub,
+        acc,
+        clientDisconnected || streamFailed,
+      );
+      if (acc.title?.trim()) {
+        await updateConversationTitle(app.db, body.conversationId, acc.title.trim(), sub);
+      }
+    } catch (persistErr) {
+      request.log.error(
+        { err: persistErr, conversationId: body.conversationId, reqId: request.id },
+        "chat SSE failed to persist assistant message",
+      );
+    }
+
     if (!reply.raw.writableEnded) {
       reply.raw.end();
     }
     request.raw.off("close", onClientClose);
-
-    await persistAssistantMessage(
-      app.db,
-      body.conversationId,
-      sub,
-      acc,
-      clientDisconnected || streamFailed,
-    );
-
-    if (acc.title?.trim()) {
-      await updateConversationTitle(app.db, body.conversationId, acc.title.trim(), sub);
-    }
   }
 }

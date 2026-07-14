@@ -6,7 +6,9 @@ import {
   getConversation,
   listConversationMessages,
   listConversations,
+  buildHistoryFromMessages,
 } from "./chat.service";
+import type { MessageRow } from "./chat.repository";
 
 vi.mock("./chat.repository", () => ({
   findConversationsByUser: vi.fn(),
@@ -166,5 +168,59 @@ describe("chat.service", () => {
     const messages = await listConversationMessages(DB, CONVERSATION_ID, USER_ID);
     expect(messages[0]?.citations).toBeUndefined();
     expect(messages[0]?.metrics).toBeUndefined();
+  });
+
+  it("buildHistoryFromMessages drops empty and whitespace-only turns", () => {
+    const rows = [
+      {
+        id: "1",
+        conversation_id: CONVERSATION_ID,
+        role: "user",
+        content: "first question",
+        citations: [],
+        metrics: null,
+        needs_review: false,
+        stopped: false,
+        created_at: new Date(),
+      },
+      {
+        id: "2",
+        conversation_id: CONVERSATION_ID,
+        role: "assistant",
+        content: "",
+        citations: [{ kind: "code", repoId: "r1", filePath: "a.ts" }],
+        metrics: null,
+        needs_review: false,
+        stopped: true,
+        created_at: new Date(),
+      },
+      {
+        id: "3",
+        conversation_id: CONVERSATION_ID,
+        role: "assistant",
+        content: "   ",
+        citations: [],
+        metrics: null,
+        needs_review: false,
+        stopped: false,
+        created_at: new Date(),
+      },
+      {
+        id: "4",
+        conversation_id: CONVERSATION_ID,
+        role: "assistant",
+        content: "real answer",
+        citations: [],
+        metrics: null,
+        needs_review: false,
+        stopped: false,
+        created_at: new Date(),
+      },
+    ] as MessageRow[];
+
+    expect(buildHistoryFromMessages(rows)).toEqual([
+      { role: "user", content: "first question" },
+      { role: "assistant", content: "real answer" },
+    ]);
   });
 });

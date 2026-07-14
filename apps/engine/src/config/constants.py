@@ -23,6 +23,9 @@ WORKER_MAX_JOB_ATTEMPTS = 3  # attempts before a job is marked failed
 # --- Inference / embedding timeouts ---
 EMBEDDING_TIMEOUT_SECONDS = 300.0  # embedding HTTP timeout; raise for slow CPU / cold loads
 LLM_TIMEOUT_SECONDS = 300.0  # LLM stream timeout; raise for slow CPU / cold loads
+# When true, request a final usage SSE frame. Some OpenAI-compatible servers buffer
+# the whole completion when this is set — leave off for reliable token streaming.
+LLM_STREAM_INCLUDE_USAGE = False
 STARTUP_PROBE_TIMEOUT_SECONDS = 5.0  # per-backend reachability probe at boot (non-fatal)
 
 # --- Context window (grounded QA) ---

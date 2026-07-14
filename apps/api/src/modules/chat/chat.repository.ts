@@ -332,6 +332,8 @@ export async function insertMessage(
 
 /**
  * Returns active messages for a conversation in chronological order.
+ * Omits empty assistant rows (e.g. citation-only aborts) so they never appear
+ * in the UI or in RAG history built from this list.
  *
  * @param db - The postgres.js SQL client.
  * @param conversationId - Parent conversation UUID.
@@ -355,6 +357,7 @@ export async function findMessagesByConversation(
     FROM messages
     WHERE conversation_id = ${conversationId}
       AND status = ${ROW_STATUS.ACTIVE}
+      AND NOT (role = 'assistant' AND btrim(content) = '')
     ORDER BY created_at ASC
   `;
 }
@@ -372,6 +375,7 @@ export async function countMessagesByConversation(db: Sql, conversationId: strin
     FROM messages
     WHERE conversation_id = ${conversationId}
       AND status = ${ROW_STATUS.ACTIVE}
+      AND NOT (role = 'assistant' AND btrim(content) = '')
   `;
   return rows[0]?.count ?? 0;
 }

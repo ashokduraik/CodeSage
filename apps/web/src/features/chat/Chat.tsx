@@ -46,7 +46,7 @@ export function Chat() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sendError]);
+  }, [messages, sendError, sendMessage.isPending]);
 
   useEffect(() => {
     resetSendMessage();

@@ -915,7 +915,10 @@ export interface components {
             };
             excerpt?: string;
         };
-        /** @enum {string} */
+        /**
+         * @description Same SSE chunk discriminators as the engine query stream.
+         * @enum {string}
+         */
         ChatAnswerChunkType: "token" | "citation" | "title" | "abstain" | "metrics" | "done" | "error";
         /** @description Per-answer metrics for display in the chat UI. Emitted only on the grounded LLM path; token/timing fields are absent when the backend does not report usage. */
         AnswerMetrics: {

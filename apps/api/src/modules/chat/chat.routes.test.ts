@@ -135,7 +135,7 @@ describe("POST /chat/query", () => {
     await app.close();
   });
 
-  it("proxies the SSE stream from the engine and passes an abort signal", async () => {
+  it("omits empty prior assistant turns from engine history", async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream({
       start(controller) {
@@ -145,27 +145,85 @@ describe("POST /chat/query", () => {
     });
     mockPostEngine.mockResolvedValue(new Response(body, { status: 200 }));
 
+    const sql = vi.fn() as ReturnType<typeof vi.fn> & { json: (v: unknown) => unknown };
+    sql.json = (v) => v;
+    sql.mockImplementation((strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("FROM conversations") && query.includes("user_id")) {
+        return Promise.resolve([
+          {
+            id: CONVERSATION_ID,
+            project_id: "11111111-1111-1111-1111-111111111111",
+            user_id: "u1",
+            audience: "developer",
+            title: "Chat",
+          },
+        ]);
+      }
+      if (query.includes("COUNT(*)") && query.includes("messages")) {
+        return Promise.resolve([{ count: 2 }]);
+      }
+      if (query.includes("FROM messages") && query.includes("ORDER BY")) {
+        return Promise.resolve([
+          {
+            id: "m-empty",
+            conversation_id: CONVERSATION_ID,
+            role: "assistant",
+            content: "",
+            citations: [],
+            metrics: null,
+            needs_review: false,
+            stopped: true,
+            created_at: new Date(),
+          },
+          {
+            id: "m-ok",
+            conversation_id: CONVERSATION_ID,
+            role: "user",
+            content: "prior question",
+            citations: [],
+            metrics: null,
+            needs_review: false,
+            stopped: false,
+            created_at: new Date(),
+          },
+        ]);
+      }
+      if (query.includes("INSERT INTO messages")) {
+        return Promise.resolve([
+          {
+            id: "m-new",
+            conversation_id: CONVERSATION_ID,
+            role: "user",
+            content: "explain the project",
+            citations: null,
+            metrics: null,
+            needs_review: false,
+            stopped: false,
+            created_at: new Date(),
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
     const app = buildApp(TEST_CONFIG);
-    app.db = mockDbForChatQuery() as never;
+    app.db = sql as never;
     await app.ready();
     const res = await app.inject({
       method: "POST",
       url: "/api/chat/query",
       headers: { authorization: `Bearer ${devToken(app)}` },
       payload: {
-        question: "where is auth?",
+        question: "explain the project",
         conversationId: CONVERSATION_ID,
       },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.headers["content-type"]).toContain("text/event-stream");
-    expect(res.body).toContain('"done"');
     expect(mockPostEngine).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        question: "where is auth?",
-        generateTitle: true,
-        history: undefined,
+        history: [{ role: "user", content: "prior question" }],
       }),
       expect.any(AbortSignal),
     );

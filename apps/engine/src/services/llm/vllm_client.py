@@ -51,6 +51,22 @@ def _apply_usage(stats: LlmStreamStats, usage: dict[str, object]) -> None:
         stats.total_tokens = total
 
 
+def _apply_ollama_counts(stats: LlmStreamStats, data: dict[str, object]) -> None:
+    """Map Ollama native ``/api/chat`` eval counts onto OpenAI-style usage fields.
+
+    @param stats - Stats object to populate.
+    @param data - Final Ollama stream frame (``done: true``).
+    """
+    prompt = data.get("prompt_eval_count")
+    completion = data.get("eval_count")
+    if isinstance(prompt, int):
+        stats.prompt_tokens = prompt
+    if isinstance(completion, int):
+        stats.completion_tokens = completion
+    if isinstance(prompt, int) and isinstance(completion, int):
+        stats.total_tokens = prompt + completion
+
+
 def _finalize_timing(stats: LlmStreamStats, elapsed_seconds: float) -> None:
     """Record elapsed time and derive tokens/sec when possible.
 
@@ -73,6 +89,31 @@ def _fallback_answer(context_blocks: list[str]) -> Iterator[str]:
         yield f"{block}\n\n"
 
 
+def _is_thinking_model(model: str) -> bool:
+    """Return whether the model may emit a separate reasoning stream before content.
+
+    @param model - Configured chat model id.
+    @returns True for Qwen3.x / QwQ-style thinking models.
+    """
+    model_l = model.lower()
+    return "qwen3" in model_l or "qwq" in model_l
+
+
+def _ollama_native_root(base_url: str) -> str | None:
+    """Return Ollama server root when ``base_url`` is the OpenAI-compatible Ollama base.
+
+    Example: ``http://host:11434/v1`` → ``http://host:11434``.
+
+    @param base_url - Configured ``VLLM_BASE_URL``.
+    @returns Native root, or ``None`` when this does not look like Ollama.
+    """
+    trimmed = base_url.rstrip("/")
+    root = trimmed[:-3] if trimmed.endswith("/v1") else trimmed
+    if ":11434" in root:
+        return root
+    return None
+
+
 def stream_vllm_answer(
     settings: Settings,
     *,
@@ -84,7 +125,13 @@ def stream_vllm_answer(
     """Stream an LLM answer from vLLM, or fall back to excerpt synthesis.
 
     When ``stats`` is provided and the backend reports usage, it is populated with
-    token counts and timing so the caller can emit chat metrics.
+    token counts and timing so the caller can emit chat metrics. If the model
+    returns no text (empty stream / unsupported options), grounded excerpts are
+    streamed so the UI never ends on a silent wait with no answer text.
+
+    Thinking models on Ollama's OpenAI ``/v1`` endpoint often ignore ``think:false``
+    and stream only ``reasoning`` for a long time. Those are routed to native
+    ``/api/chat`` where ``think: false`` actually disables thinking.
 
     @param settings - Application settings.
     @param question - User question.
@@ -98,52 +145,98 @@ def stream_vllm_answer(
         return
 
     messages = build_code_qa_messages(question, context_blocks, history)
-    url = f"{settings.vllm_base_url.rstrip('/')}/chat/completions"
-    body = {
-        "model": settings.vllm_model,
-        "messages": messages,
-        "stream": True,
-        "temperature": 0.2,
-        "max_tokens": settings.llm_completion_reserve_tokens,
-        # Ask OpenAI-compatible servers to include a final usage frame so we can
-        # report tokens and tokens/sec in the chat UI.
-        "stream_options": {"include_usage": True},
-    }
+    ollama_root = _ollama_native_root(settings.vllm_base_url)
+    use_ollama_native = ollama_root is not None and _is_thinking_model(settings.vllm_model)
 
+    if use_ollama_native:
+        assert ollama_root is not None
+        url = f"{ollama_root}/api/chat"
+        body: dict[str, object] = {
+            "model": settings.vllm_model,
+            "messages": messages,
+            "stream": True,
+            # Native API honors this; OpenAI-compatible /v1 often does not.
+            "think": False,
+            "options": {
+                "temperature": 0.2,
+                "num_predict": settings.llm_completion_reserve_tokens,
+            },
+        }
+    else:
+        url = f"{settings.vllm_base_url.rstrip('/')}/chat/completions"
+        body = {
+            "model": settings.vllm_model,
+            "messages": messages,
+            "stream": True,
+            "temperature": 0.2,
+            "max_tokens": settings.llm_completion_reserve_tokens,
+        }
+        if settings.llm_stream_include_usage:
+            body["stream_options"] = {"include_usage": True}
+        if _is_thinking_model(settings.vllm_model):
+            body["think"] = False
+            body["chat_template_kwargs"] = {"enable_thinking": False}
+
+    timeout = httpx.Timeout(
+        connect=30.0,
+        read=settings.llm_timeout_seconds,
+        write=30.0,
+        pool=30.0,
+    )
     start = time.monotonic()
+    emitted = False
     try:
-        with httpx.stream(
-            "POST", url, json=body, timeout=settings.llm_timeout_seconds
-        ) as response:
+        with httpx.stream("POST", url, json=body, timeout=timeout) as response:
             if response.status_code >= 400:
                 yield from _fallback_answer(context_blocks)
                 return
             for line in response.iter_lines():
-                if not line.startswith("data: "):
+                payload = line
+                if line.startswith("data: "):
+                    payload = line[6:].strip()
+                elif not line.strip() or line.startswith(":"):
                     continue
-                payload = line[6:].strip()
+                else:
+                    # Ollama native + some servers emit bare JSON lines.
+                    payload = line.strip()
                 if payload == "[DONE]":
                     break
                 try:
                     data = json.loads(payload)
                 except json.JSONDecodeError:
-                    # vLLM occasionally emits partial SSE frames or keep-alive lines.
-                    # Skip bad JSON rather than failing the whole answer stream.
                     continue
-                # The usage-only final frame carries no choices; capture it for metrics.
-                usage = data.get("usage")
-                if isinstance(usage, dict) and stats is not None:
-                    _apply_usage(stats, usage)
-                choices = data.get("choices", [])
-                if not choices:
-                    continue
-                delta = choices[0].get("delta", {})
-                content = delta.get("content")
-                if content:
+
+                content: object = None
+                if use_ollama_native:
+                    message = data.get("message") if isinstance(data.get("message"), dict) else {}
+                    content = message.get("content")
+                    if data.get("done") and stats is not None:
+                        _apply_ollama_counts(stats, data)
+                else:
+                    usage = data.get("usage")
+                    if isinstance(usage, dict) and stats is not None:
+                        _apply_usage(stats, usage)
+                    choices = data.get("choices", [])
+                    if not choices:
+                        continue
+                    choice0 = choices[0] if isinstance(choices[0], dict) else {}
+                    delta = choice0.get("delta") if isinstance(choice0.get("delta"), dict) else {}
+                    message = (
+                        choice0.get("message") if isinstance(choice0.get("message"), dict) else {}
+                    )
+                    content = delta.get("content") or message.get("content")
+
+                if isinstance(content, str) and content:
+                    emitted = True
                     yield content
+
+                if use_ollama_native and data.get("done"):
+                    break
     except httpx.HTTPError:
-        # When vLLM is down or times out, still return grounded excerpts from retrieval.
-        # Product rule (NFR-7): never invent an answer — cite indexed code or abstain.
+        yield from _fallback_answer(context_blocks)
+        return
+
+    if not emitted:
         yield from _fallback_answer(context_blocks)
         return
 

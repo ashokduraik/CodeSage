@@ -419,16 +419,17 @@ def stream_engine_answer(
 
     session = session_factory()
     try:
-        matches, retrieval_context = retrieve_code_chunks(
-            session,
-            settings,
-            project_id=project_id,
-            question=question,
-            repo_ids=repo_ids,
-        )
-    except ValueError as exc:
-        yield _chunk_event("abstain", content=str(exc))
-        return
+        try:
+            matches, retrieval_context = retrieve_code_chunks(
+                session,
+                settings,
+                project_id=project_id,
+                question=question,
+                repo_ids=repo_ids,
+            )
+        except ValueError as exc:
+            yield _chunk_event("abstain", content=str(exc))
+            return
     finally:
         session.close()
 

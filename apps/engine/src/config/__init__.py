@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     vllm_base_url: str = ""
     vllm_model: str = ""
     llm_timeout_seconds: float = constants.LLM_TIMEOUT_SECONDS
+    llm_stream_include_usage: bool = constants.LLM_STREAM_INCLUDE_USAGE
     startup_probe_timeout_seconds: float = constants.STARTUP_PROBE_TIMEOUT_SECONDS
 
     # Context window sizing: the LLM prompt is packed to fill the connected model's

@@ -98,9 +98,11 @@ def engine_query(request: Request, body: EngineQueryRequest) -> StreamingRespons
         gen = sync_event_stream()
         try:
             async for chunk in iterate_in_threadpool(gen):
+                yield chunk
+                # Only stop *after* yielding the chunk. Checking before yield can discard
+                # the first LLM tokens when a proxy briefly looks disconnected.
                 if await request.is_disconnected():
                     break
-                yield chunk
         finally:
             gen.close()
 
