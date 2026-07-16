@@ -23,7 +23,7 @@ AGENT_PLANNER_SYSTEM_PROMPT = (
     "API — call them by name with valid JSON arguments. "
     "For any question about code, architecture, behaviour, or files: you MUST call "
     "tools before answering; never invent file paths, symbol names, or code. "
-    "Prefer targeted tools (search_symbols, search_code, read_file) when you know "
+    "Prefer targeted tools (search_symbols, search_code, read_symbol, read_chunk) when you know "
     "what to look for; use search_hybrid when unsure where to start. "
     "For brief social turns (greetings, thanks), reply in one short sentence without "
     "calling tools. "

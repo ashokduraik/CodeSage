@@ -48,12 +48,12 @@ flowchart TB
   G -. "reads" .-> TOOLS
 ```
 
-> **Status:** this diagram is the proposed architecture in
-> [ADR 0026](../../docs/adr/0026-agent-orchestrated-developer-qa.md). Retrieval tools and
-> `QA_AGENT_*` configuration are implemented; `stream_answer.py` still uses the fixed hybrid
-> pipeline until [agent-QA plan 05](../../docs/plans/agent-qa/05-agent-loop-and-stream-replace.md).
-> The cleanup that removes small-talk, pipeline reranking/pruning, and the old pre-answer gate is
-> [plan 06](../../docs/plans/agent-qa/06-legacy-retrieval-cleanup.md).
+> **Status:** this architecture is implemented by
+> [agent-QA plan 05](../../docs/plans/agent-qa/05-agent-loop-and-stream-replace.md).
+> `stream_answer.py` handles title/audience routing and delegates developer questions to the
+> confidence-gated loop in `services/qa/agent_loop.py`. Legacy retrieval/reranker modules remain
+> on disk but are no longer used by the QA entrypoint; [plan 06](../../docs/plans/agent-qa/06-legacy-retrieval-cleanup.md)
+> removes them.
 
 ### 1. Indexing — from repo to pgvector
 
@@ -112,7 +112,7 @@ Server-Sent Events.
    missing facts.
 7. **Grounded generation** — pack only the evidence pool plus trimmed history into the detected
    model context window. The final model answers only from that evidence.
-8. **SSE** — planned events are `tool_start`, `tool_result`, `citation`, `token`, `metrics`, and
+8. **SSE** — events are `tool_start`, `tool_result`, `citation`, `token`, `metrics`, and
    terminal `done` / `abstain` / `error`.
 
 Successful traces may be promoted to project-scoped investigation playbooks
@@ -121,10 +121,10 @@ hint: every answer must run fresh tools and cite current indexed evidence.
 
 #### Current transition state
 
-- `services/qa/tools.py`, xlarge adaptive top-k, and `QA_AGENT_*` settings exist.
-- `stream_answer.py` still runs the older fixed hybrid pipeline until plan 05.
-- The small-talk bypass, pipeline reranker/prune, `retrieve_code_chunks`, and legacy pre-answer
-  confidence gate remain temporarily and are deleted by plans 05–06.
+- `services/qa/agent_loop.py`, retrieval tools, xlarge adaptive top-k, and `QA_AGENT_*` settings
+  implement the developer QA path.
+- Social turns enter the same planner loop and use the narrow no-tools exception from ADR 0026.
+- Pipeline reranker/prune and `retrieve_code_chunks` remain as unused legacy modules until plan 06.
 - Full sequence: [`docs/plans/agent-qa/`](../../docs/plans/agent-qa/README.md).
 
 ### Data it reads/writes
