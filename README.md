@@ -243,13 +243,15 @@ npm run test:js               # JS tests only
 npm run test:python           # Python tests only
 npm run test:e2e              # Playwright journeys (stack + tests/e2e/.env — see tests/e2e/README.md)
 npm run codegen:check         # fail if contracts/ and generated types drift
-npm run lint:staged           # ESLint staged files only (pre-commit)
-npm run test:staged           # related tests for staged files only (pre-commit)
+npm run lint:staged           # ESLint staged files only
+npm run test:staged           # related tests for staged files only
+npm run precommit             # same gate as Husky (single Node process)
 ```
 
-**Pre-commit (Husky)** runs staged-only checks: `lint:staged`, `typecheck:staged`, and
-`test:staged` (fast related tests, no coverage gate). Before pushing, run the full gates
-locally — `npm run lint`, `npm run typecheck`, and `npm test` — same as CI.
+**Pre-commit (Husky)** runs `node scripts/pre-commit.mjs` once. It skips JS lint, typecheck,
+vitest, and `codegen:check` unless staged files touch those areas; engine-only commits run
+related pytest only. Before pushing, run the full gates locally — `npm run lint`,
+`npm run typecheck`, and `npm test` — same as CI.
 
 On Linux/macOS: `make setup`, `make test`, `make lint`, `make typecheck` — see [`Makefile`](./Makefile).
 (The `make up`/`down`/`migrate`/`logs` targets are optional Docker helpers, not the local dev path.)

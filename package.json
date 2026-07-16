@@ -22,6 +22,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "typecheck:staged": "node scripts/typecheck-staged.mjs",
     "lint:staged": "node scripts/lint-staged.mjs",
+    "precommit": "node scripts/pre-commit.mjs",
     "lint": "npm run lint --workspaces --if-present",
     "lint:fix": "npm run lint:fix --workspaces --if-present",
     "lint:api": "npm run lint -w @codesage/api",

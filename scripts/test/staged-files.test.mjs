@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { describe, it } from "node:test";
+import { classifyStagedChecks } from "../lib/run-staged-checks.mjs";
 import {
   groupStagedByWorkspace,
   hasContractChanges,
@@ -185,5 +186,55 @@ describe("TS_FILE", () => {
     assert.match("apps/api/src/foo.ts", TS_FILE);
     assert.match("apps/web/src/App.tsx", TS_FILE);
     assert.doesNotMatch("apps/api/src/foo.js", TS_FILE);
+  });
+});
+
+describe("classifyStagedChecks", () => {
+  it("skips JS lint, typecheck, vitest, and codegen for engine-only Python", () => {
+    const plan = classifyStagedChecks([
+      "apps/engine/src/services/qa/stream_answer.py",
+      "apps/engine/tests/services/test_stream_answer.py",
+      "apps/engine/README.md",
+    ]);
+
+    assert.deepEqual(plan, {
+      needsLint: false,
+      needsTypecheck: false,
+      needsJsTest: false,
+      needsPyTest: true,
+      needsCodegen: false,
+    });
+  });
+
+  it("skips all checks for docs-only staged files", () => {
+    const plan = classifyStagedChecks(["docs/README.md", "README.md"]);
+
+    assert.deepEqual(plan, {
+      needsLint: false,
+      needsTypecheck: false,
+      needsJsTest: false,
+      needsPyTest: false,
+      needsCodegen: false,
+    });
+  });
+
+  it("requires codegen and typecheck when contracts change", () => {
+    const plan = classifyStagedChecks(["contracts/openapi.engine.yaml"]);
+
+    assert.equal(plan.needsCodegen, true);
+    assert.equal(plan.needsTypecheck, true);
+    assert.equal(plan.needsLint, false);
+    assert.equal(plan.needsJsTest, false);
+    assert.equal(plan.needsPyTest, false);
+  });
+
+  it("requires lint and JS tests when API TypeScript changes", () => {
+    const plan = classifyStagedChecks(["apps/api/src/index.ts"]);
+
+    assert.equal(plan.needsLint, true);
+    assert.equal(plan.needsTypecheck, true);
+    assert.equal(plan.needsJsTest, true);
+    assert.equal(plan.needsCodegen, false);
+    assert.equal(plan.needsPyTest, false);
   });
 });
