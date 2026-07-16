@@ -107,14 +107,16 @@ Server-Sent Events. Order of operations:
    ([ADR 0020](../../docs/adr/0020-hybrid-retrieval.md), [ADR 0021](../../docs/adr/0021-retrieval-quality-pass.md)):
    - **Intent classification** — `query_intent.py` picks a weight profile (`symbol_lookup`,
      `conceptual`, `balanced`) from identifier and phrasing heuristics.
-   - **Adaptive top-k** — per-leg candidate counts scale with indexed project size (small/medium/large).
+   - **Adaptive top-k** — per-leg candidate counts scale with indexed project size
+     (small/medium/large/xlarge).
    - **Vector search** — embed the **question**; `similarity_search` runs pgvector cosine distance.
    - **Keyword / exact search** — `pg_trgm` trigram match over `code_chunks.content`.
    - **Symbol search** — name lookup over `graph_nodes` joined back via `symbol_refs`.
    - **Merge + re-rank** — weighted **Reciprocal Rank Fusion (RRF)** by intent profile.
-   - `augment_matches_with_graph` walks `http_call` edges from fused top hits.
-   - **Prune or rerank** — default: heuristic prune to `RETRIEVAL_CONTEXT_TOP_K` (10). Optional:
-     TEI `POST /rerank` on top 25 candidates when `RETRIEVAL_RERANKER_ENABLED=true`.
+   - `augment_matches_with_graph` walks `http_call` edges from fused top hits (depth/extra caps;
+     no global disable flag — agent-qa plan 05 moves this to an on-demand tool).
+   - **Prune or rerank** — default: heuristic prune to `RETRIEVAL_CONTEXT_TOP_K` (10). Optional
+     TEI rerank remains in code until agent-qa plan 06 deletes it.
 5. **Confidence gate** (`is_confident_match` + `hybrid_confidence.py`) — composite score
    (retrieval + graph connectivity + symbol exactness + citation coverage). Abstains when below
    `RETRIEVAL_MIN_CONFIDENCE` (NFR-7).
@@ -167,34 +169,40 @@ Config is split into two homes (see [`.cursor/rules/engine-config.mdc`](../../.c
 | `EMBEDDING_DIMENSION` | `1024` | yes | pgvector column width; must match the embedding model's output dimension. |
 | `TEI_BASE_URL`, `TEI_EMBED_MODEL` | see `.env.example` | yes | Embeddings via any OpenAI-compatible server (Ollama/TEI); deterministic dev fallback when unset. |
 | `LLM_CONTEXT_DETECT_ENABLED` | `true` | yes | Toggle: auto-detect the model's context window (vLLM `max_model_len` / Ollama `/api/show`). |
-| `RETRIEVAL_GRAPH_ENABLED` | `true` | yes | Toggle: expand QA retrieval along cross-repo `http_call` edges. |
 | `FRESHNESS_POLL_ENABLED` | `true` | yes | Toggle: background `git ls-remote` poll when webhooks miss pushes. |
-| `RETRIEVAL_RERANKER_ENABLED` | `false` | yes | Toggle: enable TEI cross-encoder rerank (M3.3). |
-| `RETRIEVAL_RERANKER_BASE_URL` | *(empty)* | yes | TEI reranker base URL (e.g. `http://localhost:8081`); empty = disabled path. |
 
 ### Tuning defaults (`src/config/constants.py`)
 
-Retrieval weights and top-k, RRF smoothing, hybrid-confidence weights, adaptive tiers, graph depth, reranker model/limits, worker timings (`WORKER_POLL_SECONDS`, `WORKER_IDLE_SECONDS`, `WORKER_MAX_JOB_ATTEMPTS`), timeouts (`*_TIMEOUT_SECONDS`), context-window sizing (`LLM_MAX_CONTEXT_TOKENS`, `LLM_COMPLETION_RESERVE_TOKENS`, `LLM_MAX_HISTORY_TURNS`), `FRESHNESS_POLL_INTERVAL_SECONDS`, and `SYNC_MAX_FILE_BYTES` all live in [`src/config/constants.py`](src/config/constants.py) with an inline purpose comment each. Edit that file to change a default; set the matching env var to override for a single deployment.
+Retrieval weights and top-k, RRF smoothing, hybrid-confidence weights, adaptive tiers (including
+**xlarge** at ≥100k chunks), graph depth/extra-chunk caps, worker timings, timeouts, context-window
+sizing, freshness poll interval, sync limits, and **agent QA** knobs all live in
+[`src/config/constants.py`](src/config/constants.py) with an inline purpose comment each. Edit that
+file to change a default; set the matching env var to override for a single deployment.
 
-### Optional cross-encoder reranker (M3.3)
+#### Agent QA (`QA_AGENT_*`, ADR 0026)
 
-Reranking requires a **second TEI container** with a cross-encoder model — the embedding TEI
-instance cannot serve both embedding and rerank models. Ollama does not expose `/rerank`.
+Wired into `Settings` now; the agent loop (plan 05) will consume them. Graph expand is always
+available as a retrieval **tool** — there is no `RETRIEVAL_GRAPH_ENABLED` kill-switch; only
+`RETRIEVAL_GRAPH_MAX_DEPTH` / `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS` cap walks.
 
-With GPU Compose overlay:
+| Constant | Default | Purpose |
+|---|---|---|
+| `QA_AGENT_MAX_ITERATIONS` | `5` | Max planner loops per question |
+| `QA_AGENT_MIN_CONFIDENCE` | `0.8` | Evidence gate before final answer |
+| `QA_AGENT_CONFIDENCE_TOP_N` | `10` | Pool matches scored for confidence |
+| `QA_AGENT_MAX_POOL_CHUNKS` | `20` | Evidence pool hard cap |
+| `QA_AGENT_MAX_TOOL_HITS` | `8` | Max hits per tool response |
+| `QA_AGENT_MAX_EXCERPT_TOKENS` | `512` | Per-hit excerpt token cap |
+| `QA_AGENT_PLANNER_TIMEOUT_SECONDS` | `60` | Planner LLM timeout per iteration |
+| `QA_AGENT_FINAL_TIMEOUT_SECONDS` | `300` | Final answer stream timeout |
+| `RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS` | `100000` | xlarge tier lower bound |
+| `RETRIEVAL_VECTOR_TOP_K_XLARGE` | `20` | Vector leg top-k at xlarge |
+| `RETRIEVAL_KEYWORD_TOP_K_XLARGE` | `12` | Keyword leg top-k at xlarge |
+| `RETRIEVAL_SYMBOL_TOP_K_XLARGE` | `5` | Symbol leg top-k at xlarge |
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile gpu up -d tei-rerank
-```
-
-Enable in `apps/engine/.env`:
-
-```dotenv
-RETRIEVAL_RERANKER_ENABLED=true
-RETRIEVAL_RERANKER_BASE_URL=http://localhost:8081
-```
-
-When disabled or unreachable, retrieval falls back to M3.2 heuristic prune automatically.
+> **Note:** Pipeline TEI reranker env keys (`RETRIEVAL_RERANKER_*`) and `RETRIEVAL_GRAPH_ENABLED`
+> were removed from `.env.example` under ADR 0026. Reranker code is deleted in agent-qa plan 06;
+> Settings fields remain temporarily so the legacy `stream_answer` path keeps compiling.
 
 ### Local inference with Ollama (low-spec friendly)
 

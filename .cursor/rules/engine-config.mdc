@@ -28,8 +28,11 @@ env-specific fields keep a literal default; tuning fields read their default fro
 - **Do not re-add tuning knobs to `.env.example`.** If a value is standard across deployments, it
   belongs in `constants.py`.
 - **Each constant carries a one-line purpose comment.** Group by concern (worker, retrieval, …).
-- Feature toggles (`RETRIEVAL_GRAPH_ENABLED`, `RETRIEVAL_RERANKER_ENABLED`, `FRESHNESS_POLL_ENABLED`,
-  `LLM_CONTEXT_DETECT_ENABLED`) stay in `.env.example`; their tuning knobs are constants.
+- Feature toggles (`FRESHNESS_POLL_ENABLED`, `LLM_CONTEXT_DETECT_ENABLED`) stay in `.env.example`;
+  their tuning knobs are constants. Do **not** re-add `RETRIEVAL_GRAPH_ENABLED` or
+  `RETRIEVAL_RERANKER_*` — removed under ADR 0026 (graph expand is a tool; pipeline reranker deleted).
+  Graph walk caps (`RETRIEVAL_GRAPH_MAX_DEPTH`, `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS`) stay in
+  `constants.py`.
 - When you touch `.env.example`, follow [`env-example-sync.mdc`](./env-example-sync.mdc) to sync `.env`.
 
 See ADR [`0022-rag-config-constants.md`](../../docs/adr/0022-rag-config-constants.md).

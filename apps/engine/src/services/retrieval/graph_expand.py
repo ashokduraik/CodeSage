@@ -68,7 +68,7 @@ def augment_matches_with_graph(
     @returns Original matches plus graph-expanded chunks (deduplicated by chunk id).
     """
     _ = project_id
-    if not settings.retrieval_graph_enabled or not matches:
+    if not matches:
         return matches
 
     nodes_repo = GraphNodeRepository(session)

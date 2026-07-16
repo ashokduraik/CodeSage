@@ -12,17 +12,15 @@ from services.retrieval.graph_expand import augment_matches_with_graph
 from services.retrieval.types import RetrievalMatch
 
 
-def test_augment_matches_with_graph_disabled() -> None:
-    chunk = MagicMock(id=uuid.uuid4(), repo_id=uuid.uuid4(), file_path="a.ts")
-    matches = [RetrievalMatch(chunk=chunk, fused_score=0.02, sources=("vector",))]
-    settings = Settings(retrieval_graph_enabled=False)
+def test_augment_matches_with_graph_empty_returns_unchanged() -> None:
+    """Empty match list is a no-op (graph expand has no disable toggle)."""
     result = augment_matches_with_graph(
         MagicMock(),
-        settings,
+        Settings(),
         project_id=uuid.uuid4(),
-        matches=matches,
+        matches=[],
     )
-    assert result == matches
+    assert result == []
 
 
 def test_augment_matches_with_graph_adds_neighbor_chunks(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -109,10 +109,15 @@ hybrid confidence gate.
 questions no longer receive 15+ loosely related excerpts; abstain fires when hybrid confidence is
 below threshold.
 
-#### M3.3 — Cross-encoder reranker (ADR 0021) — **done**
+#### M3.3 — Cross-encoder reranker (ADR 0021) — **done** (superseded)
 
 Optional open-source reranker (`BAAI/bge-reranker-v2-m3` via TEI `/rerank`) reorders top
 ~25 fused candidates to top 8 before context packing. Feature-flagged; off by default.
+
+> **Superseded by [ADR 0026](../adr/0026-agent-orchestrated-developer-qa.md):** pipeline reranker
+> env keys are removed from `.env.example` (agent-qa plan 02); implementation is deleted in
+> [plan 06](./agent-qa/06-legacy-retrieval-cleanup.md). Agent tools select and narrow evidence
+> instead.
 
 | Step | Module | Key deliverables |
 |---|---|---|

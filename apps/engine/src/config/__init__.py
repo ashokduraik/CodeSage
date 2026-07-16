@@ -87,16 +87,28 @@ class Settings(BaseSettings):
     retrieval_min_confidence: float = constants.RETRIEVAL_MIN_CONFIDENCE
     retrieval_adaptive_medium_min_chunks: int = constants.RETRIEVAL_ADAPTIVE_MEDIUM_MIN_CHUNKS
     retrieval_adaptive_large_min_chunks: int = constants.RETRIEVAL_ADAPTIVE_LARGE_MIN_CHUNKS
+    retrieval_adaptive_xlarge_min_chunks: int = constants.RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS
+    retrieval_vector_top_k_xlarge: int = constants.RETRIEVAL_VECTOR_TOP_K_XLARGE
+    retrieval_keyword_top_k_xlarge: int = constants.RETRIEVAL_KEYWORD_TOP_K_XLARGE
+    retrieval_symbol_top_k_xlarge: int = constants.RETRIEVAL_SYMBOL_TOP_K_XLARGE
     retrieval_confidence_weight_retrieval: float = constants.RETRIEVAL_CONFIDENCE_WEIGHT_RETRIEVAL
     retrieval_confidence_weight_graph: float = constants.RETRIEVAL_CONFIDENCE_WEIGHT_GRAPH
     retrieval_confidence_weight_symbol: float = constants.RETRIEVAL_CONFIDENCE_WEIGHT_SYMBOL
     retrieval_confidence_weight_coverage: float = constants.RETRIEVAL_CONFIDENCE_WEIGHT_COVERAGE
     retrieval_min_distinct_files: int = constants.RETRIEVAL_MIN_DISTINCT_FILES
-    # Per-deploy toggle documented in ``.env.example``.
-    retrieval_graph_enabled: bool = True
+    # Graph expand is always available (agent tool); depth/extra caps only — no kill-switch.
     retrieval_graph_max_depth: int = constants.RETRIEVAL_GRAPH_MAX_DEPTH
     retrieval_graph_max_extra_chunks: int = constants.RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS
-    # Per-deploy toggle + endpoint documented in ``.env.example``; tuning knobs are constants.
+    # Agent QA (ADR 0026) — env-overridable; defaults from constants (not in .env.example).
+    qa_agent_max_iterations: int = constants.QA_AGENT_MAX_ITERATIONS
+    qa_agent_min_confidence: float = constants.QA_AGENT_MIN_CONFIDENCE
+    qa_agent_confidence_top_n: int = constants.QA_AGENT_CONFIDENCE_TOP_N
+    qa_agent_max_pool_chunks: int = constants.QA_AGENT_MAX_POOL_CHUNKS
+    qa_agent_max_tool_hits: int = constants.QA_AGENT_MAX_TOOL_HITS
+    qa_agent_max_excerpt_tokens: int = constants.QA_AGENT_MAX_EXCERPT_TOKENS
+    qa_agent_planner_timeout_seconds: float = constants.QA_AGENT_PLANNER_TIMEOUT_SECONDS
+    qa_agent_final_timeout_seconds: float = constants.QA_AGENT_FINAL_TIMEOUT_SECONDS
+    # Reranker Settings remain until plan 06 deletes pipeline wiring (not in .env.example).
     retrieval_reranker_enabled: bool = False
     retrieval_reranker_base_url: str = ""
     retrieval_reranker_model: str = constants.RETRIEVAL_RERANKER_MODEL

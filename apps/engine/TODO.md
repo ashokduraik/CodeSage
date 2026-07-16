@@ -23,6 +23,7 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 - [x] Settings + env loading.
 - [x] Repo-token decryption (AES-256-GCM, matches Node).
 - [x] Indexing logs (`config/logging.py`) — plain English, stdout, redaction. See `docs/engine-indexing-logs.md`.
+- [x] Agent QA constants (`QA_AGENT_*`, xlarge adaptive tier); remove `RETRIEVAL_GRAPH_ENABLED` + reranker env keys (ADR 0026 plan 02).
 
 ## models/
 - [x] ORM for migrated tables + enums.

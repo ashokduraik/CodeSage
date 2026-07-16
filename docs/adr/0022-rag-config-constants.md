@@ -23,11 +23,14 @@ Split RAG configuration into two homes, both still read through `Settings`:
 
 1. **`apps/engine/.env.example` + sibling `.env`** — environment-specific values only: connections,
    secrets, endpoints, ports, model ids, the cross-service `WORKER_STALE_JOB_SECONDS`, and
-   per-deploy **feature toggles** (`LLM_CONTEXT_DETECT_ENABLED`, `RETRIEVAL_GRAPH_ENABLED`,
-   `RETRIEVAL_RERANKER_ENABLED`, `FRESHNESS_POLL_ENABLED`) plus the reranker endpoint.
+   per-deploy **feature toggles** (`LLM_CONTEXT_DETECT_ENABLED`, `FRESHNESS_POLL_ENABLED`).
+   > **Superseded (ADR 0026 / agent-qa plans):** `RETRIEVAL_GRAPH_ENABLED` and
+   > `RETRIEVAL_RERANKER_*` are removed — graph expand is an always-on agent tool; pipeline
+   > reranker is deleted. Graph depth caps stay in `constants.py`.
 2. **`apps/engine/src/config/constants.py`** — standard tuning defaults, each with a one-line purpose
    comment. `Settings` tuning fields read their default from `constants`, so the value lives in
-   exactly one place.
+   exactly one place. Includes agent QA knobs (`QA_AGENT_*`) and the xlarge adaptive tier
+   (`RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS`, `RETRIEVAL_*_TOP_K_XLARGE`) from ADR 0026.
 
 Constants **remain env-overridable**: they are still `Settings` fields, so setting the matching
 env var overrides the default for a single deployment. They are simply no longer documented in
@@ -43,7 +46,8 @@ A new rule `.cursor/rules/engine-config.mdc` governs which bucket a new knob bel
 - **No behavior change**: defaults are identical; env override still works for every knob.
 - **Supersedes the config-location pointers** in ADR 0020 and ADR 0021 (which said tunables are
   "documented in `apps/engine/.env.example`"). Those decisions are otherwise unchanged; tunable
-  defaults now live in `constants.py` with the enable flags/endpoints remaining in `.env.example`.
+  defaults now live in `constants.py`. Per-deploy toggles that remain in `.env.example` are
+  `LLM_CONTEXT_DETECT_ENABLED` and `FRESHNESS_POLL_ENABLED` only.
 
 ## Alternatives considered
 

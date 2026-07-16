@@ -49,11 +49,37 @@ def test_tuning_defaults_come_from_constants(monkeypatch: pytest.MonkeyPatch) ->
     """Tuning fields read their default from ``constants`` so there is one source of truth."""
     monkeypatch.delenv("RETRIEVAL_VECTOR_TOP_K", raising=False)
     monkeypatch.delenv("RETRIEVAL_MIN_CONFIDENCE", raising=False)
+    monkeypatch.delenv("QA_AGENT_MAX_ITERATIONS", raising=False)
+    monkeypatch.delenv("QA_AGENT_MIN_CONFIDENCE", raising=False)
+    monkeypatch.delenv("RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS", raising=False)
     settings = load_settings()
     assert settings.retrieval_vector_top_k == constants.RETRIEVAL_VECTOR_TOP_K
     assert settings.retrieval_min_confidence == constants.RETRIEVAL_MIN_CONFIDENCE
     assert settings.sync_max_file_bytes == constants.SYNC_MAX_FILE_BYTES
     assert settings.freshness_poll_interval_seconds == constants.FRESHNESS_POLL_INTERVAL_SECONDS
+    assert settings.qa_agent_max_iterations == constants.QA_AGENT_MAX_ITERATIONS
+    assert settings.qa_agent_min_confidence == constants.QA_AGENT_MIN_CONFIDENCE
+    assert settings.qa_agent_confidence_top_n == constants.QA_AGENT_CONFIDENCE_TOP_N
+    assert settings.qa_agent_max_pool_chunks == constants.QA_AGENT_MAX_POOL_CHUNKS
+    assert settings.qa_agent_max_tool_hits == constants.QA_AGENT_MAX_TOOL_HITS
+    assert settings.qa_agent_max_excerpt_tokens == constants.QA_AGENT_MAX_EXCERPT_TOKENS
+    assert settings.qa_agent_planner_timeout_seconds == constants.QA_AGENT_PLANNER_TIMEOUT_SECONDS
+    assert settings.qa_agent_final_timeout_seconds == constants.QA_AGENT_FINAL_TIMEOUT_SECONDS
+    assert (
+        settings.retrieval_adaptive_xlarge_min_chunks
+        == constants.RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS
+    )
+    assert settings.retrieval_vector_top_k_xlarge == constants.RETRIEVAL_VECTOR_TOP_K_XLARGE
+    assert not hasattr(settings, "retrieval_graph_enabled")
+
+
+def test_qa_agent_constants_still_env_overridable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Agent QA tuning defaults can still be overridden by env when required."""
+    monkeypatch.setenv("QA_AGENT_MAX_ITERATIONS", "3")
+    monkeypatch.setenv("QA_AGENT_MIN_CONFIDENCE", "0.9")
+    settings = load_settings()
+    assert settings.qa_agent_max_iterations == 3
+    assert settings.qa_agent_min_confidence == 0.9
 
 
 def test_constants_still_env_overridable(monkeypatch: pytest.MonkeyPatch) -> None:

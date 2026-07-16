@@ -48,18 +48,33 @@ RETRIEVAL_KEYWORD_MIN_SIMILARITY = 0.15  # minimum trigram score for keyword hit
 RETRIEVAL_SYMBOL_MIN_SIMILARITY = 0.35  # minimum trigram score for symbol hits
 RETRIEVAL_MAX_DISTANCE = 0.45  # hard fail for vector-only hits above this distance
 RETRIEVAL_CONTEXT_TOP_K = 10  # post-graph prune limit before LLM packing
+# Deprecated for QA abstain — use QA_AGENT_MIN_CONFIDENCE (kept until plan 06 removes is_confident_match).
 RETRIEVAL_MIN_CONFIDENCE = 0.45  # hybrid confidence abstain threshold (NFR-7)
 RETRIEVAL_ADAPTIVE_MEDIUM_MIN_CHUNKS = 5000  # active-chunk boundary (small -> medium tier)
 RETRIEVAL_ADAPTIVE_LARGE_MIN_CHUNKS = 50000  # active-chunk boundary (medium -> large tier)
+RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS = 100000  # active-chunk boundary (large -> xlarge tier, ~5M LOC)
+RETRIEVAL_VECTOR_TOP_K_XLARGE = 20  # vector leg top-k at xlarge tier (hard ceiling ≤ 25)
+RETRIEVAL_KEYWORD_TOP_K_XLARGE = 12  # keyword leg top-k at xlarge tier
+RETRIEVAL_SYMBOL_TOP_K_XLARGE = 5  # symbol leg top-k at xlarge tier
 RETRIEVAL_CONFIDENCE_WEIGHT_RETRIEVAL = 0.40  # hybrid confidence: fused retrieval score weight
 RETRIEVAL_CONFIDENCE_WEIGHT_GRAPH = 0.30  # hybrid confidence: graph connectivity weight
 RETRIEVAL_CONFIDENCE_WEIGHT_SYMBOL = 0.20  # hybrid confidence: symbol/keyword exactness weight
 RETRIEVAL_CONFIDENCE_WEIGHT_COVERAGE = 0.10  # hybrid confidence: distinct-file coverage weight
 RETRIEVAL_MIN_DISTINCT_FILES = 1  # target distinct files for citation coverage score
-RETRIEVAL_GRAPH_MAX_DEPTH = 2  # max graph hops from vector-hit seeds
+RETRIEVAL_GRAPH_MAX_DEPTH = 2  # max graph hops from seed nodes (agent tool + legacy auto-expand)
 RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS = 4  # max additional chunks added via graph expansion
 
-# --- Reranker (M3.3 cross-encoder tuning; endpoint + enable flag stay in .env) ---
+# --- Agent QA (ADR 0026) ---
+QA_AGENT_MAX_ITERATIONS = 5  # max planner loops per question
+QA_AGENT_MIN_CONFIDENCE = 0.8  # evidence gate before final grounded answer
+QA_AGENT_CONFIDENCE_TOP_N = 10  # pool matches scored for evidence confidence
+QA_AGENT_MAX_POOL_CHUNKS = 20  # hard cap on evidence pool size
+QA_AGENT_MAX_TOOL_HITS = 8  # max hits returned per tool call
+QA_AGENT_MAX_EXCERPT_TOKENS = 512  # per-hit excerpt token cap in tool JSON
+QA_AGENT_PLANNER_TIMEOUT_SECONDS = 60.0  # planner LLM timeout per iteration
+QA_AGENT_FINAL_TIMEOUT_SECONDS = LLM_TIMEOUT_SECONDS  # final answer stream timeout
+
+# --- Reranker (M3.3; Settings fields remain until plan 06 deletes pipeline wiring) ---
 RETRIEVAL_RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"  # cross-encoder model id (TEI MODEL_ID)
 RETRIEVAL_RERANKER_INPUT_K = 25  # max candidates sent to the reranker
 RETRIEVAL_RERANKER_OUTPUT_K = 8  # chunks kept after rerank

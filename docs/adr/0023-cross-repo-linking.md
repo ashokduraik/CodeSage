@@ -69,6 +69,10 @@ Extend `services/retrieval/graph_expand.py` (ADR 0020 pipeline):
 Feature-flagged via `RETRIEVAL_GRAPH_ENABLED` (default `true` for developer QA). Tunables
 (`RETRIEVAL_GRAPH_*`) live in `config/constants.py` per ADR 0022.
 
+> **Superseded (ADR 0026):** Automatic post-fusion graph expand and `RETRIEVAL_GRAPH_ENABLED`
+> are removed. Cross-repo edges remain; the agent calls `graph_expand` on demand. Depth/extra
+> chunk caps stay in `constants.py`.
+
 ```mermaid
 flowchart LR
   Parse[parse job] --> Signals[api_signals regex]

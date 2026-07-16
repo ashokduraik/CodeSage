@@ -13,6 +13,7 @@ class ProjectSizeTier(str, enum.Enum):
     SMALL = "small"
     MEDIUM = "medium"
     LARGE = "large"
+    XLARGE = "xlarge"
 
 
 _TIER_TOP_K: dict[ProjectSizeTier, dict[str, int]] = {
@@ -33,16 +34,27 @@ def resolve_project_tier(chunk_count: int, settings: Settings) -> ProjectSizeTie
         return ProjectSizeTier.SMALL
     if chunk_count < settings.retrieval_adaptive_large_min_chunks:
         return ProjectSizeTier.MEDIUM
-    return ProjectSizeTier.LARGE
+    if chunk_count < settings.retrieval_adaptive_xlarge_min_chunks:
+        return ProjectSizeTier.LARGE
+    return ProjectSizeTier.XLARGE
 
 
 def resolve_top_k(tier: ProjectSizeTier, settings: Settings) -> dict[str, int]:
     """Return per-leg top-k capped by env-configured ceilings.
 
+    Xlarge uses dedicated ``RETRIEVAL_*_TOP_K_XLARGE`` settings so the vector leg can
+    exceed the default ``retrieval_vector_top_k`` ceiling used by smaller tiers.
+
     @param tier - Project size tier.
     @param settings - Application settings with optional top-k ceilings.
     @returns Dict with ``symbol``, ``keyword``, and ``vector`` limits.
     """
+    if tier == ProjectSizeTier.XLARGE:
+        return {
+            "symbol": settings.retrieval_symbol_top_k_xlarge,
+            "keyword": settings.retrieval_keyword_top_k_xlarge,
+            "vector": settings.retrieval_vector_top_k_xlarge,
+        }
     base = _TIER_TOP_K[tier]
     return {
         "symbol": min(base["symbol"], settings.retrieval_symbol_top_k),
