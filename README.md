@@ -25,8 +25,10 @@ confident, it says so and can route the question to a domain expert rather than 
 
 Everything runs **on-prem**: your source code, embeddings, and LLM never leave your network. The
 stack is fully open source and self-hostable — React, Node, Python, PostgreSQL, tree-sitter, TEI,
-and vLLM. The first target is MEAN/MERN codebases (JS/TS); the design scales to roughly
-**10 projects × ~3M lines of code**.
+and vLLM. The first target is MEAN/MERN codebases (JS/TS). The original deployment sizing is
+**10 projects × ~3M lines of code**; the proposed agent-QA architecture targets accurate
+investigation within a project of up to **~5M indexed lines**, subject to the benchmark gate in
+[ADR 0026](./docs/adr/0026-agent-orchestrated-developer-qa.md).
 
 New to the stack? See [`docs/tech-learning-guide.md`](./docs/tech-learning-guide.md).
 
@@ -40,10 +42,16 @@ A self-hosted embedding model turns those chunks into vectors; a self-hosted LLM
 higher-level knowledge — workflows, page maps, permission rules, data flows — each tagged with
 confidence and sources.
 
-When someone asks a question, a router decides whether it is a **code** question (search vectors
-and the graph) or a **product** question (search the distilled knowledge base). The LLM composes
-a grounded reply and streams it back with citations. After each push to Git, only the changed files
-are re-indexed, so the library stays current without rebuilding from scratch.
+For developer questions, the target QA architecture lets the LLM **orchestrate bounded retrieval
+tools** instead of receiving one fixed retrieval result. It can search symbols, code, and vectors,
+expand graph nodes, and read indexed symbols/chunks. After each tool round, CodeSage computes
+evidence confidence; it answers only when confidence reaches **0.8**, cites the retrieved evidence,
+and otherwise continues for at most **5 iterations** before abstaining. Successful investigations
+can later become project-scoped retrieval playbooks, but every new answer still re-fetches current
+evidence. Product questions use the distilled knowledge base when that path is implemented.
+
+After each push to Git, only changed files are re-indexed, so retrieval remains current without
+rebuilding the whole project.
 
 ```mermaid
 flowchart TB
@@ -61,7 +69,12 @@ flowchart TB
     end
 
     subgraph PY["Python — apps/engine (heavy/blocking)"]
-        RAGSVC[RAG / router / QA HTTP]
+        RAGSVC[Agent QA / router HTTP]
+        PLAN[Planner: max 5 iterations]
+        TOOLS[Symbol · keyword · vector · graph tools]
+        CONF{Evidence confidence ≥ 0.8?}
+        ANSWER[Grounded answer + citations]
+        ABSTAIN[Abstain]
         subgraph WORK["Background consumers"]
             SYNC[Multi-repo sync]
             PARSE[tree-sitter parse + chunk]
@@ -84,7 +97,11 @@ flowchart TB
     FE <--> GW
     GW --> AUTH --> PG
     GW --> CRUD --> PG
-    GW --> RAGSVC
+    GW --> RAGSVC --> PLAN
+    PLAN --> TOOLS --> CONF
+    CONF -->|no; iterations remain| PLAN
+    CONF -->|yes| ANSWER
+    CONF -->|no; limit reached| ABSTAIN
     GW -->|enqueue jobs| PG
     PG -->|SKIP LOCKED| WORK
     SYNC --> FS
@@ -92,10 +109,17 @@ flowchart TB
     EMBED --> TEI --> PG
     XREPO --> PG
     DISTILL --> VLLM --> PG
-    RAGSVC --> PG
-    RAGSVC --> VLLM
-    RAGSVC --> TEI
+    TOOLS --> PG
+    PLAN --> VLLM
+    ANSWER --> VLLM
+    TOOLS --> TEI
 ```
+
+> **Implementation status:** this diagram is the proposed target in
+> [ADR 0026](./docs/adr/0026-agent-orchestrated-developer-qa.md) and
+> [ADR 0027](./docs/adr/0027-qa-investigation-playbooks.md). Retrieval tools and agent tuning
+> exist; replacing the current fixed query pipeline is tracked in the
+> [agent-QA implementation plans](./docs/plans/agent-qa/README.md).
 
 Under the hood, the system follows one simple rule:
 
@@ -124,8 +148,9 @@ re-indexing. Full roadmap and phase details:
 
 Repo tokens are encrypted at rest and decrypted only in memory during sync. Access is enforced with
 role-based permissions scoped by project, and sensitive actions are audit-logged. Answers must be
-grounded in retrieved context with citations; when evidence is weak, the system abstains rather
-than hallucinating. Secrets never belong in git — document variables in
+grounded in retrieved context with citations. In the target agent path, code controls the
+confidence gate: the LLM cannot authorize its own answer, and an unresolved investigation
+abstains after five rounds. Secrets never belong in git — document variables in
 [`.env.example`](./.env.example) and keep real values in a local `.env`.
 
 ---
@@ -254,6 +279,7 @@ Start at [`docs/README.md`](./docs/README.md).
 | [`docs/tech-learning-guide.md`](./docs/tech-learning-guide.md) | Onboarding: each technology explained for newcomers |
 | [`docs/plans/phase-1-mvp-code-qa.md`](./docs/plans/phase-1-mvp-code-qa.md) | Phase 1 milestones and build order |
 | [`docs/plans/phase-2-multi-repo.md`](./docs/plans/phase-2-multi-repo.md) | Phase 2 multi-repo linking and cross-repo graph resolver |
+| [`docs/plans/agent-qa/`](./docs/plans/agent-qa/README.md) | Agent-QA implementation sequence: tools, confidence loop, cleanup, E2E, playbooks |
 | [`tests/e2e/README.md`](./tests/e2e/README.md) | E2E Playwright journeys (UI onboarding, public + private repo attach) |
 | [`docs/adr/`](./docs/adr/README.md) | Architecture Decision Records |
 

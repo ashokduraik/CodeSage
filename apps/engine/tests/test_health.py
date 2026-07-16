@@ -14,7 +14,10 @@ from config import Settings
 def test_health_ok(engine_client) -> None:
     response = engine_client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "engine"}
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["service"] == "engine"
+    assert body["plannerTools"] in ("ok", "unsupported")
 
 
 def test_lifespan_skips_freshness_poll_thread_when_disabled() -> None:

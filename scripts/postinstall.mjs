@@ -27,6 +27,15 @@ function isDevDependencyInstall() {
   }
 }
 
-if (isDevDependencyInstall()) {
+/**
+ * Returns true when Playwright browser download should be skipped (CI/Docker).
+ *
+ * @returns {boolean}
+ */
+function shouldSkipPlaywrightInstall() {
+  return process.env.CI === 'true' || process.env.CODESAGE_SKIP_PLAYWRIGHT === 'true';
+}
+
+if (!shouldSkipPlaywrightInstall() && isDevDependencyInstall()) {
   execSync('npx playwright install', { stdio: 'inherit' });
 }

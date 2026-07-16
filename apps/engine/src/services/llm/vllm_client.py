@@ -1,16 +1,58 @@
-"""OpenAI-compatible vLLM streaming client with excerpt fallback."""
+"""OpenAI-compatible vLLM streaming client with excerpt fallback and tool calling."""
 
 from __future__ import annotations
 
 import json
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 
 from config import Settings
+from config.logging import sanitize_log_message
 from services.llm.prompts import build_code_qa_messages
+
+
+class LlmToolCallingError(Exception):
+    """Raised when a planner tool-calling completion cannot run.
+
+    The agent loop must not silently fall back to excerpt-only QA when the LLM
+    endpoint is missing or rejects the request — that would bypass grounding tools.
+    """
+
+
+@dataclass
+class ParsedToolCall:
+    """One tool invocation parsed from an OpenAI-compatible chat completion.
+
+    @param name - Function name the model selected (must match a registered tool).
+    @param arguments - Parsed JSON object of tool arguments (empty dict if missing).
+    @param id - Provider call id when present (needed to echo tool results).
+    """
+
+    name: str
+    arguments: dict[str, Any]
+    id: str | None = None
+
+
+@dataclass
+class PlannerTurnResult:
+    """Outcome of one non-streaming planner LLM turn with tools enabled.
+
+    Empty ``tool_calls`` with optional ``assistant_content`` means the model spoke
+    without tools (social / clarification). Empty both means the agent loop should
+    continue or abstain — this client does not apply social heuristics (plan 05).
+
+    @param tool_calls - Parsed tool invocations (may be empty).
+    @param assistant_content - Raw assistant text when the model replied without tools.
+    @param usage - Token usage counters when the backend reported them.
+    """
+
+    tool_calls: list[ParsedToolCall] = field(default_factory=list)
+    assistant_content: str | None = None
+    usage: dict[str, int] | None = None
 
 
 @dataclass
@@ -242,3 +284,242 @@ def stream_vllm_answer(
 
     if stats is not None:
         _finalize_timing(stats, time.monotonic() - start)
+
+
+def stream_final_answer(
+    settings: Settings,
+    *,
+    question: str,
+    context_blocks: list[str],
+    history: list[dict[str, str]] | None = None,
+    stats: LlmStreamStats | None = None,
+) -> Iterator[str]:
+    """Stream the grounded final answer after the agent has gathered evidence.
+
+    Thin wrapper around ``stream_vllm_answer`` so the agent loop (plan 05) can call a
+    clearly named final-answer entry point without changing streaming behaviour.
+
+    @param settings - Application settings.
+    @param question - User question.
+    @param context_blocks - Retrieved code excerpts used as grounding.
+    @param history - Optional prior conversation turns.
+    @param stats - Optional stats object filled with usage and timing when available.
+    @yields Text fragments of the answer.
+    """
+    yield from stream_vllm_answer(
+        settings,
+        question=question,
+        context_blocks=context_blocks,
+        history=history,
+        stats=stats,
+    )
+
+
+def _parse_tool_arguments(raw: object) -> dict[str, Any]:
+    """Parse a tool ``arguments`` field into a dict.
+
+    Providers may return a JSON string (OpenAI) or an already-decoded object (Ollama).
+    Invalid JSON becomes an empty dict so the agent loop can surface a tool error
+    rather than crashing the planner turn.
+
+    @param raw - Arguments value from the provider payload.
+    @returns Parsed argument dict (empty when missing or invalid).
+    """
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, str):
+        if not raw.strip():
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+        return {}
+    return {}
+
+
+def parse_openai_tool_calls_from_response(payload: dict[str, Any]) -> PlannerTurnResult:
+    """Extract tool calls and optional text from an OpenAI-style chat completion body.
+
+    Accepts both the standard ``choices[0].message`` shape and Ollama native
+    ``message`` at the top level so one parser covers the OpenAI shim and native API.
+
+    @param payload - Parsed JSON body from ``/chat/completions`` or Ollama ``/api/chat``.
+    @returns Planner turn with tool calls, optional assistant text, and usage when present.
+    """
+    message: dict[str, Any] = {}
+    choices = payload.get("choices")
+    if isinstance(choices, list) and choices:
+        choice0 = choices[0] if isinstance(choices[0], dict) else {}
+        raw_message = choice0.get("message")
+        if isinstance(raw_message, dict):
+            message = raw_message
+    elif isinstance(payload.get("message"), dict):
+        message = payload["message"]
+
+    raw_calls = message.get("tool_calls")
+    tool_calls: list[ParsedToolCall] = []
+    if isinstance(raw_calls, list):
+        for item in raw_calls:
+            if not isinstance(item, dict):
+                continue
+            # OpenAI nests name/args under ``function``; some shims flatten them.
+            function = item.get("function") if isinstance(item.get("function"), dict) else item
+            name = function.get("name") if isinstance(function, dict) else None
+            if not isinstance(name, str) or not name:
+                continue
+            call_id = item.get("id")
+            tool_calls.append(
+                ParsedToolCall(
+                    name=name,
+                    arguments=_parse_tool_arguments(
+                        function.get("arguments") if isinstance(function, dict) else None
+                    ),
+                    id=call_id if isinstance(call_id, str) else None,
+                )
+            )
+
+    content = message.get("content")
+    assistant_content = content if isinstance(content, str) and content.strip() else None
+
+    usage_out: dict[str, int] | None = None
+    usage = payload.get("usage")
+    if isinstance(usage, dict):
+        usage_out = {}
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            value = usage.get(key)
+            if isinstance(value, int):
+                usage_out[key] = value
+        if not usage_out:
+            usage_out = None
+    else:
+        # Ollama native reports prompt_eval_count / eval_count on the top-level frame.
+        prompt = payload.get("prompt_eval_count")
+        completion = payload.get("eval_count")
+        if isinstance(prompt, int) or isinstance(completion, int):
+            usage_out = {}
+            if isinstance(prompt, int):
+                usage_out["prompt_tokens"] = prompt
+            if isinstance(completion, int):
+                usage_out["completion_tokens"] = completion
+            if isinstance(prompt, int) and isinstance(completion, int):
+                usage_out["total_tokens"] = prompt + completion
+
+    return PlannerTurnResult(
+        tool_calls=tool_calls,
+        assistant_content=assistant_content,
+        usage=usage_out,
+    )
+
+
+def _planner_timeout(settings: Settings) -> httpx.Timeout:
+    """Build an HTTP timeout for a non-streaming planner call.
+
+    @param settings - Application settings (planner timeout + connect defaults).
+    @returns httpx timeout object.
+    """
+    return httpx.Timeout(
+        connect=30.0,
+        read=settings.qa_agent_planner_timeout_seconds,
+        write=30.0,
+        pool=30.0,
+    )
+
+
+def complete_with_tools(
+    settings: Settings,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    *,
+    stats: LlmStreamStats | None = None,
+) -> PlannerTurnResult:
+    """Run one non-streaming chat completion with OpenAI-compatible tool calling.
+
+    Used by the agent planner (ADR 0026): ``stream=False`` so tool_call JSON payloads
+    arrive as a single parseable frame. Does **not** fall back to excerpt synthesis —
+    missing config or HTTP failure raises ``LlmToolCallingError`` so the agent loop
+    can abstain rather than invent an ungrounded answer.
+
+    Primary path: ``POST {VLLM_BASE_URL}/chat/completions`` with ``tools`` and
+    ``tool_choice: auto``. Ollama is reached via its OpenAI ``/v1`` shim (same path);
+    native ``/api/chat`` is used only when the base URL looks like Ollama **and** the
+    model is a thinking model that needs ``think: false`` on the native API.
+
+    @param settings - Application settings including LLM base URL and model id.
+    @param messages - Chat messages (system / user / assistant / tool) for this turn.
+    @param tools - OpenAI tool definition objects (from ``tool_definitions_for_planner``).
+    @param stats - Optional stats object filled with usage and timing when available.
+    @returns Parsed planner turn (tool calls and/or assistant text).
+    @raises LlmToolCallingError when the LLM is not configured or the request fails.
+    """
+    if not settings.vllm_base_url or not settings.vllm_model:
+        raise LlmToolCallingError(
+            "LLM tool calling requires VLLM_BASE_URL and VLLM_MODEL; "
+            "excerpt fallback is not used for the agent planner"
+        )
+
+    ollama_root = _ollama_native_root(settings.vllm_base_url)
+    # Thinking models on Ollama's /v1 often ignore think:false; native /api/chat
+    # honours it and still accepts a tools array on recent Ollama builds.
+    use_ollama_native = ollama_root is not None and _is_thinking_model(settings.vllm_model)
+
+    if use_ollama_native:
+        assert ollama_root is not None
+        url = f"{ollama_root}/api/chat"
+        body: dict[str, Any] = {
+            "model": settings.vllm_model,
+            "messages": messages,
+            "stream": False,
+            "tools": tools,
+            "think": False,
+            "options": {
+                "temperature": 0.2,
+                "num_predict": settings.llm_completion_reserve_tokens,
+            },
+        }
+    else:
+        url = f"{settings.vllm_base_url.rstrip('/')}/chat/completions"
+        body = {
+            "model": settings.vllm_model,
+            "messages": messages,
+            "stream": False,
+            "temperature": 0.2,
+            "max_tokens": settings.llm_completion_reserve_tokens,
+            "tools": tools,
+            "tool_choice": "auto",
+        }
+        if _is_thinking_model(settings.vllm_model):
+            body["think"] = False
+            body["chat_template_kwargs"] = {"enable_thinking": False}
+
+    start = time.monotonic()
+    try:
+        response = httpx.post(url, json=body, timeout=_planner_timeout(settings))
+    except httpx.HTTPError as exc:
+        raise LlmToolCallingError(
+            f"planner tool-calling request failed: {sanitize_log_message(str(exc))}"
+        ) from exc
+
+    if response.status_code >= 400:
+        raise LlmToolCallingError(
+            f"planner tool-calling HTTP {response.status_code}: "
+            f"{sanitize_log_message(response.text[:200])}"
+        )
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise LlmToolCallingError("planner tool-calling response was not valid JSON") from exc
+
+    if not isinstance(payload, dict):
+        raise LlmToolCallingError("planner tool-calling response was not a JSON object")
+
+    result = parse_openai_tool_calls_from_response(payload)
+
+    if stats is not None and result.usage is not None:
+        _apply_usage(stats, result.usage)
+        _finalize_timing(stats, time.monotonic() - start)
+
+    return result

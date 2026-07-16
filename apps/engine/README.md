@@ -14,10 +14,10 @@ Setup (deps, env, tests): root [`README.md`](../../README.md) — `npm run setup
 
 ## How it works (end to end)
 
-CodeSage RAG runs in **two phases**: an offline **indexing** phase (when a repo is attached
-or pushed) that turns source code into searchable vectors + a symbol graph, and an online
-**query** phase (when a user asks a question) that retrieves the most relevant code and asks
-an LLM to answer *only* from it.
+CodeSage runs in **two phases**: an offline **indexing** phase (when a repo is attached or pushed)
+that turns source code into searchable vectors + a symbol graph, and an online **agent-QA**
+phase. In the target QA architecture, the LLM plans bounded retrieval calls while application
+code owns confidence, iteration limits, citations, and abstention.
 
 ```mermaid
 flowchart TB
@@ -31,33 +31,29 @@ flowchart TB
     E -. "multi-repo" .-> X["xrepo · link<br/>http_call → route"]
   end
 
-  subgraph QUERY["Query phase — POST /engine/query (SSE)"]
+  subgraph QUERY["Agent-QA target — POST /engine/query (SSE)"]
     direction TB
-    Q["User question<br/>(via Node proxy)"] --> H{"hybrid retrieval<br/>(run in parallel)"}
-    H --> SYM["symbol search<br/>graph_nodes / symbol_refs"]
-    H --> KW["keyword search<br/>pg_trgm over content"]
-    H --> VEC["vector search<br/>embed question → pgvector"]
-    SYM --> RRF["merge + re-rank<br/>Reciprocal Rank Fusion"]
-    KW --> RRF
-    VEC --> RRF
-    RRF --> GX["graph expand<br/>(cross-repo neighbors)"]
-    GX --> PRUNE["prune or rerank<br/>(ADR 0021)"]
-    PRUNE --> GATE{"hybrid confidence?<br/>(ADR 0021)"}
-    GATE -- "no" --> AB["abstain<br/>(never guess)"]
-    GATE -- "yes" --> PACK["pack context to window<br/>+ prior turns"]
-    PACK --> LLM["LLM stream (vLLM/Ollama)<br/>answer ONLY from excerpts"]
-    LLM --> SSE["SSE: citations →<br/>tokens → metrics → done"]
+    Q["User question<br/>(via Node proxy)"] --> PLAN["Planner LLM<br/>select retrieval tools"]
+    PLAN --> TOOLS["search_symbols · search_code<br/>search_vectors · search_hybrid<br/>graph_expand · read_symbol · read_chunk"]
+    TOOLS --> POOL["Deduplicated evidence pool<br/>bounded hits + token caps"]
+    POOL --> GATE{"Evidence confidence ≥ 0.8?"}
+    GATE -- "no; iteration < 5" --> PLAN
+    GATE -- "no; iteration = 5" --> AB["abstain<br/>(never guess)"]
+    GATE -- "yes" --> PACK["pack evidence + prior turns<br/>to detected context window"]
+    PACK --> LLM["Final LLM stream<br/>answer ONLY from evidence"]
+    LLM --> SSE["SSE: tool events · citations ·<br/>tokens · metrics · done"]
   end
 
-  V -. "reads" .-> VEC
-  G -. "reads" .-> SYM
-  G -. "reads" .-> GX
+  V -. "reads" .-> TOOLS
+  G -. "reads" .-> TOOLS
 ```
 
-> **Retrieval:** hybrid symbol + keyword (`pg_trgm`) + vector search fused with **intent-aware
-> weighted RRF**, graph expansion, **heuristic prune or optional TEI cross-encoder rerank**, and
-> **hybrid confidence** abstain ([ADR 0020](../../docs/adr/0020-hybrid-retrieval.md),
-> [ADR 0021](../../docs/adr/0021-retrieval-quality-pass.md)).
+> **Status:** this diagram is the proposed architecture in
+> [ADR 0026](../../docs/adr/0026-agent-orchestrated-developer-qa.md). Retrieval tools and
+> `QA_AGENT_*` configuration are implemented; `stream_answer.py` still uses the fixed hybrid
+> pipeline until [agent-QA plan 05](../../docs/plans/agent-qa/05-agent-loop-and-stream-replace.md).
+> The cleanup that removes small-talk, pipeline reranking/pruning, and the old pre-answer gate is
+> [plan 06](../../docs/plans/agent-qa/06-legacy-retrieval-cleanup.md).
 
 ### 1. Indexing — from repo to pgvector
 
@@ -96,54 +92,49 @@ parsers are cached (`functools.lru_cache`).
 ### 3. Query — how an answer is produced
 
 `POST /engine/query` (`api/routes/query.py` → `services/qa/stream_answer.py`) streams the answer as
-Server-Sent Events. Order of operations:
+Server-Sent Events.
 
-1. **Title (optional)** — first message in a conversation emits a `title` chunk.
-2. **Small-talk short-circuit** (`services/router/small_talk.py`) — greetings like "hi"/"thanks"
-   get a friendly reply with **no retrieval** (avoids irrelevant citations).
-3. **Audience gate** (`services/router/classify.py`) — Phase 1 only answers `developer` questions;
-   `end_user` requests `abstain`.
-4. **Retrieval** (`services/retrieval/search.py`) — **hybrid + quality pass**
-   ([ADR 0020](../../docs/adr/0020-hybrid-retrieval.md), [ADR 0021](../../docs/adr/0021-retrieval-quality-pass.md)):
-   - **Intent classification** — `query_intent.py` picks a weight profile (`symbol_lookup`,
-     `conceptual`, `balanced`) from identifier and phrasing heuristics.
-   - **Adaptive top-k** — per-leg candidate counts scale with indexed project size
-     (small/medium/large/xlarge).
-   - **Vector search** — embed the **question**; `similarity_search` runs pgvector cosine distance.
-   - **Keyword / exact search** — `pg_trgm` trigram match over `code_chunks.content`.
-   - **Symbol search** — name lookup over `graph_nodes` joined back via `symbol_refs`.
-   - **Merge + re-rank** — weighted **Reciprocal Rank Fusion (RRF)** by intent profile.
-   - `augment_matches_with_graph` walks `http_call` edges from fused top hits (depth/extra caps;
-     no global disable flag — agent-qa plan 05 moves this to an on-demand tool).
-   - **Prune or rerank** — default: heuristic prune to `RETRIEVAL_CONTEXT_TOP_K` (10). Optional
-     TEI rerank remains in code until agent-qa plan 06 deletes it.
-5. **Confidence gate** (`is_confident_match` + `hybrid_confidence.py`) — composite score
-   (retrieval + graph connectivity + symbol exactness + citation coverage). Abstains when below
-   `RETRIEVAL_MIN_CONFIDENCE` (NFR-7).
-6. **Context packing** (`_pack_context`) — detect the model's context window, trim oldest
-   conversation turns first when needed, then pack as many retrieved excerpts as fit (top hit
-   always kept, truncated if necessary).
-7. **Grounded generation** (`services/llm/vllm_client.py`, `prompts.py`) — build
-   `[system, …history, user(question + code excerpts)]` and stream tokens from the
-   OpenAI-compatible LLM. The system prompt forbids inventing anything not in the excerpts. If no
-   LLM is configured or it errors, a deterministic **excerpt fallback** returns the top snippets.
-8. **SSE frames** — the stream emits `citation` chunks (the exact files/spans used), then `token`
-   chunks (the answer), then a `metrics` chunk (context tokens used vs. window, tokens/sec), then
-   `done`. Node forwards these to the browser and persists the assistant message.
+#### Target agent loop (ADR 0026)
 
-> **So "how does it respond?"** It never answers from the LLM's own memory — it retrieves the
-> most relevant stored code chunks via hybrid symbol + keyword + vector fusion, optionally
-> expands via the symbol graph, and asks the LLM to answer strictly from those excerpts (or
-> abstains). Debugging tip: set `LOG_LEVEL=debug` to see the `QA retrieval` (fused ranks +
-> retriever sources) and `QA prompt` (excerpts + tokens packed) lines for every query.
+1. **Title and audience** — the first request may emit `title`; Phase 1 continues to abstain for
+   `end_user` until product QA is implemented.
+2. **Planner** — an OpenAI-compatible tool-calling LLM chooses one or more retrieval tools. It
+   never receives SQL, embeddings, or pgvector internals.
+3. **Tools** (`services/qa/tools.py`) — bounded wrappers execute symbol, keyword, vector, hybrid,
+   graph, symbol-read, or chunk-read operations. `graph_expand` is always available and is bounded
+   by depth/extra-chunk constants; there is no `RETRIEVAL_GRAPH_ENABLED` toggle.
+4. **Evidence pool** — merge tool hits by chunk id, retain provenance, cap total chunks and excerpt
+   tokens, and emit citations only for evidence actually returned in this request.
+5. **Application-owned confidence** — after every tool round, code runs
+   `compute_hybrid_confidence` over the strongest evidence. The LLM does **not** self-report the
+   score. At confidence **≥0.8**, proceed to generation; otherwise repeat, up to **5 iterations**.
+6. **Abstain** — after iteration 5 below threshold, emit `abstain`; do not ask the model to fill
+   missing facts.
+7. **Grounded generation** — pack only the evidence pool plus trimmed history into the detected
+   model context window. The final model answers only from that evidence.
+8. **SSE** — planned events are `tool_start`, `tool_result`, `citation`, `token`, `metrics`, and
+   terminal `done` / `abstain` / `error`.
+
+Successful traces may be promoted to project-scoped investigation playbooks
+([ADR 0027](../../docs/adr/0027-qa-investigation-playbooks.md)). A playbook is only a retrieval
+hint: every answer must run fresh tools and cite current indexed evidence.
+
+#### Current transition state
+
+- `services/qa/tools.py`, xlarge adaptive top-k, and `QA_AGENT_*` settings exist.
+- `stream_answer.py` still runs the older fixed hybrid pipeline until plan 05.
+- The small-talk bypass, pipeline reranker/prune, `retrieve_code_chunks`, and legacy pre-answer
+  confidence gate remain temporarily and are deleted by plans 05–06.
+- Full sequence: [`docs/plans/agent-qa/`](../../docs/plans/agent-qa/README.md).
 
 ### Data it reads/writes
 
 | Table | Written by | Read by |
 |---|---|---|
 | `code_chunks` (`+ embedding` pgvector, `+ pg_trgm` keyword) | parse (rows), embed (vectors) | hybrid vector + keyword + symbol retrieval |
-| `graph_nodes` / `graph_edges` | parse | symbol search, xrepo linking, query graph expansion |
+| `graph_nodes` / `graph_edges` | parse | symbol search, xrepo linking, agent `graph_expand` tool |
 | `conversations` / `messages` | Node API (chat persistence) | multi-turn history for the prompt |
+| `qa_playbooks` (planned, ADR 0027) | successful agent investigations | similar-question retrieval hints; never answer ground truth |
 | `jobs` | Node (enqueue) + worker | worker claim loop |
 
 ## Configuration
@@ -153,7 +144,7 @@ Copy `.env.example` → `.env` and adjust values. Pydantic Settings reads from t
 Config is split into two homes (see [`.cursor/rules/engine-config.mdc`](../../.cursor/rules/engine-config.mdc)):
 
 - **`.env.example` / `.env`** — environment-specific values (connections, secrets, endpoints, model ids, ports), the cross-service `WORKER_STALE_JOB_SECONDS`, and per-deploy **feature toggles**. These are the only variables listed below.
-- **[`src/config/constants.py`](src/config/constants.py)** — standard tuning defaults (retrieval weights, top-k, timeouts, worker timings, context-window sizing, sync limits). They rarely change per deployment, so they are not in `.env.example`. Each is still a `Settings` field, so you can override any of them via env if needed (e.g. `RETRIEVAL_VECTOR_TOP_K=20`, `RETRIEVAL_MIN_CONFIDENCE=0.55`) — they just aren't documented as env knobs.
+- **[`src/config/constants.py`](src/config/constants.py)** — standard tuning defaults (retrieval weights, top-k, timeouts, worker timings, context-window sizing, sync limits). They rarely change per deployment, so they are not in `.env.example`. Each is still a `Settings` field, so you can override any of them via env if needed (for example, `RETRIEVAL_VECTOR_TOP_K=20`) — they just aren't documented as env knobs.
 
 ### Environment variables (`.env.example`)
 
@@ -225,6 +216,10 @@ Both the embedding and LLM clients speak the OpenAI API, so [Ollama](https://oll
 as a drop-in local backend — no code changes. This is the `.env.example` default. Pull small
 models once, then point both `*_BASE_URL` at Ollama's OpenAI endpoint:
 
+> The target agent loop additionally requires a model/backend combination that supports
+> OpenAI-compatible tool calls. The implementation plan adds a startup capability probe; do not
+> assume every Ollama model supports tools.
+
 ```bash
 ollama pull qwen2.5:7b           # chat model (VLLM_MODEL); lighter option: llama3.2:1b
 ollama pull mxbai-embed-large    # 1024-dim embeddings (TEI_EMBED_MODEL) — matches EMBEDDING_DIMENSION
@@ -245,6 +240,19 @@ INFO   [ENGINE]  LLM backend ready — "qwen2.5:7b" available at localhost
 INFO   [ENGINE]  Embedding backend ready — "mxbai-embed-large" available at localhost
 ```
 
+It also probes **planner tool calling** (`POST {base}/chat/completions` with a minimal
+`tools` schema). Pass → `plannerTools: ok` on `GET /health`; fail → warning +
+`plannerTools: unsupported`. Agent QA (ADR 0026) requires a model that accepts OpenAI-compatible
+tools / function calling.
+
+**Tool-calling models (documented; production ids validated in plans 08/09):**
+
+| Backend | Notes |
+|---|---|
+| Ollama OpenAI shim (`…/v1`) | Prefer models with tool support (e.g. `qwen2.5:*`, `llama3.1:*`, `llama3.2:*`). CI uses mocked HTTP — no live model id is asserted yet. |
+| vLLM OpenAI API | Primary path: `tools` + `tool_choice: auto` on `/chat/completions`. |
+| Ollama native `/api/chat` | Used for thinking models (e.g. Qwen3) so `think: false` is honoured; tools are still sent on that path when configured. |
+
 If a backend is down or a model is not pulled, it logs a **warning** and keeps running on the
 fallbacks (it never exits):
 
@@ -257,16 +265,20 @@ Tune the probe timeout with `STARTUP_PROBE_TIMEOUT_SECONDS` (default `5`).
 
 ### Context window & answer metrics
 
-Grounded answers pack as many retrieved code excerpts as fit the connected model's context
-window instead of a fixed count. The window is auto-detected (vLLM `max_model_len`, then
-Ollama `POST /api/show`), falling back to `LLM_MAX_CONTEXT_TOKENS` when detection is disabled
-or unavailable. `LLM_COMPLETION_RESERVE_TOKENS` is held back for the answer, and excerpt sizes
-are measured with `tiktoken` (`o200k_base` — model-agnostic and approximate, kept safe by the
-reserve). `RETRIEVAL_TOP_K` sets how many candidates are retrieved for the packer to choose from.
+The model context window is auto-detected (vLLM `max_model_len`, then Ollama
+`POST /api/show`), falling back to `LLM_MAX_CONTEXT_TOKENS` when detection is disabled or
+unavailable. `LLM_COMPLETION_RESERVE_TOKENS` is held back for the answer, and text sizes are
+measured with `tiktoken` (`o200k_base` — model-agnostic and approximate, kept safe by the
+reserve).
+
+The current fixed pipeline packs ranked retrieved excerpts. The target agent loop instead
+accumulates a bounded evidence pool across tool rounds, then packs only that pool plus trimmed
+history after the 0.8 confidence gate passes.
 
 On the grounded path the stream emits a `metrics` chunk (before `done`) with the context window
 used vs max, chunks packed, total tokens, and tokens/sec. The chat UI renders these under each
-assistant reply. Small-talk, abstain, and excerpt-fallback paths omit token/speed metrics.
+assistant reply. Agent metrics will additionally include iteration count, evidence confidence,
+and tool-call count. Abstain and excerpt-fallback paths may omit token/speed metrics.
 
 Notes:
 

@@ -13,7 +13,9 @@ from services.health import (
     ProbeStatus,
     check_embedding_backend,
     check_llm_backend,
+    check_planner_tool_support,
     check_reranker_backend,
+    get_planner_tools_health,
     log_model_backend_status,
     probe_openai_backend,
     probe_tei_health,
@@ -163,6 +165,12 @@ def test_log_model_backend_status_ok(
         f"{_MODULE}.httpx.get",
         lambda *a, **k: _models_response(["m-embed", "m-llm"]),
     )
+    post_response = MagicMock()
+    post_response.status_code = 200
+    post_response.json.return_value = {
+        "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+    }
+    monkeypatch.setattr(f"{_MODULE}.httpx.post", lambda *a, **k: post_response)
     settings = Settings(
         tei_base_url="http://localhost:11434/v1",
         tei_embed_model="m-embed",
@@ -175,6 +183,7 @@ def test_log_model_backend_status_ok(
     assert "LLM backend ready" in text
     assert "Embedding backend ready" in text
     assert "Reranker disabled" in text
+    assert "Planner tool calling ready" in text
 
 
 def test_log_model_backend_status_warns_when_unreachable(
@@ -184,6 +193,7 @@ def test_log_model_backend_status_warns_when_unreachable(
         raise httpx.ConnectError("refused")
 
     monkeypatch.setattr(f"{_MODULE}.httpx.get", _raise)
+    monkeypatch.setattr(f"{_MODULE}.httpx.post", _raise)
     settings = Settings(
         tei_base_url="http://localhost:11434/v1",
         tei_embed_model="m-embed",
@@ -195,6 +205,7 @@ def test_log_model_backend_status_warns_when_unreachable(
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert any("LLM backend unreachable" in r.message for r in warnings)
     assert any("Embedding backend unreachable" in r.message for r in warnings)
+    assert any("Planner tool calling unsupported" in r.message for r in warnings)
 
 
 def test_log_fallback_when_unset(
@@ -205,6 +216,7 @@ def test_log_fallback_when_unset(
         log_model_backend_status(settings)
     assert "excerpt fallback" in caplog.text
     assert "deterministic dev embeddings" in caplog.text
+    assert "Planner tool calling skipped" in caplog.text
 
 
 def test_log_warns_on_model_missing(
@@ -236,3 +248,115 @@ def test_log_probe_never_raises(
     with caplog.at_level(logging.WARNING, logger="codesage.indexing"):
         log_model_backend_status(Settings(vllm_base_url="http://x", tei_base_url="http://x"))
     assert "probe skipped due to unexpected error" in caplog.text
+
+
+def test_planner_health_check_skips_when_no_url() -> None:
+    probe = check_planner_tool_support(Settings(vllm_base_url="", vllm_model=""))
+    assert probe.status is ProbeStatus.FALLBACK
+    assert get_planner_tools_health() == "unsupported"
+
+
+def test_planner_health_check_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+    }
+    monkeypatch.setattr(f"{_MODULE}.httpx.post", lambda *a, **k: response)
+    probe = check_planner_tool_support(
+        Settings(vllm_base_url="http://localhost:11434/v1", vllm_model="qwen2.5:7b")
+    )
+    assert probe.status is ProbeStatus.OK
+    assert get_planner_tools_health() == "ok"
+
+
+def test_planner_health_check_unsupported_on_http_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _raise(*_a: object, **_k: object) -> None:
+        raise httpx.ConnectError("refused")
+
+    monkeypatch.setattr(f"{_MODULE}.httpx.post", _raise)
+    probe = check_planner_tool_support(
+        Settings(vllm_base_url="http://localhost:11434/v1", vllm_model="m")
+    )
+    assert probe.status is ProbeStatus.UNREACHABLE
+    assert get_planner_tools_health() == "unsupported"
+
+
+def test_planner_health_check_unsupported_on_bad_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = MagicMock()
+    response.status_code = 400
+    response.json.return_value = {"error": "tools not supported"}
+    monkeypatch.setattr(f"{_MODULE}.httpx.post", lambda *a, **k: response)
+    probe = check_planner_tool_support(
+        Settings(vllm_base_url="http://localhost:11434/v1", vllm_model="m")
+    )
+    assert probe.status is ProbeStatus.UNREACHABLE
+    assert get_planner_tools_health() == "unsupported"
+
+
+def test_planner_health_check_unsupported_on_bad_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = MagicMock()
+    response.status_code = 200
+    response.json.side_effect = ValueError("nope")
+    monkeypatch.setattr(f"{_MODULE}.httpx.post", lambda *a, **k: response)
+    probe = check_planner_tool_support(
+        Settings(vllm_base_url="http://localhost:11434/v1", vllm_model="m")
+    )
+    assert probe.status is ProbeStatus.UNREACHABLE
+
+
+def test_planner_health_check_unsupported_when_message_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"choices": []}
+    monkeypatch.setattr(f"{_MODULE}.httpx.post", lambda *a, **k: response)
+    probe = check_planner_tool_support(
+        Settings(vllm_base_url="http://localhost:11434/v1", vllm_model="m")
+    )
+    assert probe.status is ProbeStatus.UNREACHABLE
+
+
+def test_planner_health_check_unsupported_non_object(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = ["list"]
+    monkeypatch.setattr(f"{_MODULE}.httpx.post", lambda *a, **k: response)
+    probe = check_planner_tool_support(
+        Settings(vllm_base_url="http://localhost:11434/v1", vllm_model="m")
+    )
+    assert probe.status is ProbeStatus.UNREACHABLE
+
+
+def test_log_model_backend_status_includes_planner_probe(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def fake_get(*_a: object, **_k: object) -> MagicMock:
+        return _models_response(["m-embed", "m-llm"])
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+    }
+    monkeypatch.setattr(f"{_MODULE}.httpx.get", fake_get)
+    monkeypatch.setattr(f"{_MODULE}.httpx.post", lambda *a, **k: response)
+    settings = Settings(
+        tei_base_url="http://localhost:11434/v1",
+        tei_embed_model="m-embed",
+        vllm_base_url="http://localhost:11434/v1",
+        vllm_model="m-llm",
+    )
+    with caplog.at_level(logging.INFO, logger="codesage.indexing"):
+        log_model_backend_status(settings)
+    assert "Planner tool calling ready" in caplog.text
+    assert get_planner_tools_health() == "ok"

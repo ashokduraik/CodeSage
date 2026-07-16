@@ -15,7 +15,7 @@ from config.logging import configure_logging, get_indexing_logger, log_event
 from config.service_users import assert_service_users_exist
 from config.startup import StartupConfigurationError, validate_settings, verify_database_connection
 from repositories import create_engine_from_settings, create_session_factory
-from services.health import log_model_backend_status
+from services.health import get_planner_tools_health, log_model_backend_status
 from services.indexing.startup_log import log_startup_queue_state
 from workers.freshness_poller import run_freshness_poll_loop
 from workers.worker import run_worker_loop
@@ -107,10 +107,16 @@ def create_app() -> FastAPI:
 
         Intentionally does not hit the database — probes should stay cheap and must not
         fail when Postgres is momentarily unreachable during a rolling restart.
+        ``plannerTools`` reflects the last startup probe (ok|unsupported), not a live
+        LLM call on each request.
 
-        @returns A small JSON object with service name and ``ok`` status.
+        @returns JSON with service name, ``ok`` status, and planner tool-support flag.
         """
-        return {"status": "ok", "service": "engine"}
+        return {
+            "status": "ok",
+            "service": "engine",
+            "plannerTools": get_planner_tools_health(),
+        }
 
     app.include_router(query_router)
     return app

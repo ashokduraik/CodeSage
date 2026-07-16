@@ -45,6 +45,7 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 - [x] `graph/` — file + symbol node extraction during parse; HTTP/route API signals (Phase 2).
 - [x] `xrepo/` — cross-repo link resolver job (Phase 2).
 - [x] `llm/` — vLLM streaming provider with excerpt fallback when unset.
+- [x] `llm/` — OpenAI tool calling (`complete_with_tools`) + planner health probe (ADR 0026 plan 04).
 - [x] `router/` — Phase 1 code-only path (`developer`; `end_user` abstains).
 - [x] `distill/` — derived knowledge extractors (Phase 4).
 - [ ] `experts/` — expert loop (Phase 5).

@@ -53,6 +53,11 @@ export interface components {
             status: "ok";
             /** @description Name of the reporting service. */
             service: string;
+            /**
+             * @description Whether the configured LLM accepted an OpenAI-compatible tools probe at startup (agent planner). `unsupported` when unset, unreachable, or the model rejected tool schemas.
+             * @enum {string}
+             */
+            plannerTools: "ok" | "unsupported";
         };
         /**
          * @description developer — code-level retrieval over code_chunks (Phase 1). end_user — product KB path (Phase 6; Phase 1 returns abstain).

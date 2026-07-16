@@ -16,11 +16,20 @@ class Status(Enum):
     ok = 'ok'
 
 
+class PlannerTools(Enum):
+    ok = 'ok'
+    unsupported = 'unsupported'
+
+
 class HealthResponse(BaseModel):
     status: Status = Field(
         ..., description='Always "ok" when the service is reachable.'
     )
     service: str = Field(..., description='Name of the reporting service.')
+    plannerTools: PlannerTools = Field(
+        ...,
+        description='Whether the configured LLM accepted an OpenAI-compatible tools probe at startup (agent planner). `unsupported` when unset, unreachable, or the model rejected tool schemas.',
+    )
 
 
 class QueryAudience(Enum):

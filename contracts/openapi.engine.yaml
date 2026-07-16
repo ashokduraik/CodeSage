@@ -66,6 +66,7 @@ components:
       required:
         - status
         - service
+        - plannerTools
       properties:
         status:
           type: string
@@ -74,6 +75,13 @@ components:
         service:
           type: string
           description: Name of the reporting service.
+        plannerTools:
+          type: string
+          enum: ['ok', 'unsupported']
+          description: >-
+            Whether the configured LLM accepted an OpenAI-compatible tools probe
+            at startup (agent planner). `unsupported` when unset, unreachable,
+            or the model rejected tool schemas.
 
     QueryAudience:
       type: string

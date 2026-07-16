@@ -21,6 +21,7 @@ This folder is the single home for all project documentation. Start here.
 | [`plans/phase-1-mvp-code-qa.md`](./plans/phase-1-mvp-code-qa.md) | **Phase 1 plan** — MVP code QA milestones and build order. |
 | [`plans/phase-2-multi-repo.md`](./plans/phase-2-multi-repo.md) | **Phase 2 plan** — multi-repo linking and cross-repo graph resolver. |
 | [`plans/phase-2-e2e.md`](./plans/phase-2-e2e.md) | **Phase 2 E2E** — UI onboarding journey, public/private repo attach, env preflight. |
+| [`plans/agent-qa/`](./plans/agent-qa/README.md) | **Agent-QA plans** — retrieval tools, confidence-gated investigation loop, legacy cleanup, E2E, and learned playbooks. |
 | [`tech-learning-guide.md`](./tech-learning-guide.md) | **Onboarding:** each technology in the stack — what to learn and how CodeSage uses it. |
 | [`adr/`](./adr/README.md) | Architecture Decision Records — one file per locked decision, with context + consequences. |
 
@@ -46,11 +47,11 @@ Each deployable/package documents itself locally. Each folder carries four files
 
 > **Status (implementation):**
 > - **Phase 0 (Foundation)** — monorepo, migrations, auth skeleton, Compose, CI, ≥ 80% tests.
-> - **Phase 1 (MVP code QA)** — sync → parse → embed → developer RAG with citations + abstain; SSE chat proxy; PostgreSQL-persisted conversations + multi-turn history + stop generation; **hybrid retrieval** (symbol + keyword + vector, RRF) per [ADR 0020](./adr/0020-hybrid-retrieval.md); **retrieval quality pass** (dynamic weights, prune, hybrid confidence, optional TEI reranker) per [ADR 0021](./adr/0021-retrieval-quality-pass.md) (M3.2–M3.3 done). **Next:** agent-orchestrated QA — [`plans/agent-qa/`](./plans/agent-qa/README.md) ([ADR 0026](./adr/0026-agent-orchestrated-developer-qa.md), [ADR 0027](./adr/0027-qa-investigation-playbooks.md)).
-> - **Phase 2 (Multi-repo)** — API signal extraction, `xrepo` cross-repo linker, graph-augmented retrieval per [ADR 0023](./adr/0023-cross-repo-linking.md).
+> - **Phase 1 (current code QA)** — fixed hybrid retrieval (symbol + keyword + vector, RRF), citations, confidence abstain, SSE chat proxy, persisted conversations, multi-turn history, and stop generation are implemented ([ADR 0020](./adr/0020-hybrid-retrieval.md), [ADR 0021](./adr/0021-retrieval-quality-pass.md)).
+> - **Agent QA (proposed target; partially implemented)** — the LLM selects bounded retrieval tools; code recomputes evidence confidence after each round; answer at **≥0.8**, otherwise continue for up to **5 iterations** and abstain. Every answer cites fresh evidence. Project-scoped successful investigation paths become optional planner hints, never factual ground truth. Retrieval tools/config exist; loop replacement, cleanup, E2E, and playbooks follow [`plans/agent-qa/`](./plans/agent-qa/README.md) ([ADR 0026](./adr/0026-agent-orchestrated-developer-qa.md), [ADR 0027](./adr/0027-qa-investigation-playbooks.md)).
+> - **Phase 2 (Multi-repo)** — API signal extraction and the `xrepo` cross-repo linker are implemented. The current fixed path expands graph neighbours automatically; the agent target retains those edges behind the on-demand `graph_expand` tool ([ADR 0023](./adr/0023-cross-repo-linking.md), [ADR 0026](./adr/0026-agent-orchestrated-developer-qa.md)).
 > - **Phase 3 (Freshness)** — webhooks ([ADR 0017](./adr/0017-webhook-registration-on-connect.md)) + scheduled poll fallback ([ADR 0024](./adr/0024-freshness-scheduled-poll.md)) → incremental re-index. See [`plans/phase-3-freshness.md`](./plans/phase-3-freshness.md).
 > - **Phases 3–7** — freshness webhooks, distillation, expert loop, end-user QA, hardening (see [`final-solution.md`](./final-solution.md) §12).
-> - **Agent QA (proposed)** — implementation plans in [`plans/agent-qa/`](./plans/agent-qa/README.md) ([ADR 0026](./adr/0026-agent-orchestrated-developer-qa.md), [ADR 0027](./adr/0027-qa-investigation-playbooks.md)).
 >
 > Manual/E2E verification of phase exit criteria may still be open — see each plan's Definition of Done.
 > Quickstart: root [`README.md`](../README.md).
