@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, constr
+from pydantic import BaseModel, Field, RootModel, confloat, conint, constr
 
 
 class Status(Enum):
@@ -89,6 +89,107 @@ class EngineAnswerChunkType(Enum):
     metrics = 'metrics'
     done = 'done'
     error = 'error'
+    tool_start = 'tool_start'
+    tool_result = 'tool_result'
+
+
+class QaToolName(Enum):
+    search_symbols = 'search_symbols'
+    search_code = 'search_code'
+    search_vectors = 'search_vectors'
+    search_hybrid = 'search_hybrid'
+    graph_expand = 'graph_expand'
+    read_symbol = 'read_symbol'
+    read_chunk = 'read_chunk'
+
+
+class QaQualifiedSymbolName(RootModel[constr(min_length=1, max_length=1024)]):
+    root: constr(min_length=1, max_length=1024) = Field(
+        ...,
+        description='Qualified name argument for the `read_symbol` tool (ADR 0026 open question #1). Format: `symbol_name` (project-wide lookup) or `file_path::symbol_name` (file-scoped). Examples: `getMinEmi`, `src/loan.utils.ts::getMinEmi`. When `::` is present the engine splits into file_path + symbol; otherwise it searches symbols project-wide.',
+    )
+
+
+class QaToolEvent(BaseModel):
+    name: QaToolName
+    iteration: conint(ge=1) = Field(
+        ..., description='1-based agent iteration that issued this tool call.'
+    )
+    args: dict[str, Any] | None = Field(
+        None,
+        description='Sanitized tool arguments (no secrets). Typically query strings, node/chunk ids, or a QaQualifiedSymbolName for read_symbol.',
+    )
+    hitCount: conint(ge=0) | None = Field(
+        None, description='Number of hits returned (`tool_result` only).'
+    )
+    truncated: bool | None = Field(
+        None, description='True when results were capped (`tool_result` only).'
+    )
+    durationMs: conint(ge=0) | None = Field(
+        None,
+        description='Tool execution wall time in milliseconds (`tool_result` only).',
+    )
+
+
+class QueryIntentProfile(Enum):
+    symbol_lookup = 'symbol_lookup'
+    conceptual = 'conceptual'
+    balanced = 'balanced'
+
+
+class EvidenceAnchor(BaseModel):
+    filePath: str = Field(..., description='Relative path within the repo.')
+    symbol: str | None = Field(
+        None, description='Optional symbol name associated with the anchor.'
+    )
+    graphNodeId: UUID | None = Field(
+        None,
+        description='Optional graph node id when the hit came from the code graph.',
+    )
+
+
+class ToolCallRecord(BaseModel):
+    tool: QaToolName
+    args: dict[str, Any] | None = Field(
+        None, description='Sanitized args snapshot (no secrets).'
+    )
+    hitCount: conint(ge=0) | None = Field(
+        None, description='Number of hits returned by this call.'
+    )
+    topAnchors: list[EvidenceAnchor] | None = Field(
+        None, description='Highest-ranked evidence anchors from this call.'
+    )
+
+
+class InvestigationIteration(BaseModel):
+    index: conint(ge=1) = Field(..., description='1-based iteration index.')
+    confidenceAfter: confloat(ge=0.0, le=1.0) | None = Field(
+        None,
+        description="Evidence confidence after merging this iteration's tool results.",
+    )
+    toolCalls: list[ToolCallRecord] | None = Field(
+        None, description='Tool calls issued in this iteration.'
+    )
+
+
+class InvestigationTrace(BaseModel):
+    version: conint(ge=1) = Field(..., description='Schema version; start at 1.')
+    agentIterations: conint(ge=0) | None = Field(
+        None, description='Planner loops executed before final answer or abstain.'
+    )
+    finalConfidence: confloat(ge=0.0, le=1.0) | None = Field(
+        None, description='Final evidence confidence score (0–1).'
+    )
+    intentProfile: QueryIntentProfile | None = None
+    terms: list[str] | None = Field(
+        None, description='Search terms extracted once per request.'
+    )
+    iterations: list[InvestigationIteration] | None = Field(
+        None, description='Per-iteration tool calls and confidence snapshots.'
+    )
+    evidenceAnchors: list[EvidenceAnchor] | None = Field(
+        None, description='Deduplicated evidence anchors in the final pool.'
+    )
 
 
 class AnswerMetrics(BaseModel):
@@ -118,6 +219,15 @@ class AnswerMetrics(BaseModel):
         None, description='Wall-clock generation time in milliseconds.'
     )
     model: str | None = Field(None, description='Model name that produced the answer.')
+    agentIterations: conint(ge=0) | None = Field(
+        None, description='Planner loops executed before the final answer.'
+    )
+    evidenceConfidence: confloat(ge=0.0, le=1.0) | None = Field(
+        None, description='Final compute_hybrid_confidence score (0–1).'
+    )
+    toolCallCount: conint(ge=0) | None = Field(
+        None, description='Total tool invocations across all iterations.'
+    )
 
 
 class EngineAnswerChunk(BaseModel):
@@ -132,6 +242,9 @@ class EngineAnswerChunk(BaseModel):
     )
     citation: CodeCitation | None = None
     metrics: AnswerMetrics | None = None
+    tool: QaToolEvent | None = Field(
+        None, description='Present when type is `tool_start` or `tool_result`.'
+    )
 
 
 class Error(BaseModel):

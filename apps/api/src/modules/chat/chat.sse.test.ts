@@ -13,6 +13,31 @@ describe("chat.sse", () => {
     expect(chunk?.content).toBe("hi");
   });
 
+  it("parses tool_start chunks from SSE lines", () => {
+    const chunk = parseChatSseLine(
+      'data: {"type":"tool_start","tool":{"name":"search_hybrid","iteration":1,"args":{"query":"getMinEmi"}}}',
+    );
+    expect(chunk?.type).toBe("tool_start");
+    expect(chunk?.tool?.name).toBe("search_hybrid");
+    expect(chunk?.tool?.iteration).toBe(1);
+  });
+
+  it("parses tool_result chunks without mutating answer content", () => {
+    const acc = createStreamAccumulator();
+    applyChatChunk(acc, {
+      type: "tool_result",
+      tool: {
+        name: "search_symbols",
+        iteration: 1,
+        hitCount: 3,
+        truncated: false,
+        durationMs: 12,
+      },
+    });
+    expect(acc.content).toBe("");
+    expect(acc.completed).toBe(false);
+  });
+
   it("accumulates tokens and citations", () => {
     const acc = createStreamAccumulator();
     applyChatChunk(acc, { type: "token", content: "Hello" });

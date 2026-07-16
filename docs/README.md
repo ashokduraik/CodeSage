@@ -46,10 +46,11 @@ Each deployable/package documents itself locally. Each folder carries four files
 
 > **Status (implementation):**
 > - **Phase 0 (Foundation)** — monorepo, migrations, auth skeleton, Compose, CI, ≥ 80% tests.
-> - **Phase 1 (MVP code QA)** — sync → parse → embed → developer RAG with citations + abstain; SSE chat proxy; PostgreSQL-persisted conversations + multi-turn history + stop generation; **hybrid retrieval** (symbol + keyword + vector, RRF) per [ADR 0020](./adr/0020-hybrid-retrieval.md); **retrieval quality pass** (dynamic weights, prune, hybrid confidence, optional TEI reranker) per [ADR 0021](./adr/0021-retrieval-quality-pass.md) (M3.2–M3.3 done).
+> - **Phase 1 (MVP code QA)** — sync → parse → embed → developer RAG with citations + abstain; SSE chat proxy; PostgreSQL-persisted conversations + multi-turn history + stop generation; **hybrid retrieval** (symbol + keyword + vector, RRF) per [ADR 0020](./adr/0020-hybrid-retrieval.md); **retrieval quality pass** (dynamic weights, prune, hybrid confidence, optional TEI reranker) per [ADR 0021](./adr/0021-retrieval-quality-pass.md) (M3.2–M3.3 done). **Next:** agent-orchestrated QA — [`plans/agent-qa/`](./plans/agent-qa/README.md) ([ADR 0026](./adr/0026-agent-orchestrated-developer-qa.md), [ADR 0027](./adr/0027-qa-investigation-playbooks.md)).
 > - **Phase 2 (Multi-repo)** — API signal extraction, `xrepo` cross-repo linker, graph-augmented retrieval per [ADR 0023](./adr/0023-cross-repo-linking.md).
 > - **Phase 3 (Freshness)** — webhooks ([ADR 0017](./adr/0017-webhook-registration-on-connect.md)) + scheduled poll fallback ([ADR 0024](./adr/0024-freshness-scheduled-poll.md)) → incremental re-index. See [`plans/phase-3-freshness.md`](./plans/phase-3-freshness.md).
 > - **Phases 3–7** — freshness webhooks, distillation, expert loop, end-user QA, hardening (see [`final-solution.md`](./final-solution.md) §12).
+> - **Agent QA (proposed)** — implementation plans in [`plans/agent-qa/`](./plans/agent-qa/README.md) ([ADR 0026](./adr/0026-agent-orchestrated-developer-qa.md), [ADR 0027](./adr/0027-qa-investigation-playbooks.md)).
 >
 > Manual/E2E verification of phase exit criteria may still be open — see each plan's Definition of Done.
 > Quickstart: root [`README.md`](../README.md).

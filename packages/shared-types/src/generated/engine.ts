@@ -32,7 +32,7 @@ export interface paths {
         put?: never;
         /**
          * Stream a grounded code/product answer with citations
-         * @description Accepts a question and streams answer chunks via Server-Sent Events (SSE). Each event is a JSON-encoded EngineAnswerChunk. When retrieval confidence is too low, emits an `abstain` chunk instead of hallucinating (NFR-7).
+         * @description Accepts a question and streams answer chunks via Server-Sent Events (SSE). Each event is a JSON-encoded EngineAnswerChunk. The agent loop may emit `tool_start` / `tool_result` progress events before tokens. When evidence confidence stays below threshold after max iterations, emits an `abstain` chunk instead of hallucinating (NFR-7).
          */
         post: operations["engineQuery"];
         delete?: never;
@@ -111,10 +111,87 @@ export interface components {
             excerpt?: string;
         };
         /**
-         * @description token — streamed answer text fragment. citation — a grounding reference emitted before or during the answer. title — short conversation title derived from the first question. abstain — model could not ground an answer; stream ends. metrics — answer metrics (context window, tokens, tokens/sec) emitted before done. done — successful completion marker. error — transport/runtime failure after the stream started; stream ends.
+         * @description token — streamed answer text fragment. citation — a grounding reference emitted before or during the answer. title — short conversation title derived from the first question. abstain — model could not ground an answer; stream ends. metrics — answer metrics (context window, tokens, tokens/sec) emitted before done. done — successful completion marker. error — transport/runtime failure after the stream started; stream ends. tool_start — planner invoked a retrieval tool (see `tool`). tool_result — tool finished (hit count / truncated; no full excerpts in SSE).
          * @enum {string}
          */
-        EngineAnswerChunkType: "token" | "citation" | "title" | "abstain" | "metrics" | "done" | "error";
+        EngineAnswerChunkType: "token" | "citation" | "title" | "abstain" | "metrics" | "done" | "error" | "tool_start" | "tool_result";
+        /**
+         * @description Retrieval tool identifiers for the agent-orchestrated developer QA loop (ADR 0026). Not HTTP endpoints — planner function-calling names only.
+         * @enum {string}
+         */
+        QaToolName: "search_symbols" | "search_code" | "search_vectors" | "search_hybrid" | "graph_expand" | "read_symbol" | "read_chunk";
+        /** @description Qualified name argument for the `read_symbol` tool (ADR 0026 open question #1). Format: `symbol_name` (project-wide lookup) or `file_path::symbol_name` (file-scoped). Examples: `getMinEmi`, `src/loan.utils.ts::getMinEmi`. When `::` is present the engine splits into file_path + symbol; otherwise it searches symbols project-wide. */
+        QaQualifiedSymbolName: string;
+        /** @description Progress payload for `tool_start` / `tool_result` SSE chunks. Excerpts are never included — only tool identity, sanitized args, and result counts. */
+        QaToolEvent: {
+            name: components["schemas"]["QaToolName"];
+            /** @description 1-based agent iteration that issued this tool call. */
+            iteration: number;
+            /** @description Sanitized tool arguments (no secrets). Typically query strings, node/chunk ids, or a QaQualifiedSymbolName for read_symbol. */
+            args?: {
+                [key: string]: unknown;
+            };
+            /** @description Number of hits returned (`tool_result` only). */
+            hitCount?: number;
+            /** @description True when results were capped (`tool_result` only). */
+            truncated?: boolean;
+            /** @description Tool execution wall time in milliseconds (`tool_result` only). */
+            durationMs?: number;
+        };
+        /**
+         * @description Query intent classification used for hybrid confidence weighting.
+         * @enum {string}
+         */
+        QueryIntentProfile: "symbol_lookup" | "conceptual" | "balanced";
+        /** @description Lightweight citation anchor recorded in an investigation trace. */
+        EvidenceAnchor: {
+            /** @description Relative path within the repo. */
+            filePath: string;
+            /** @description Optional symbol name associated with the anchor. */
+            symbol?: string;
+            /**
+             * Format: uuid
+             * @description Optional graph node id when the hit came from the code graph.
+             */
+            graphNodeId?: string;
+        };
+        /** @description One tool invocation within an investigation iteration. */
+        ToolCallRecord: {
+            tool: components["schemas"]["QaToolName"];
+            /** @description Sanitized args snapshot (no secrets). */
+            args?: {
+                [key: string]: unknown;
+            };
+            /** @description Number of hits returned by this call. */
+            hitCount?: number;
+            /** @description Highest-ranked evidence anchors from this call. */
+            topAnchors?: components["schemas"]["EvidenceAnchor"][];
+        };
+        /** @description One planner iteration of the agent evidence loop. */
+        InvestigationIteration: {
+            /** @description 1-based iteration index. */
+            index: number;
+            /** @description Evidence confidence after merging this iteration's tool results. */
+            confidenceAfter?: number;
+            /** @description Tool calls issued in this iteration. */
+            toolCalls?: components["schemas"]["ToolCallRecord"][];
+        };
+        /** @description Persisted investigation trace for an assistant message (ADR 0026 / 0027). Stored on `messages.investigation_trace` (JSONB; migration in plan 10). */
+        InvestigationTrace: {
+            /** @description Schema version; start at 1. */
+            version: number;
+            /** @description Planner loops executed before final answer or abstain. */
+            agentIterations?: number;
+            /** @description Final evidence confidence score (0–1). */
+            finalConfidence?: number;
+            intentProfile?: components["schemas"]["QueryIntentProfile"];
+            /** @description Search terms extracted once per request. */
+            terms?: string[];
+            /** @description Per-iteration tool calls and confidence snapshots. */
+            iterations?: components["schemas"]["InvestigationIteration"][];
+            /** @description Deduplicated evidence anchors in the final pool. */
+            evidenceAnchors?: components["schemas"]["EvidenceAnchor"][];
+        };
         /** @description Per-answer metrics for display in the chat UI. Emitted only on the grounded LLM path; token/timing fields are absent when the backend does not report usage. */
         AnswerMetrics: {
             /** @description Number of code excerpts packed into the LLM prompt. */
@@ -135,6 +212,12 @@ export interface components {
             elapsedMs?: number;
             /** @description Model name that produced the answer. */
             model?: string;
+            /** @description Planner loops executed before the final answer. */
+            agentIterations?: number;
+            /** @description Final compute_hybrid_confidence score (0–1). */
+            evidenceConfidence?: number;
+            /** @description Total tool invocations across all iterations. */
+            toolCallCount?: number;
         };
         EngineAnswerChunk: {
             type: components["schemas"]["EngineAnswerChunkType"];
@@ -144,6 +227,8 @@ export interface components {
             code?: string;
             citation?: components["schemas"]["CodeCitation"];
             metrics?: components["schemas"]["AnswerMetrics"];
+            /** @description Present when type is `tool_start` or `tool_result`. */
+            tool?: components["schemas"]["QaToolEvent"];
         };
         EngineErrorResponse: {
             error: {

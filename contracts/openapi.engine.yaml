@@ -27,8 +27,10 @@ paths:
       summary: Stream a grounded code/product answer with citations
       description: >-
         Accepts a question and streams answer chunks via Server-Sent Events (SSE).
-        Each event is a JSON-encoded EngineAnswerChunk. When retrieval confidence is
-        too low, emits an `abstain` chunk instead of hallucinating (NFR-7).
+        Each event is a JSON-encoded EngineAnswerChunk. The agent loop may emit
+        `tool_start` / `tool_result` progress events before tokens. When evidence
+        confidence stays below threshold after max iterations, emits an `abstain`
+        chunk instead of hallucinating (NFR-7).
       requestBody:
         required: true
         content:
@@ -182,6 +184,8 @@ components:
         - metrics
         - done
         - error
+        - tool_start
+        - tool_result
       description: >-
         token — streamed answer text fragment.
         citation — a grounding reference emitted before or during the answer.
@@ -190,6 +194,173 @@ components:
         metrics — answer metrics (context window, tokens, tokens/sec) emitted before done.
         done — successful completion marker.
         error — transport/runtime failure after the stream started; stream ends.
+        tool_start — planner invoked a retrieval tool (see `tool`).
+        tool_result — tool finished (hit count / truncated; no full excerpts in SSE).
+
+    QaToolName:
+      type: string
+      enum:
+        - search_symbols
+        - search_code
+        - search_vectors
+        - search_hybrid
+        - graph_expand
+        - read_symbol
+        - read_chunk
+      description: >-
+        Retrieval tool identifiers for the agent-orchestrated developer QA loop
+        (ADR 0026). Not HTTP endpoints — planner function-calling names only.
+
+    QaQualifiedSymbolName:
+      type: string
+      minLength: 1
+      maxLength: 1024
+      description: >-
+        Qualified name argument for the `read_symbol` tool (ADR 0026 open question #1).
+        Format: `symbol_name` (project-wide lookup) or `file_path::symbol_name`
+        (file-scoped). Examples: `getMinEmi`, `src/loan.utils.ts::getMinEmi`.
+        When `::` is present the engine splits into file_path + symbol; otherwise
+        it searches symbols project-wide.
+
+    QaToolEvent:
+      type: object
+      required:
+        - name
+        - iteration
+      description: >-
+        Progress payload for `tool_start` / `tool_result` SSE chunks. Excerpts are
+        never included — only tool identity, sanitized args, and result counts.
+      properties:
+        name:
+          $ref: '#/components/schemas/QaToolName'
+        iteration:
+          type: integer
+          minimum: 1
+          description: 1-based agent iteration that issued this tool call.
+        args:
+          type: object
+          additionalProperties: true
+          description: >-
+            Sanitized tool arguments (no secrets). Typically query strings,
+            node/chunk ids, or a QaQualifiedSymbolName for read_symbol.
+        hitCount:
+          type: integer
+          minimum: 0
+          description: Number of hits returned (`tool_result` only).
+        truncated:
+          type: boolean
+          description: True when results were capped (`tool_result` only).
+        durationMs:
+          type: integer
+          minimum: 0
+          description: Tool execution wall time in milliseconds (`tool_result` only).
+
+    QueryIntentProfile:
+      type: string
+      enum:
+        - symbol_lookup
+        - conceptual
+        - balanced
+      description: Query intent classification used for hybrid confidence weighting.
+
+    EvidenceAnchor:
+      type: object
+      required:
+        - filePath
+      description: Lightweight citation anchor recorded in an investigation trace.
+      properties:
+        filePath:
+          type: string
+          description: Relative path within the repo.
+        symbol:
+          type: string
+          description: Optional symbol name associated with the anchor.
+        graphNodeId:
+          type: string
+          format: uuid
+          description: Optional graph node id when the hit came from the code graph.
+
+    ToolCallRecord:
+      type: object
+      required:
+        - tool
+      description: One tool invocation within an investigation iteration.
+      properties:
+        tool:
+          $ref: '#/components/schemas/QaToolName'
+        args:
+          type: object
+          additionalProperties: true
+          description: Sanitized args snapshot (no secrets).
+        hitCount:
+          type: integer
+          minimum: 0
+          description: Number of hits returned by this call.
+        topAnchors:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceAnchor'
+          description: Highest-ranked evidence anchors from this call.
+
+    InvestigationIteration:
+      type: object
+      required:
+        - index
+      description: One planner iteration of the agent evidence loop.
+      properties:
+        index:
+          type: integer
+          minimum: 1
+          description: 1-based iteration index.
+        confidenceAfter:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Evidence confidence after merging this iteration's tool results.
+        toolCalls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCallRecord'
+          description: Tool calls issued in this iteration.
+
+    InvestigationTrace:
+      type: object
+      required:
+        - version
+      description: >-
+        Persisted investigation trace for an assistant message (ADR 0026 / 0027).
+        Stored on `messages.investigation_trace` (JSONB; migration in plan 10).
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: Schema version; start at 1.
+        agentIterations:
+          type: integer
+          minimum: 0
+          description: Planner loops executed before final answer or abstain.
+        finalConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Final evidence confidence score (0–1).
+        intentProfile:
+          $ref: '#/components/schemas/QueryIntentProfile'
+        terms:
+          type: array
+          items:
+            type: string
+          description: Search terms extracted once per request.
+        iterations:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvestigationIteration'
+          description: Per-iteration tool calls and confidence snapshots.
+        evidenceAnchors:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceAnchor'
+          description: Deduplicated evidence anchors in the final pool.
 
     AnswerMetrics:
       type: object
@@ -226,6 +397,19 @@ components:
         model:
           type: string
           description: Model name that produced the answer.
+        agentIterations:
+          type: integer
+          minimum: 0
+          description: Planner loops executed before the final answer.
+        evidenceConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Final compute_hybrid_confidence score (0–1).
+        toolCallCount:
+          type: integer
+          minimum: 0
+          description: Total tool invocations across all iterations.
 
     EngineAnswerChunk:
       type: object
@@ -246,6 +430,9 @@ components:
           $ref: '#/components/schemas/CodeCitation'
         metrics:
           $ref: '#/components/schemas/AnswerMetrics'
+        tool:
+          $ref: '#/components/schemas/QaToolEvent'
+          description: Present when type is `tool_start` or `tool_result`.
 
     EngineErrorResponse:
       type: object

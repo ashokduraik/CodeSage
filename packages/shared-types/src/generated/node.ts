@@ -318,7 +318,7 @@ export interface paths {
         put?: never;
         /**
          * Stream a grounded code answer with citations (proxied to RAG service)
-         * @description Accepts a question in an existing conversation and streams answer chunks via Server-Sent Events. Each event is a JSON-encoded ChatAnswerChunk. The server persists user and assistant messages and builds multi-turn history from the DB. Proxies to apps/engine POST /engine/query without blocking the Node event loop.
+         * @description Accepts a question in an existing conversation and streams answer chunks via Server-Sent Events. Each event is a JSON-encoded ChatAnswerChunk. The stream may include `tool_start` / `tool_result` agent progress events; clients may ignore them. The server persists user and assistant messages and builds multi-turn history from the DB. Proxies to apps/engine POST /engine/query without blocking the Node event loop.
          */
         post: operations["chatQuery"];
         delete?: never;
@@ -916,10 +916,31 @@ export interface components {
             excerpt?: string;
         };
         /**
-         * @description Same SSE chunk discriminators as the engine query stream.
+         * @description Same SSE chunk discriminators as the engine query stream (including agent tool progress events). Clients may ignore `tool_start` / `tool_result`.
          * @enum {string}
          */
-        ChatAnswerChunkType: "token" | "citation" | "title" | "abstain" | "metrics" | "done" | "error";
+        ChatAnswerChunkType: "token" | "citation" | "title" | "abstain" | "metrics" | "done" | "error" | "tool_start" | "tool_result";
+        /**
+         * @description Retrieval tool identifiers mirrored from the engine agent QA contract.
+         * @enum {string}
+         */
+        QaToolName: "search_symbols" | "search_code" | "search_vectors" | "search_hybrid" | "graph_expand" | "read_symbol" | "read_chunk";
+        /** @description Progress payload for `tool_start` / `tool_result` SSE chunks. Excerpts are never included — only tool identity, sanitized args, and result counts. */
+        QaToolEvent: {
+            name: components["schemas"]["QaToolName"];
+            /** @description 1-based agent iteration that issued this tool call. */
+            iteration: number;
+            /** @description Sanitized tool arguments (no secrets). */
+            args?: {
+                [key: string]: unknown;
+            };
+            /** @description Number of hits returned (`tool_result` only). */
+            hitCount?: number;
+            /** @description True when results were capped (`tool_result` only). */
+            truncated?: boolean;
+            /** @description Tool execution wall time in milliseconds (`tool_result` only). */
+            durationMs?: number;
+        };
         /** @description Per-answer metrics for display in the chat UI. Emitted only on the grounded LLM path; token/timing fields are absent when the backend does not report usage. */
         AnswerMetrics: {
             contextChunks: number;
@@ -931,6 +952,12 @@ export interface components {
             tokensPerSecond?: number;
             elapsedMs?: number;
             model?: string;
+            /** @description Planner loops executed before the final answer. */
+            agentIterations?: number;
+            /** @description Final evidence confidence score (0–1). */
+            evidenceConfidence?: number;
+            /** @description Total tool invocations across all iterations. */
+            toolCallCount?: number;
         };
         ChatAnswerChunk: {
             type: components["schemas"]["ChatAnswerChunkType"];
@@ -940,6 +967,8 @@ export interface components {
             code?: string;
             citation?: components["schemas"]["CodeCitation"];
             metrics?: components["schemas"]["AnswerMetrics"];
+            /** @description Present when type is `tool_start` or `tool_result`. */
+            tool?: components["schemas"]["QaToolEvent"];
         };
     };
     responses: never;

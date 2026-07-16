@@ -10,8 +10,8 @@ drift** (ADR 0001). It is defined **once** here and types are **generated**, nev
 
 | File | Defines | Generated into |
 |---|---|---|
-| `openapi.node.yaml` | Public Node REST/WS API (browser ↔ Node). | `packages/shared-types` (TS) |
-| `openapi.engine.yaml` | Internal Python RAG API (Node ↔ RAG service). | `apps/engine` (Pydantic) + `shared-types` if used in TS |
+| `openapi.node.yaml` | Public Node REST/WS API (browser ↔ Node). Includes chat SSE chunk types mirrored from the engine (`tool_start` / `tool_result`, extended `AnswerMetrics`). | `packages/shared-types` (TS) |
+| `openapi.engine.yaml` | Internal Python RAG API (Node ↔ RAG service). Agent QA SSE (`tool_*`), `QaToolEvent`, `InvestigationTrace`, and `read_symbol` qualified-name docs. | `apps/engine` (Pydantic) + `shared-types` if used in TS |
 | `jobs.schema.json` | Job-queue payloads (Node enqueues → Python consumes). | both TS + Pydantic |
 
 ## The workflow (mandatory)

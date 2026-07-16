@@ -696,9 +696,11 @@ paths:
       summary: Stream a grounded code answer with citations (proxied to RAG service)
       description: >-
         Accepts a question in an existing conversation and streams answer chunks via
-        Server-Sent Events. Each event is a JSON-encoded ChatAnswerChunk. The server
-        persists user and assistant messages and builds multi-turn history from the DB.
-        Proxies to apps/engine POST /engine/query without blocking the Node event loop.
+        Server-Sent Events. Each event is a JSON-encoded ChatAnswerChunk. The stream
+        may include `tool_start` / `tool_result` agent progress events; clients may
+        ignore them. The server persists user and assistant messages and builds
+        multi-turn history from the DB. Proxies to apps/engine POST /engine/query
+        without blocking the Node event loop.
       security:
         - bearerAuth: []
       requestBody:
@@ -1836,7 +1838,54 @@ components:
         - metrics
         - done
         - error
-      description: Same SSE chunk discriminators as the engine query stream.
+        - tool_start
+        - tool_result
+      description: >-
+        Same SSE chunk discriminators as the engine query stream (including agent
+        tool progress events). Clients may ignore `tool_start` / `tool_result`.
+
+    QaToolName:
+      type: string
+      enum:
+        - search_symbols
+        - search_code
+        - search_vectors
+        - search_hybrid
+        - graph_expand
+        - read_symbol
+        - read_chunk
+      description: Retrieval tool identifiers mirrored from the engine agent QA contract.
+
+    QaToolEvent:
+      type: object
+      required:
+        - name
+        - iteration
+      description: >-
+        Progress payload for `tool_start` / `tool_result` SSE chunks. Excerpts are
+        never included — only tool identity, sanitized args, and result counts.
+      properties:
+        name:
+          $ref: '#/components/schemas/QaToolName'
+        iteration:
+          type: integer
+          minimum: 1
+          description: 1-based agent iteration that issued this tool call.
+        args:
+          type: object
+          additionalProperties: true
+          description: Sanitized tool arguments (no secrets).
+        hitCount:
+          type: integer
+          minimum: 0
+          description: Number of hits returned (`tool_result` only).
+        truncated:
+          type: boolean
+          description: True when results were capped (`tool_result` only).
+        durationMs:
+          type: integer
+          minimum: 0
+          description: Tool execution wall time in milliseconds (`tool_result` only).
 
     AnswerMetrics:
       type: object
@@ -1864,6 +1913,19 @@ components:
           type: integer
         model:
           type: string
+        agentIterations:
+          type: integer
+          minimum: 0
+          description: Planner loops executed before the final answer.
+        evidenceConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Final evidence confidence score (0–1).
+        toolCallCount:
+          type: integer
+          minimum: 0
+          description: Total tool invocations across all iterations.
 
     ChatAnswerChunk:
       type: object
@@ -1886,3 +1948,6 @@ components:
           $ref: '#/components/schemas/CodeCitation'
         metrics:
           $ref: '#/components/schemas/AnswerMetrics'
+        tool:
+          $ref: '#/components/schemas/QaToolEvent'
+          description: Present when type is `tool_start` or `tool_result`.

@@ -6,9 +6,10 @@
 Individual turns within a `conversations` row: user prompts and assistant replies stored in order.
 Assistant messages attach grounded citations (code chunks) in `citations` JSONB so the UI can show
 “why” alongside each answer. When grounding is insufficient, the pipeline may emit an uncertainty
-response (`needs_review`) instead of inventing detail. A `stopped` assistant message records a
-user-initiated abort mid-stream (partial content is kept). Messages are append-only within a
-conversation for a clear audit trail.
+response (`needs_review`) instead of inventing detail. Assistant rows may later store an
+`investigation_trace` JSONB (agent tool loop; contract schema exists; DB column in plan 10). A
+`stopped` assistant message records a user-initiated abort mid-stream (partial content is kept).
+Messages are append-only within a conversation for a clear audit trail.
 
 ## Columns
 
@@ -20,6 +21,7 @@ conversation for a clear audit trail.
 | `content` | `text` | NO | — | Message body |
 | `citations` | `jsonb` | YES | — | `CodeCitation[]` for assistant answers |
 | `metrics` | `jsonb` | YES | — | `AnswerMetrics` from the RAG stream |
+| `investigation_trace` | `jsonb` | YES | — | `InvestigationTrace` (agent tool loop; schema in `contracts/openapi.engine.yaml`). **Column not yet migrated** — added in agent-qa plan 10 |
 | `needs_review` | `boolean` | NO | `false` | True when the answer abstained or needs expert review |
 | `stopped` | `boolean` | NO | `false` | True when the user stopped generation before completion |
 | `created_at` | `timestamptz` | NO | `now()` | Message time (UTC) |
