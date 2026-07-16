@@ -15,6 +15,11 @@ export interface StreamAccumulator {
   completed: boolean;
   /** Set when an `error` chunk arrived (terminal transport/runtime failure). */
   streamError?: { code: string; message: string };
+  /**
+   * Optional investigation trace from the agent loop.
+   * Populated when the engine sends a trace (plan 10 persists to `messages.investigation_trace`).
+   */
+  investigationTrace?: unknown;
 }
 
 /**
@@ -53,6 +58,10 @@ export function formatSseErrorEvent(code: string, content: string): string {
  * @param chunk - Parsed SSE chunk from the RAG stream.
  */
 export function applyChatChunk(acc: StreamAccumulator, chunk: ChatAnswerChunk): void {
+  // Agent progress events — proxy through to clients; do not mutate answer content/citations.
+  if (chunk.type === "tool_start" || chunk.type === "tool_result") {
+    return;
+  }
   if (chunk.type === "title" && chunk.content) {
     acc.title = chunk.content;
   }
@@ -69,6 +78,7 @@ export function applyChatChunk(acc: StreamAccumulator, chunk: ChatAnswerChunk): 
     acc.completed = true;
   }
   if (chunk.type === "metrics" && chunk.metrics) {
+    // Pass through all metric fields (including agentIterations / evidenceConfidence / toolCallCount).
     acc.metrics = chunk.metrics;
   }
   if (chunk.type === "done") {

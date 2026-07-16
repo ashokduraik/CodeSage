@@ -95,10 +95,10 @@ npm run test -w @codesage/web -- chatClient
 
 ## Definition of Done
 
-- [ ] Node parses `tool_start` / `tool_result` without error
-- [ ] Web chatClient tolerates tool chunks
-- [ ] Unit tests added/updated
-- [ ] Chat E2E not required yet
+- [x] Node parses `tool_start` / `tool_result` without error
+- [x] Web chatClient tolerates tool chunks
+- [x] Unit tests added/updated
+- [x] Chat E2E not required yet
 
 ---
 

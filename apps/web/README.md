@@ -17,6 +17,8 @@ expert question queue, and the workflow/page explorer.
   auto-detected; webhooks register on connect when configured.
 - **QA chat** (dev + end-user) — SSE streaming via Node `/chat/query`, **PostgreSQL-persisted**
   conversations (`/conversations` APIs), render **citations**, stop generation, context window meter.
+  Agent `tool_start` / `tool_result` chunks are tolerated by `chatClient` (ignored for display in v1;
+  optional `onToolEvent` stub for debug).
 - **Expert question queue** — list clarifying questions and submit authoritative answers.
 - **Workflow / page / permission explorer** — browse derived knowledge with confidence + sources.
 

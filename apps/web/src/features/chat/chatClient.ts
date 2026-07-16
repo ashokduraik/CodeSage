@@ -26,12 +26,19 @@ function resolveApiUrl(path: string): string {
   return new URL(`${base}${suffix}`, origin).href;
 }
 
+type QaToolEvent = NodeApi.components["schemas"]["QaToolEvent"];
+
 /** Options for {@link streamChatQuery}. */
 export interface StreamChatQueryOptions {
   /** Optional abort signal for stop-generation. */
   signal?: AbortSignal;
   /** Invoked for each streamed text fragment. */
   onToken?: (token: string) => void;
+  /**
+   * Optional hook for agent `tool_start` / `tool_result` progress events.
+   * v1 UI ignores these; the callback is a stub for debug / future tooling UI.
+   */
+  onToolEvent?: (type: "tool_start" | "tool_result", tool: QaToolEvent) => void;
 }
 
 /** Parsed result of a completed or aborted chat stream. */
@@ -204,6 +211,13 @@ export async function streamChatQuery(
       for (const line of lines) {
         const chunk = parseChatSseLine(line);
         if (!chunk) {
+          continue;
+        }
+        // Agent progress — no UI in v1; optional stub callback only.
+        if (chunk.type === "tool_start" || chunk.type === "tool_result") {
+          if (chunk.tool) {
+            options.onToolEvent?.(chunk.type, chunk.tool);
+          }
           continue;
         }
         if (chunk.type === "title" && chunk.content) {

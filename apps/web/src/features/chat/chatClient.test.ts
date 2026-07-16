@@ -82,6 +82,50 @@ describe("streamChatQuery", () => {
     expect(result.aborted).toBe(false);
   });
 
+  it("ignores tool_start and tool_result while still aggregating tokens and citations", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"tool_start","tool":{"name":"search_hybrid","iteration":1,"args":{"query":"auth"}}}\n\n' +
+              'data: {"type":"tool_result","tool":{"name":"search_hybrid","iteration":1,"hitCount":2,"truncated":false,"durationMs":40}}\n\n' +
+              'data: {"type":"citation","citation":{"kind":"code","repoId":"r1","filePath":"src/auth.ts"}}\n\n' +
+              'data: {"type":"token","content":"Auth lives in "}\n\n' +
+              'data: {"type":"token","content":"src/auth.ts"}\n\n' +
+              'data: {"type":"done"}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+
+    const onToolEvent = vi.fn();
+    const result = await streamChatQuery(
+      {
+        conversationId: "11111111-1111-1111-1111-111111111111",
+        question: "where is auth?",
+      },
+      { onToolEvent },
+    );
+
+    expect(result.content).toBe("Auth lives in src/auth.ts");
+    expect(result.sources).toEqual(["src/auth.ts"]);
+    expect(result.needsReview).toBe(false);
+    expect(onToolEvent).toHaveBeenCalledTimes(2);
+    expect(onToolEvent).toHaveBeenNthCalledWith(
+      1,
+      "tool_start",
+      expect.objectContaining({ name: "search_hybrid", iteration: 1 }),
+    );
+    expect(onToolEvent).toHaveBeenNthCalledWith(
+      2,
+      "tool_result",
+      expect.objectContaining({ name: "search_hybrid", hitCount: 2 }),
+    );
+  });
+
   it("throws ApiClientError with parsed code and message on non-OK status", async () => {
     vi.stubGlobal(
       "fetch",
