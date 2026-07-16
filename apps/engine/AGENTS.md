@@ -27,6 +27,9 @@ src/config/                → settings, env
   control flow. See `.cursor/rules/python-docstrings-rag.mdc`.
 - Keep **routes thin** in `src/api/`; **job handlers thin** in `src/workers/`.
 - Put **all business logic** in `src/services/` (`sync`, `parse`, `embed`, `xrepo`, `retrieval`, `qa`, …).
+- **Agent QA retrieval tools** live in one module: `src/services/qa/tools.py` (not
+  `services/retrieval/tools.py` and not a `tools/` package). They wrap repositories; the
+  planner gets `TOOL_DEFINITIONS` / `execute_tool` only.
 - Use **repositories** for DB access; **models** for ORM shapes only.
 - **Stream** QA answers with **citations**; implement abstain path (NFR-7).
 - Register FastAPI **global exception handlers** (`api/error_handlers.py`) so unhandled

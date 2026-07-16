@@ -185,6 +185,21 @@ Wired into `Settings` now; the agent loop (plan 05) will consume them. Graph exp
 available as a retrieval **tool** — there is no `RETRIEVAL_GRAPH_ENABLED` kill-switch; only
 `RETRIEVAL_GRAPH_MAX_DEPTH` / `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS` cap walks.
 
+#### QA retrieval tools (`services/qa/tools.py`)
+
+Planner-facing wrappers over existing repositories (not wired into `stream_answer` yet — plan 05).
+Call `execute_tool(...)` or pass `tool_definitions_for_planner()` to the LLM tools parameter.
+
+| Tool | Backend |
+|---|---|
+| `search_symbols` | `repositories.symbols.symbol_search` |
+| `search_code` | `repositories.keyword.keyword_search` + `extract_search_terms` |
+| `search_vectors` | `EmbeddingClient` + `repositories.vector.similarity_search` |
+| `search_hybrid` | Three legs + intent-aware RRF (no graph/rerank/prune) |
+| `graph_expand` | `expand_graph_neighbors` → overlapping chunks |
+| `read_symbol` | `qualified_name` (`symbol` or `path::symbol`) → graph node → chunk |
+| `read_chunk` | `CodeChunkRepository.get_by_id` (project + active guard) |
+
 | Constant | Default | Purpose |
 |---|---|---|
 | `QA_AGENT_MAX_ITERATIONS` | `5` | Max planner loops per question |
