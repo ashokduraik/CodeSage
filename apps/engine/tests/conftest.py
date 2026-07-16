@@ -13,7 +13,14 @@ from api.main import create_app
 
 @pytest.fixture
 def engine_client() -> Iterator[TestClient]:
-    """Yield a TestClient with startup DB checks and the worker loop stubbed."""
+    """Yield a TestClient with external startup side effects stubbed.
+
+    Route tests exercise HTTP behavior, while dedicated service tests cover backend probes,
+    queue startup logging, and background loops. Stubbing those operations prevents every
+    function-scoped client from waiting on configured model endpoints.
+
+    @yields A FastAPI test client isolated from databases, model servers, and worker threads.
+    """
     engine = MagicMock()
     session = MagicMock()
     session_cm = MagicMock()
@@ -28,6 +35,9 @@ def engine_client() -> Iterator[TestClient]:
         patch("api.main.create_session_factory", return_value=session_factory),
         patch("api.main.assert_service_users_exist"),
         patch("api.main.run_worker_loop"),
+        patch("api.main.run_freshness_poll_loop"),
+        patch("api.main.log_startup_queue_state"),
+        patch("api.main.log_model_backend_status"),
     ):
         with TestClient(create_app()) as client:
             yield client

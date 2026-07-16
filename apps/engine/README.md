@@ -474,7 +474,9 @@ tests/
 ```
 
 Tests exercise the **public surface** of each layer; they do not require GPU, vLLM, TEI, or a
-live database for unit tests (mocks and SQLite/in-memory patterns where applicable).
+live database for unit tests (mocks and SQLite/in-memory patterns where applicable). FastAPI route
+fixtures stub startup model probes and background loops; those behaviors have dedicated tests and
+must not make each `TestClient` contact configured services.
 
 Phase plans: [`../../docs/plans/phase-1-mvp-code-qa.md`](../../docs/plans/phase-1-mvp-code-qa.md) ·
 [`../../docs/plans/phase-2-multi-repo.md`](../../docs/plans/phase-2-multi-repo.md).

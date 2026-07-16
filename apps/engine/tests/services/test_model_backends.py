@@ -205,6 +205,9 @@ def test_log_warns_on_model_missing(
     monkeypatch.setattr(
         f"{_MODULE}.httpx.get", lambda *a, **k: _models_response(["other"])
     )
+    planner_response = MagicMock()
+    planner_response.status_code = 400
+    monkeypatch.setattr(f"{_MODULE}.httpx.post", lambda *a, **k: planner_response)
     settings = Settings(
         tei_base_url="http://localhost:11434/v1",
         tei_embed_model="mxbai-embed-large",

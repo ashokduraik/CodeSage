@@ -104,6 +104,9 @@ def test_unhandled_route_error_returns_engine_error_response() -> None:
         patch("api.main.create_session_factory", return_value=session_factory),
         patch("api.main.assert_service_users_exist"),
         patch("api.main.run_worker_loop"),
+        patch("api.main.run_freshness_poll_loop"),
+        patch("api.main.log_startup_queue_state"),
+        patch("api.main.log_model_backend_status"),
     ):
         app = create_app()
 
