@@ -39,7 +39,6 @@ RETRIEVAL_TOP_K = 20  # legacy fallback for vector top-k when RETRIEVAL_VECTOR_T
 RETRIEVAL_VECTOR_TOP_K = 12  # ceiling for vector leg top-k (adaptive tier may use less)
 RETRIEVAL_KEYWORD_TOP_K = 12  # ceiling for keyword leg top-k
 RETRIEVAL_SYMBOL_TOP_K = 12  # ceiling for symbol leg top-k
-RETRIEVAL_FUSED_TOP_K = 20  # max fused hits passed to graph expansion
 RETRIEVAL_RRF_K = 60  # RRF smoothing constant
 RETRIEVAL_VECTOR_WEIGHT = 1.0  # balanced-profile RRF weight for vector leg
 RETRIEVAL_KEYWORD_WEIGHT = 2.0  # balanced-profile RRF weight for keyword leg
@@ -47,9 +46,6 @@ RETRIEVAL_SYMBOL_WEIGHT = 3.0  # balanced-profile RRF weight for symbol leg
 RETRIEVAL_KEYWORD_MIN_SIMILARITY = 0.15  # minimum trigram score for keyword hits
 RETRIEVAL_SYMBOL_MIN_SIMILARITY = 0.35  # minimum trigram score for symbol hits
 RETRIEVAL_MAX_DISTANCE = 0.45  # hard fail for vector-only hits above this distance
-RETRIEVAL_CONTEXT_TOP_K = 10  # post-graph prune limit before LLM packing
-# Deprecated for QA abstain — use QA_AGENT_MIN_CONFIDENCE (kept until plan 06 removes is_confident_match).
-RETRIEVAL_MIN_CONFIDENCE = 0.45  # hybrid confidence abstain threshold (NFR-7)
 RETRIEVAL_ADAPTIVE_MEDIUM_MIN_CHUNKS = 5000  # active-chunk boundary (small -> medium tier)
 RETRIEVAL_ADAPTIVE_LARGE_MIN_CHUNKS = 50000  # active-chunk boundary (medium -> large tier)
 RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS = 100000  # active-chunk boundary (large -> xlarge tier, ~5M LOC)
@@ -61,7 +57,7 @@ RETRIEVAL_CONFIDENCE_WEIGHT_GRAPH = 0.30  # hybrid confidence: graph connectivit
 RETRIEVAL_CONFIDENCE_WEIGHT_SYMBOL = 0.20  # hybrid confidence: symbol/keyword exactness weight
 RETRIEVAL_CONFIDENCE_WEIGHT_COVERAGE = 0.10  # hybrid confidence: distinct-file coverage weight
 RETRIEVAL_MIN_DISTINCT_FILES = 1  # target distinct files for citation coverage score
-RETRIEVAL_GRAPH_MAX_DEPTH = 2  # max graph hops from seed nodes (agent tool + legacy auto-expand)
+RETRIEVAL_GRAPH_MAX_DEPTH = 2  # max graph hops from a seed node in the agent tool
 RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS = 4  # max additional chunks added via graph expansion
 
 # --- Agent QA (ADR 0026) ---
@@ -73,13 +69,6 @@ QA_AGENT_MAX_TOOL_HITS = 8  # max hits returned per tool call
 QA_AGENT_MAX_EXCERPT_TOKENS = 512  # per-hit excerpt token cap in tool JSON
 QA_AGENT_PLANNER_TIMEOUT_SECONDS = 60.0  # planner LLM timeout per iteration
 QA_AGENT_FINAL_TIMEOUT_SECONDS = LLM_TIMEOUT_SECONDS  # final answer stream timeout
-
-# --- Reranker (M3.3; Settings fields remain until plan 06 deletes pipeline wiring) ---
-RETRIEVAL_RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"  # cross-encoder model id (TEI MODEL_ID)
-RETRIEVAL_RERANKER_INPUT_K = 25  # max candidates sent to the reranker
-RETRIEVAL_RERANKER_OUTPUT_K = 8  # chunks kept after rerank
-RETRIEVAL_RERANKER_TIMEOUT_SECONDS = 30.0  # rerank HTTP timeout
-RETRIEVAL_RERANKER_MAX_DOC_CHARS = 1500  # per-chunk text cap in the rerank payload
 
 # --- Sync ---
 SYNC_MAX_FILE_BYTES = 512_000  # skip indexing files larger than this

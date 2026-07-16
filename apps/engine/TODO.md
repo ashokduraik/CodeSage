@@ -16,14 +16,14 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 - [x] Network-only RAG deploy default (Compose internal service).
 - [x] Git token handling via `GIT_ASKPASS` (no argv / stored remote secrets).
 - [x] Contract-aligned `/engine/query` validation (generated `RagQueryRequest`).
-- [x] Retrieval grounding fixes (rerank confidence, history budget reserve, graph chunk pick).
+- [x] Retrieval grounding fixes (evidence confidence, history budget reserve, graph chunk pick).
 - [x] API signal + cross-repo parameterized route matching.
 
 ## config/
 - [x] Settings + env loading.
 - [x] Repo-token decryption (AES-256-GCM, matches Node).
 - [x] Indexing logs (`config/logging.py`) — plain English, stdout, redaction. See `docs/engine-indexing-logs.md`.
-- [x] Agent QA constants (`QA_AGENT_*`, xlarge adaptive tier); remove `RETRIEVAL_GRAPH_ENABLED` + reranker env keys (ADR 0026 plan 02).
+- [x] Agent QA constants (`QA_AGENT_*`, xlarge adaptive tier, bounded graph tool) (ADR 0026 plan 02).
 
 ## models/
 - [x] ORM for migrated tables + enums.
@@ -38,8 +38,7 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 - [x] `parsing/` — tree-sitter symbol boundaries + line-window fallback.
 - [x] `embedding/` — TEI client + deterministic dev fallback.
 - [x] `retrieval/` — hybrid retrieval: symbol + keyword (`pg_trgm`) search + RRF fusion (ADR 0020).
-- [x] `retrieval/` — M3.2 quality pass: dynamic weights, adaptive top-k, prune, hybrid confidence (ADR 0021).
-- [x] `retrieval/` — M3.3 optional cross-encoder reranker (ADR 0021).
+- [x] `retrieval/` — intent weights, adaptive top-k, and hybrid confidence (ADR 0021/0026).
 - [x] `qa/` — SSE answer streaming with citations.
 - [x] `qa/tools.py` — agent retrieval tools (symbol/code/vector/hybrid/graph/read) (ADR 0026 plan 03).
 - [x] `qa/agent_loop.py` — confidence-gated planner/tool loop; thin stream entrypoint (ADR 0026 plan 05).

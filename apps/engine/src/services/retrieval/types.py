@@ -22,7 +22,6 @@ class RetrievalMatch:
     @param symbol_score - Symbol name similarity when the symbol leg matched.
     @param graph_depth - Hop depth when added via graph expansion (``None``/0 = fused seed).
     @param is_graph_expanded - True when the match was appended by graph expansion.
-    @param rerank_score - Cross-encoder relevance score when reranker ran (higher = better).
     """
 
     chunk: CodeChunk
@@ -33,4 +32,3 @@ class RetrievalMatch:
     symbol_score: float | None = None
     graph_depth: int | None = None
     is_graph_expanded: bool = False
-    rerank_score: float | None = None

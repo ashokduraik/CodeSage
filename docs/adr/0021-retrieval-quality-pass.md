@@ -6,6 +6,10 @@
   (TEI embeddings + inference), ADR 0010 (thin RAG layer); `final-solution.md` §8,
   `docs/plans/phase-1-mvp-code-qa.md` §M3.2–M3.3
 
+> **Pipeline orchestration superseded by
+> [ADR 0026](./0026-agent-orchestrated-developer-qa.md).** Intent classification, adaptive
+> top-k, and hybrid confidence remain; the fixed prune and reranker stages were removed.
+
 ## Context
 
 [M3.1 hybrid retrieval](0020-hybrid-retrieval.md) (symbol + keyword + vector → RRF → graph expand)
@@ -118,7 +122,8 @@ served via TEI `POST /rerank` — ADR 0008/0009 posture, no paid APIs):
   cross-encoder models in one instance. Ollama does not expose `/rerank`.
 - **Fallback:** on disable, missing URL, or HTTP error → M3.2 heuristic `prune_matches`.
 
-Implementation: [`apps/engine/src/services/retrieval/rerank.py`](../../apps/engine/src/services/retrieval/rerank.py).
+The historical implementation was removed by
+[agent-QA plan 06](../plans/agent-qa/06-legacy-retrieval-cleanup.md).
 
 ## Consequences
 
@@ -144,8 +149,7 @@ Implementation: [`apps/engine/src/services/retrieval/rerank.py`](../../apps/engi
 
 ## Escape hatch
 
-- Reranker remains **optional** and isolated behind `services/retrieval/rerank.py`.
-- If TEI rerank serving is unsuitable on low-spec hosts, M3.2 alone (dynamic weights + prune +
-  hybrid confidence) still ships value; reranker can wait or use a smaller local model.
+- ADR 0026 replaced the optional pipeline reranker with iterative, planner-selected retrieval
+  tools. A future evidence-ordering tool may be added only if evaluation demonstrates value.
 - Retrieval quality modules stay behind `services/retrieval/` per ADR 0010 so a future dedicated
   search engine (ADR 0004 escape hatch) can replace individual legs without changing `/engine/query`.

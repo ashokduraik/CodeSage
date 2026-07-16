@@ -75,7 +75,6 @@ class Settings(BaseSettings):
     retrieval_vector_top_k: int = constants.RETRIEVAL_VECTOR_TOP_K
     retrieval_keyword_top_k: int = constants.RETRIEVAL_KEYWORD_TOP_K
     retrieval_symbol_top_k: int = constants.RETRIEVAL_SYMBOL_TOP_K
-    retrieval_fused_top_k: int = constants.RETRIEVAL_FUSED_TOP_K
     retrieval_rrf_k: int = constants.RETRIEVAL_RRF_K
     retrieval_vector_weight: float = constants.RETRIEVAL_VECTOR_WEIGHT
     retrieval_keyword_weight: float = constants.RETRIEVAL_KEYWORD_WEIGHT
@@ -83,8 +82,6 @@ class Settings(BaseSettings):
     retrieval_keyword_min_similarity: float = constants.RETRIEVAL_KEYWORD_MIN_SIMILARITY
     retrieval_symbol_min_similarity: float = constants.RETRIEVAL_SYMBOL_MIN_SIMILARITY
     retrieval_max_distance: float = constants.RETRIEVAL_MAX_DISTANCE
-    retrieval_context_top_k: int = constants.RETRIEVAL_CONTEXT_TOP_K
-    retrieval_min_confidence: float = constants.RETRIEVAL_MIN_CONFIDENCE
     retrieval_adaptive_medium_min_chunks: int = constants.RETRIEVAL_ADAPTIVE_MEDIUM_MIN_CHUNKS
     retrieval_adaptive_large_min_chunks: int = constants.RETRIEVAL_ADAPTIVE_LARGE_MIN_CHUNKS
     retrieval_adaptive_xlarge_min_chunks: int = constants.RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS
@@ -108,14 +105,6 @@ class Settings(BaseSettings):
     qa_agent_max_excerpt_tokens: int = constants.QA_AGENT_MAX_EXCERPT_TOKENS
     qa_agent_planner_timeout_seconds: float = constants.QA_AGENT_PLANNER_TIMEOUT_SECONDS
     qa_agent_final_timeout_seconds: float = constants.QA_AGENT_FINAL_TIMEOUT_SECONDS
-    # Reranker Settings remain until plan 06 deletes pipeline wiring (not in .env.example).
-    retrieval_reranker_enabled: bool = False
-    retrieval_reranker_base_url: str = ""
-    retrieval_reranker_model: str = constants.RETRIEVAL_RERANKER_MODEL
-    retrieval_reranker_input_k: int = constants.RETRIEVAL_RERANKER_INPUT_K
-    retrieval_reranker_output_k: int = constants.RETRIEVAL_RERANKER_OUTPUT_K
-    retrieval_reranker_timeout_seconds: float = constants.RETRIEVAL_RERANKER_TIMEOUT_SECONDS
-    retrieval_reranker_max_doc_chars: int = constants.RETRIEVAL_RERANKER_MAX_DOC_CHARS
     sync_max_file_bytes: int = constants.SYNC_MAX_FILE_BYTES
 
     # Per-deploy toggle documented in ``.env.example``; interval is a constant.

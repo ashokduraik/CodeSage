@@ -405,8 +405,7 @@ def _select_chunk_for_node(node: GraphNode, file_chunks: list[CodeChunk]) -> Cod
     """Pick the active chunk that best overlaps a graph node span.
 
     Prefers the largest line-span overlap with the node; falls back to the
-    earliest chunk in the file when spans are missing. Mirrors
-    ``graph_expand._select_chunk_for_node`` so tool and pipeline picks agree.
+    earliest chunk in the file when spans are missing.
 
     @param node - Graph node whose definition span should be covered.
     @param file_chunks - Candidate active chunks for the node's file.
@@ -572,9 +571,8 @@ def _search_hybrid(
 ) -> tuple[list[QaToolHit], bool]:
     """Fuse symbol, keyword, and vector legs with intent-aware RRF.
 
-    Copies the fusion path from ``retrieve_code_chunks`` (intent, adaptive top-k,
-    three legs, weighted RRF) but deliberately skips graph augment, rerank, and
-    prune — those belong to other tools or the agent loop.
+    Runs intent classification, adaptive top-k, all three retrieval legs, and
+    weighted RRF. Graph traversal remains a separate planner-selected tool.
 
     @param session - Active SQLAlchemy session.
     @param settings - Application settings.

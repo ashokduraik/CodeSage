@@ -60,18 +60,15 @@ incremental embed (Phase 3) so links stay current when API paths change.
 
 ### M3 — Graph-augmented retrieval
 
-Extend `services/retrieval/graph_expand.py` (ADR 0020 pipeline):
+The `graph_expand` agent tool in `services/qa/tools.py`:
 
-1. Seed expansion from graph nodes in the top fused hits' files.
-2. Walk outgoing `http_call` edges (including cross-repo) up to `retrieval_graph_max_depth`.
-3. Append one chunk per newly reached file in another repository to the fused match list.
+1. Accepts a graph node selected from prior evidence.
+2. Walks outgoing `http_call` edges (including cross-repo) up to
+   `retrieval_graph_max_depth`.
+3. Returns one active indexed chunk per newly reached file.
 
-Feature-flagged via `RETRIEVAL_GRAPH_ENABLED` (default `true` for developer QA). Tunables
-(`RETRIEVAL_GRAPH_*`) live in `config/constants.py` per ADR 0022.
-
-> **Superseded (ADR 0026):** Automatic post-fusion graph expand and `RETRIEVAL_GRAPH_ENABLED`
-> are removed. Cross-repo edges remain; the agent calls `graph_expand` on demand. Depth/extra
-> chunk caps stay in `constants.py`.
+The tool is always available to the planner. Depth and extra-chunk caps live in
+`config/constants.py`; traversal never runs automatically after fusion.
 
 ```mermaid
 flowchart LR
@@ -113,5 +110,5 @@ flowchart LR
   `expert_questions` (Phase 5) without changing the `xrepo` job contract.
 - If regex coverage is insufficient, add tree-sitter queries for HTTP client/route AST nodes
   alongside regex (same `ApiSignal` shape).
-- Graph expansion remains behind `services/retrieval/graph_expand.py` — a future dedicated
-  graph engine (ADR 0005 escape hatch) can replace traversal without changing `/engine/query`.
+- Graph expansion remains behind the `graph_expand` tool — a future dedicated graph engine
+  (ADR 0005 escape hatch) can replace traversal without changing `/engine/query`.

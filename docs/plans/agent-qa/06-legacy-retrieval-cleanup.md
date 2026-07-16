@@ -3,6 +3,7 @@
 **ADR:** [0026](../../adr/0026-agent-orchestrated-developer-qa.md)  
 **Depends on:** [05](./05-agent-loop-and-stream-replace.md)  
 **Blocks:** plan 13 (doc acceptance)  
+**Status:** Complete (2026-07-17)
 
 ---
 
@@ -129,12 +130,12 @@ Full engine test suite green. Coverage gate still ≥ 80% repo-wide.
 
 ## Definition of Done
 
-- [ ] Files in “Delete these files” are gone
-- [ ] `search.py` removed or contains no dead orchestration functions
-- [ ] `prune.py` / `rerank.py` gone if unused
-- [ ] Settings/constants have no reranker fields and no `retrieval_graph_enabled`
-- [ ] `rg` verification clean on `apps/engine/src` (includes `RETRIEVAL_GRAPH_ENABLED`)
-- [ ] All engine tests pass
+- [x] Files in “Delete these files” are gone
+- [x] `search.py` removed or contains no dead orchestration functions
+- [x] `prune.py` / `rerank.py` gone if unused
+- [x] Settings/constants have no reranker fields and no `retrieval_graph_enabled`
+- [x] `rg` verification clean on `apps/engine/src` (includes `RETRIEVAL_GRAPH_ENABLED`)
+- [x] All engine tests pass
 
 ---
 

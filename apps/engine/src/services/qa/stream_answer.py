@@ -40,8 +40,8 @@ def stream_engine_answer(
     """Stream an engine query answer via the agent evidence loop.
 
     Handles title generation and the Phase-1 end-user abstain before delegating
-    developer questions to ``stream_agent_answer``. There is no social pre-bypass
-    and no pre-LLM ``retrieve_code_chunks`` / ``is_confident_match`` gate.
+    developer questions to ``stream_agent_answer``. Social turns use the same
+    planner path, and application-owned evidence confidence guards code answers.
 
     @param settings - Application settings.
     @param session_factory - SQLAlchemy session factory.

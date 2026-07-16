@@ -6,6 +6,9 @@
   ADR 0007 (tree-sitter), ADR 0010 (thin RAG layer), [ADR 0021](./0021-retrieval-quality-pass.md)
   (dynamic weights, prune, hybrid confidence, reranker); `final-solution.md` §8, `apps/engine/README.md` §3
 
+> **Orchestration superseded by [ADR 0026](./0026-agent-orchestrated-developer-qa.md).**
+> Symbol, keyword, vector, and RRF retrieval primitives remain in use as agent tools.
+
 ## Context
 
 Phase 1 code retrieval uses a **single signal**: pgvector cosine similarity over

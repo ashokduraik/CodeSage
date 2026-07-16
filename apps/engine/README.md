@@ -51,9 +51,9 @@ flowchart TB
 > **Status:** this architecture is implemented by
 > [agent-QA plan 05](../../docs/plans/agent-qa/05-agent-loop-and-stream-replace.md).
 > `stream_answer.py` handles title/audience routing and delegates developer questions to the
-> confidence-gated loop in `services/qa/agent_loop.py`. Legacy retrieval/reranker modules remain
-> on disk but are no longer used by the QA entrypoint; [plan 06](../../docs/plans/agent-qa/06-legacy-retrieval-cleanup.md)
-> removes them.
+> confidence-gated loop in `services/qa/agent_loop.py`. Agent-QA
+> [plan 06](../../docs/plans/agent-qa/06-legacy-retrieval-cleanup.md) removed the superseded
+> fixed-pipeline modules.
 
 ### 1. Indexing — from repo to pgvector
 
@@ -119,12 +119,11 @@ Successful traces may be promoted to project-scoped investigation playbooks
 ([ADR 0027](../../docs/adr/0027-qa-investigation-playbooks.md)). A playbook is only a retrieval
 hint: every answer must run fresh tools and cite current indexed evidence.
 
-#### Current transition state
+#### Current implementation
 
 - `services/qa/agent_loop.py`, retrieval tools, xlarge adaptive top-k, and `QA_AGENT_*` settings
   implement the developer QA path.
 - Social turns enter the same planner loop and use the narrow no-tools exception from ADR 0026.
-- Pipeline reranker/prune and `retrieve_code_chunks` remain as unused legacy modules until plan 06.
 - Full sequence: [`docs/plans/agent-qa/`](../../docs/plans/agent-qa/README.md).
 
 ### Data it reads/writes
@@ -172,13 +171,13 @@ file to change a default; set the matching env var to override for a single depl
 
 #### Agent QA (`QA_AGENT_*`, ADR 0026)
 
-Wired into `Settings` now; the agent loop (plan 05) will consume them. Graph expand is always
+The agent loop consumes these settings. Graph expand is always
 available as a retrieval **tool** — there is no `RETRIEVAL_GRAPH_ENABLED` kill-switch; only
 `RETRIEVAL_GRAPH_MAX_DEPTH` / `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS` cap walks.
 
 #### QA retrieval tools (`services/qa/tools.py`)
 
-Planner-facing wrappers over existing repositories (not wired into `stream_answer` yet — plan 05).
+Planner-facing wrappers over existing repositories used by the agent loop.
 Call `execute_tool(...)` or pass `tool_definitions_for_planner()` to the LLM tools parameter.
 
 | Tool | Backend |
@@ -186,7 +185,7 @@ Call `execute_tool(...)` or pass `tool_definitions_for_planner()` to the LLM too
 | `search_symbols` | `repositories.symbols.symbol_search` |
 | `search_code` | `repositories.keyword.keyword_search` + `extract_search_terms` |
 | `search_vectors` | `EmbeddingClient` + `repositories.vector.similarity_search` |
-| `search_hybrid` | Three legs + intent-aware RRF (no graph/rerank/prune) |
+| `search_hybrid` | Three legs + intent-aware RRF; graph traversal is a separate tool |
 | `graph_expand` | `expand_graph_neighbors` → overlapping chunks |
 | `read_symbol` | `qualified_name` (`symbol` or `path::symbol`) → graph node → chunk |
 | `read_chunk` | `CodeChunkRepository.get_by_id` (project + active guard) |
@@ -205,10 +204,6 @@ Call `execute_tool(...)` or pass `tool_definitions_for_planner()` to the LLM too
 | `RETRIEVAL_VECTOR_TOP_K_XLARGE` | `20` | Vector leg top-k at xlarge |
 | `RETRIEVAL_KEYWORD_TOP_K_XLARGE` | `12` | Keyword leg top-k at xlarge |
 | `RETRIEVAL_SYMBOL_TOP_K_XLARGE` | `5` | Symbol leg top-k at xlarge |
-
-> **Note:** Pipeline TEI reranker env keys (`RETRIEVAL_RERANKER_*`) and `RETRIEVAL_GRAPH_ENABLED`
-> were removed from `.env.example` under ADR 0026. Reranker code is deleted in agent-qa plan 06;
-> Settings fields remain temporarily so the legacy `stream_answer` path keeps compiling.
 
 ### Local inference with Ollama (low-spec friendly)
 

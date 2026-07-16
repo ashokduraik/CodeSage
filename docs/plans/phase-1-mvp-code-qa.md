@@ -97,6 +97,10 @@ M3.1 equal-weight RRF still let vector neighbours dilute symbol hits and packed 
 into the LLM prompt. M3.2 adds intent-aware weighting, adaptive top-k, post-graph prune, and a
 hybrid confidence gate.
 
+> **Orchestration superseded by [ADR 0026](../adr/0026-agent-orchestrated-developer-qa.md):**
+> intent weighting, adaptive top-k, and hybrid confidence remain in the agent evidence loop;
+> fixed pipeline packing and pre-answer pruning were removed.
+
 | Step | Module | Key deliverables |
 |---|---|---|
 | 1 | `services/retrieval/query_intent.py` | Heuristic intent signals (identifier vs conceptual) |
@@ -109,7 +113,7 @@ hybrid confidence gate.
 questions no longer receive 15+ loosely related excerpts; abstain fires when hybrid confidence is
 below threshold.
 
-#### M3.3 — Cross-encoder reranker (ADR 0021) — **done** (superseded)
+#### ~~M3.3 — Cross-encoder reranker (ADR 0021)~~ — **superseded and removed**
 
 Optional open-source reranker (`BAAI/bge-reranker-v2-m3` via TEI `/rerank`) reorders top
 ~25 fused candidates to top 8 before context packing. Feature-flagged; off by default.
@@ -117,13 +121,13 @@ Optional open-source reranker (`BAAI/bge-reranker-v2-m3` via TEI `/rerank`) reor
 > **Superseded by [ADR 0026](../adr/0026-agent-orchestrated-developer-qa.md):** pipeline reranker
 > env keys are removed from `.env.example` (agent-qa plan 02); implementation is deleted in
 > [plan 06](./agent-qa/06-legacy-retrieval-cleanup.md). Agent tools select and narrow evidence
-> instead.
+> instead. See the complete [agent-QA plan sequence](./agent-qa/README.md).
 
 | Step | Module | Key deliverables |
 |---|---|---|
-| 1 | `services/retrieval/rerank.py` | Rerank client + integration after fusion/graph |
-| 2 | `config/` | `RETRIEVAL_RERANKER_ENABLED`, endpoint, model id, candidate limits |
-| 3 | ops | `tei-rerank` service in `docker-compose.gpu.yml`; hosting docs |
+| 1 | ~~`services/retrieval/rerank.py`~~ | Removed by agent-QA plan 06 |
+| 2 | ~~`config/` reranker settings~~ | Removed by agent-QA plan 06 |
+| 3 | ~~`tei-rerank` Compose service~~ | Removed by agent-QA plan 06 |
 
 **Done when:** with reranker enabled, precision@8 improves on a small golden set of code-QA
 questions without breaking abstain behaviour.

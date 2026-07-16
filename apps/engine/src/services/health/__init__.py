@@ -8,11 +8,9 @@ from services.health.model_backends import (
     check_embedding_backend,
     check_llm_backend,
     check_planner_tool_support,
-    check_reranker_backend,
     get_planner_tools_health,
     log_model_backend_status,
     probe_openai_backend,
-    probe_tei_health,
 )
 
 __all__ = [
@@ -21,9 +19,7 @@ __all__ = [
     "check_embedding_backend",
     "check_llm_backend",
     "check_planner_tool_support",
-    "check_reranker_backend",
     "get_planner_tools_health",
     "log_model_backend_status",
     "probe_openai_backend",
-    "probe_tei_health",
 ]
