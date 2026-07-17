@@ -428,8 +428,9 @@ def _metrics_payload(
     agent_iterations: int,
     evidence_confidence: float,
     tool_call_count: int,
+    investigation_trace: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build AnswerMetrics including agent-loop fields.
+    """Build AnswerMetrics including agent-loop fields and optional investigation trace.
 
     @param context_chunks - Excerpts packed into the final prompt.
     @param context_tokens - Estimated context tokens.
@@ -439,6 +440,7 @@ def _metrics_payload(
     @param agent_iterations - Planner loops executed.
     @param evidence_confidence - Final confidence score.
     @param tool_call_count - Total tools invoked.
+    @param investigation_trace - Optional InvestigationTrace for Node persistence.
     @returns Metrics dict for the SSE ``metrics`` chunk.
     """
     metrics: dict[str, Any] = {
@@ -449,6 +451,8 @@ def _metrics_payload(
         "evidenceConfidence": round(evidence_confidence, 4),
         "toolCallCount": tool_call_count,
     }
+    if investigation_trace is not None:
+        metrics["investigationTrace"] = investigation_trace
     if model:
         metrics["model"] = model
     if stats.prompt_tokens is not None:
@@ -523,15 +527,15 @@ def _build_investigation_trace(
     iterations: list[dict[str, Any]],
     pool: EvidencePool,
 ) -> dict[str, Any]:
-    """Build an InvestigationTrace dict for metrics / future persistence (plan 07/10).
+    """Build an InvestigationTrace dict embedded in AnswerMetrics for Node persistence.
 
     @param agent_iterations - Loops executed.
     @param final_confidence - Last confidence score.
     @param intent - Intent profile enum.
     @param terms - Extracted search terms.
-    @param iterations - Per-iteration records.
+    @param iterations - Per-iteration records (each uses ``index``, not ``iteration``).
     @param pool - Final evidence pool.
-    @returns Trace dict matching the OpenAPI schema shape.
+    @returns Trace dict matching the OpenAPI ``InvestigationTrace`` schema shape.
     """
     return {
         "version": 1,
@@ -631,7 +635,7 @@ def stream_agent_answer(
             if not turn.tool_calls:
                 iteration_records.append(
                     {
-                        "iteration": iteration,
+                        "index": iteration,
                         "confidenceAfter": last_confidence,
                         "toolCalls": [],
                     }
@@ -749,7 +753,7 @@ def stream_agent_answer(
             )
             iteration_records.append(
                 {
-                    "iteration": iteration,
+                    "index": iteration,
                     "confidenceAfter": round(last_confidence, 4),
                     "toolCalls": iter_tool_records,
                 }
@@ -786,9 +790,8 @@ def stream_agent_answer(
                     agent_iterations=iteration,
                     evidence_confidence=last_confidence,
                     tool_call_count=tool_call_count,
+                    investigation_trace=investigation_trace,
                 )
-                # Keep the trace internal until plan 07 wires contract-aligned persistence.
-                _ = investigation_trace
                 yield _chunk_event("metrics", metrics=metrics)
                 yield _chunk_event("done")
                 return

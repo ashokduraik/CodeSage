@@ -17,7 +17,7 @@ export interface StreamAccumulator {
   streamError?: { code: string; message: string };
   /**
    * Optional investigation trace from the agent loop.
-   * Populated when the engine sends a trace (plan 10 persists to `messages.investigation_trace`).
+   * Lifted from `metrics.investigationTrace`; persisted to `messages.investigation_trace`.
    */
   investigationTrace?: unknown;
 }
@@ -78,7 +78,12 @@ export function applyChatChunk(acc: StreamAccumulator, chunk: ChatAnswerChunk): 
     acc.completed = true;
   }
   if (chunk.type === "metrics" && chunk.metrics) {
-    // Pass through all metric fields (including agentIterations / evidenceConfidence / toolCallCount).
+    // Lift investigationTrace onto the accumulator for messages.investigation_trace;
+    // keep remaining fields as AnswerMetrics (trace still present on the SSE payload).
+    const metrics = chunk.metrics as AnswerMetrics & { investigationTrace?: unknown };
+    if (metrics.investigationTrace !== undefined) {
+      acc.investigationTrace = metrics.investigationTrace;
+    }
     acc.metrics = chunk.metrics;
   }
   if (chunk.type === "done") {

@@ -237,6 +237,10 @@ class AnswerMetrics(BaseModel):
     toolCallCount: conint(ge=0) | None = Field(
         None, description='Total tool invocations across all iterations.'
     )
+    investigationTrace: InvestigationTrace | None = Field(
+        None,
+        description='Full agent investigation trace for persistence on `messages.investigation_trace`. Optional; omitted on abstain/social turns.',
+    )
 
 
 class EngineAnswerChunk(BaseModel):

@@ -104,11 +104,11 @@ npm run test -w @codesage/api -- chat.service
 
 ## Definition of Done
 
-- [ ] Migration applied via Node startup
-- [ ] Schema docs synced
-- [ ] Engine writes trace; Node persists to `messages.investigation_trace`
-- [ ] Repository tests pass
-- [ ] **No** playbook promotion yet (plan 11)
+- [x] Migration applied via Node startup
+- [x] Schema docs synced
+- [x] Engine writes trace; Node persists to `messages.investigation_trace`
+- [x] Repository tests pass
+- [x] **No** playbook promotion yet (plan 11)
 
 ---
 

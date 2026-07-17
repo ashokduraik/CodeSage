@@ -283,7 +283,10 @@ def test_answers_when_confidence_reaches_threshold(
     assert metrics["agentIterations"] == 1
     assert metrics["evidenceConfidence"] == 0.85
     assert metrics["toolCallCount"] == 1
-    assert "investigationTrace" not in metrics
+    assert metrics["investigationTrace"]["version"] == 1
+    assert metrics["investigationTrace"]["agentIterations"] == 1
+    assert metrics["investigationTrace"]["finalConfidence"] == 0.85
+    assert metrics["investigationTrace"]["iterations"][0]["index"] == 1
     assert metrics["promptTokens"] == 10
     assert metrics["completionTokens"] == 5
     assert metrics["totalTokens"] == 15

@@ -958,6 +958,10 @@ export interface components {
             evidenceConfidence?: number;
             /** @description Total tool invocations across all iterations. */
             toolCallCount?: number;
+            /** @description Agent investigation trace (engine `InvestigationTrace` shape). Node persists this to `messages.investigation_trace` and strips it from stored `metrics` JSONB. */
+            investigationTrace?: {
+                [key: string]: unknown;
+            };
         };
         ChatAnswerChunk: {
             type: components["schemas"]["ChatAnswerChunkType"];

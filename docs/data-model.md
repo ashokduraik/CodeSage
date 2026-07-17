@@ -65,15 +65,18 @@ Postgres covers everything the MVP needs, eliminating extra services:
 | `audit_log` | Security/audit trail | [`schema/audit_log.md`](./schema/audit_log.md) |
 | `conversations` | QA chat sessions (private per user) | [`schema/conversations.md`](./schema/conversations.md) |
 | `messages` | Turns within a conversation | [`schema/messages.md`](./schema/messages.md) |
+| `qa_playbooks` | Learned investigation paths (ADR 0027) | [`schema/qa_playbooks.md`](./schema/qa_playbooks.md) |
 
 ## 3. Relationships (high level)
 
 ```
 projects 1───* repos
 projects 1───* code_chunks / graph_nodes / workflows / page_map / permission_rules / data_flows
+projects 1───* qa_playbooks
 graph_nodes *──* graph_nodes        (via graph_edges; edges may cross repos within a project)
 expert_questions 1───* expert_answers
 conversations 1───* messages
+messages 0..1───* qa_playbooks      (optional source_message_id provenance)
 ```
 
 ## 4. Scale expectations (sizing assumptions, not facts)

@@ -23,6 +23,7 @@ rules change.
 | `schema_migrations` | Operations (runner) | [`schema_migrations.md`](./schema_migrations.md) |
 | `conversations` | QA | [`conversations.md`](./conversations.md) |
 | `messages` | QA | [`messages.md`](./messages.md) |
+| `qa_playbooks` | QA | [`qa_playbooks.md`](./qa_playbooks.md) |
 
 ## Planned tables (no migration yet)
 

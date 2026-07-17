@@ -22,6 +22,7 @@ from models import (
     PageMap,
     PermissionRule,
     Project,
+    QaPlaybook,
     Repo,
     User,
     Workflow,
@@ -45,6 +46,7 @@ from repositories.operations import AuditLogRepository, JobRepository
 from repositories.projects import ProjectRepository, RepoRepository
 from repositories.session import create_engine_from_settings, create_session_factory, session_scope
 from repositories.symbols import build_symbol_query, symbol_search
+from repositories.qa_playbooks import QaPlaybookRepository
 from repositories.vector import build_similarity_query, similarity_search
 
 __all__ = [
@@ -70,6 +72,8 @@ __all__ = [
     "PermissionRule",
     "PermissionRuleRepository",
     "ProjectStatus",
+    "QaPlaybook",
+    "QaPlaybookRepository",
     "Repo",
     "RepoConnectionStatus",
     "RepoProvider",

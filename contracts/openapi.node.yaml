@@ -1926,6 +1926,13 @@ components:
           type: integer
           minimum: 0
           description: Total tool invocations across all iterations.
+        investigationTrace:
+          type: object
+          additionalProperties: true
+          description: >-
+            Agent investigation trace (engine `InvestigationTrace` shape). Node
+            persists this to `messages.investigation_trace` and strips it from
+            stored `metrics` JSONB.
 
     ChatAnswerChunk:
       type: object

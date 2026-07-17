@@ -98,6 +98,56 @@ export function buildHistoryFromMessages(rows: MessageRow[]): ChatTurn[] {
 }
 
 /**
+ * Returns AnswerMetrics without ``investigationTrace`` so the large trace is
+ * stored only in ``messages.investigation_trace``.
+ *
+ * @param metrics - Accumulated metrics from the SSE stream (may include the trace).
+ * @returns Metrics suitable for the ``metrics`` JSONB column, or undefined.
+ */
+export function metricsForPersistence(
+  metrics: StreamAccumulator["metrics"],
+): StreamAccumulator["metrics"] {
+  if (!metrics) {
+    return undefined;
+  }
+  const { investigationTrace: _trace, ...rest } = metrics as typeof metrics & {
+    investigationTrace?: unknown;
+  };
+  return rest;
+}
+
+/**
+ * Builds insert options for an assistant message from a completed stream accumulator.
+ *
+ * @param acc - Parsed stream accumulator.
+ * @param stopped - Whether the client disconnected before completion.
+ * @returns Options passed to ``insertMessage`` (undefined when content is empty).
+ */
+export function assistantPersistOptions(
+  acc: StreamAccumulator,
+  stopped: boolean,
+):
+  | {
+      citations?: unknown;
+      metrics?: unknown;
+      investigationTrace?: unknown;
+      needsReview?: boolean;
+      stopped?: boolean;
+    }
+  | undefined {
+  if (!acc.content.trim()) {
+    return undefined;
+  }
+  return {
+    citations: acc.citations.length > 0 ? acc.citations : undefined,
+    metrics: metricsForPersistence(acc.metrics),
+    investigationTrace: acc.investigationTrace,
+    needsReview: acc.needsReview,
+    stopped: stopped && !acc.completed,
+  };
+}
+
+/**
  * Persists the assistant answer accumulated from an SSE stream.
  *
  * @param db - The postgres.js SQL client.
@@ -113,19 +163,12 @@ async function persistAssistantMessage(
   acc: StreamAccumulator,
   stopped: boolean,
 ): Promise<void> {
-  const content = acc.content.trim();
-  // Citations can arrive before the first token. Abort/error in that window must not
-  // store an empty assistant turn — it breaks the next engine history validation.
-  if (!content) {
+  const options = assistantPersistOptions(acc, stopped);
+  if (!options) {
     return;
   }
 
-  await insertMessage(db, conversationId, "assistant", content, actorId, {
-    citations: acc.citations.length > 0 ? acc.citations : undefined,
-    metrics: acc.metrics,
-    needsReview: acc.needsReview,
-    stopped: stopped && !acc.completed,
-  });
+  await insertMessage(db, conversationId, "assistant", acc.content.trim(), actorId, options);
 }
 
 /**

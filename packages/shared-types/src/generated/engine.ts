@@ -181,7 +181,7 @@ export interface components {
             /** @description Tool calls issued in this iteration. */
             toolCalls?: components["schemas"]["ToolCallRecord"][];
         };
-        /** @description Persisted investigation trace for an assistant message (ADR 0026 / 0027). Stored on `messages.investigation_trace` (JSONB; migration in plan 10). */
+        /** @description Persisted investigation trace for an assistant message (ADR 0026 / 0027). Stored on `messages.investigation_trace` (JSONB). */
         InvestigationTrace: {
             /** @description Schema version; start at 1. */
             version: number;
@@ -223,6 +223,8 @@ export interface components {
             evidenceConfidence?: number;
             /** @description Total tool invocations across all iterations. */
             toolCallCount?: number;
+            /** @description Full agent investigation trace for persistence on `messages.investigation_trace`. Optional; omitted on abstain/social turns. */
+            investigationTrace?: components["schemas"]["InvestigationTrace"];
         };
         EngineAnswerChunk: {
             type: components["schemas"]["EngineAnswerChunkType"];

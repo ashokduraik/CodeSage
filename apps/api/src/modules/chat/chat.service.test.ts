@@ -7,8 +7,11 @@ import {
   listConversationMessages,
   listConversations,
   buildHistoryFromMessages,
+  assistantPersistOptions,
+  metricsForPersistence,
 } from "./chat.service";
 import type { MessageRow } from "./chat.repository";
+import { createStreamAccumulator, applyChatChunk } from "./chat.sse";
 
 vi.mock("./chat.repository", () => ({
   findConversationsByUser: vi.fn(),
@@ -127,6 +130,7 @@ describe("chat.service", () => {
         content: "answer",
         citations: [{ repoId: "r1", filePath: "a.ts", startLine: 1, endLine: 2 }],
         metrics: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        investigation_trace: null,
         needs_review: true,
         stopped: false,
         created_at: new Date("2026-01-01T00:00:00.000Z"),
@@ -222,5 +226,43 @@ describe("chat.service", () => {
       { role: "user", content: "first question" },
       { role: "assistant", content: "real answer" },
     ]);
+  });
+
+  it("metricsForPersistence strips investigationTrace", () => {
+    expect(
+      metricsForPersistence({
+        contextChunks: 2,
+        investigationTrace: { version: 1 },
+      } as never),
+    ).toEqual({ contextChunks: 2 });
+    expect(metricsForPersistence(undefined)).toBeUndefined();
+  });
+
+  it("assistantPersistOptions includes investigationTrace and strips it from metrics", () => {
+    const acc = createStreamAccumulator();
+    applyChatChunk(acc, { type: "token", content: "grounded answer" });
+    applyChatChunk(acc, {
+      type: "metrics",
+      metrics: {
+        contextChunks: 3,
+        agentIterations: 1,
+        investigationTrace: { version: 1, agentIterations: 1 },
+      },
+    });
+    applyChatChunk(acc, { type: "done" });
+
+    const options = assistantPersistOptions(acc, false);
+    expect(options).toMatchObject({
+      investigationTrace: { version: 1, agentIterations: 1 },
+      metrics: { contextChunks: 3, agentIterations: 1 },
+      stopped: false,
+    });
+    expect(
+      (options?.metrics as { investigationTrace?: unknown } | undefined)?.investigationTrace,
+    ).toBeUndefined();
+  });
+
+  it("assistantPersistOptions returns undefined for empty content", () => {
+    expect(assistantPersistOptions(createStreamAccumulator(), false)).toBeUndefined();
   });
 });

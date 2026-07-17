@@ -333,7 +333,7 @@ A playbook must **not** short-circuit the expert-question or abstain paths.
 | # | Question | Owner / when |
 |---|---|---|
 | 1 | `QA_PLAYBOOK_MIN_SIMILARITY` default 0.85 — validate on real question paraphrase set | Eval milestone P3 |
-| 2 | Soft-delete vs `stale_at` column for invalid playbooks | Migration PR |
+| 2 | Soft-delete vs `stale_at` column for invalid playbooks | **Resolved (plan 10)** — soft-delete only (`status = 'D'`); no `stale_at` column |
 | 3 | Whether promotion runs synchronously post-answer or via `playbook_promote` job | Performance review |
 | 4 | User feedback (thumbs up) as additional promotion signal — phase? | Product |
 | 5 | HNSW index per `project_id` vs global index with filter — benchmark at 500 playbooks × 10 projects | DBA review |

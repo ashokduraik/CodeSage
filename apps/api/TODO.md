@@ -45,6 +45,7 @@ Checklist organized by module. (Global sequencing lives in `docs/final-solution.
 - [x] SSE proxy (`POST /chat/query`) — stream RAG answers with citations.
 - [x] Pass audience + optional `generateTitle` through to RAG.
 - [x] Agent tool SSE passthrough — `tool_start` / `tool_result` parsed as no-ops (ADR 0026 plan 07); `investigationTrace` accumulator field reserved for plan 10.
+- [x] Persist `messages.investigation_trace` from SSE `metrics.investigationTrace` (ADR 0027 plan 10); `qa_playbooks` migration.
 - [ ] WebSocket gateway (deferred; SSE satisfies Phase 1 exit criteria).
 
 ## knowledge

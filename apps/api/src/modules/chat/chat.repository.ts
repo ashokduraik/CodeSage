@@ -23,6 +23,7 @@ export interface MessageRow {
   content: string;
   citations: unknown;
   metrics: unknown;
+  investigation_trace: unknown;
   needs_review: boolean;
   stopped: boolean;
   created_at: Date;
@@ -259,7 +260,7 @@ export async function updateConversationTitle(
  * @param role - Message role (`user`, `assistant`, or `system`).
  * @param content - Message body.
  * @param actorId - Authenticated user UUID for audit columns.
- * @param options - Optional citations, metrics, and flags for assistant turns.
+ * @param options - Optional citations, metrics, investigation trace, and flags for assistant turns.
  * @returns The stored message row.
  */
 export async function insertMessage(
@@ -271,12 +272,14 @@ export async function insertMessage(
   options?: {
     citations?: unknown;
     metrics?: unknown;
+    investigationTrace?: unknown;
     needsReview?: boolean;
     stopped?: boolean;
   },
 ): Promise<MessageRow> {
   const citations = options?.citations ?? null;
   const metrics = options?.metrics ?? null;
+  const investigationTrace = options?.investigationTrace ?? null;
   const needsReview = options?.needsReview ?? false;
   const stopped = options?.stopped ?? false;
 
@@ -287,6 +290,7 @@ export async function insertMessage(
       content,
       citations,
       metrics,
+      investigation_trace,
       needs_review,
       stopped,
       created_by,
@@ -298,6 +302,7 @@ export async function insertMessage(
       ${content},
       ${citations !== null ? db.json(citations as never) : null},
       ${metrics !== null ? db.json(metrics as never) : null},
+      ${investigationTrace !== null ? db.json(investigationTrace as never) : null},
       ${needsReview},
       ${stopped},
       ${actorId},
@@ -310,6 +315,7 @@ export async function insertMessage(
       content,
       citations,
       metrics,
+      investigation_trace,
       needs_review,
       stopped,
       created_at
@@ -351,6 +357,7 @@ export async function findMessagesByConversation(
       content,
       citations,
       metrics,
+      investigation_trace,
       needs_review,
       stopped,
       created_at

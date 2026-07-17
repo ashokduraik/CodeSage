@@ -5,6 +5,7 @@ from models.identity import Project, Repo, User
 from models.indexing import CodeChunk, GraphEdge, GraphNode
 from models.indexing_progress import RepoIndexingEvent
 from models.operations import AuditLog, Job
+from models.qa_playbook import QaPlaybook
 
 __all__ = [
     "AuditLog",
@@ -16,6 +17,7 @@ __all__ = [
     "PageMap",
     "PermissionRule",
     "Project",
+    "QaPlaybook",
     "Repo",
     "RepoIndexingEvent",
     "User",

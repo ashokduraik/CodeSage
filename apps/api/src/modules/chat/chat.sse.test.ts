@@ -88,6 +88,20 @@ describe("chat.sse", () => {
     expect(acc.metrics?.toolCallCount).toBe(3);
   });
 
+  it("lifts investigationTrace from metrics onto the accumulator", () => {
+    const acc = createStreamAccumulator();
+    const trace = { version: 1, agentIterations: 2, finalConfidence: 0.9 };
+    applyChatChunk(acc, {
+      type: "metrics",
+      metrics: {
+        contextChunks: 2,
+        investigationTrace: trace,
+      },
+    });
+    expect(acc.investigationTrace).toEqual(trace);
+    expect(acc.metrics?.contextChunks).toBe(2);
+  });
+
   it("accumulates tokens and citations", () => {
     const acc = createStreamAccumulator();
     applyChatChunk(acc, { type: "token", content: "Hello" });
