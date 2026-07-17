@@ -14,6 +14,8 @@ from config import Settings
 from services.llm.vllm_client import ParsedToolCall, PlannerTurnResult
 from services.qa.agent_loop import stream_agent_answer
 from services.qa.tools import QaToolHit, QaToolResult
+from services.retrieval.query_intent import QueryIntentProfile, classify_query_intent
+from services.retrieval.query_terms import extract_search_terms
 from tests.fixtures.agent_qa_seed import AgentQaSeed, build_agent_qa_seed
 
 
@@ -262,6 +264,10 @@ def test_g2_emi_calculation_exercises_confidence_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """G2 uses hybrid evidence and reports the deterministic confidence metric."""
+    emi_question = "how is EMI calculated?"
+    terms = extract_search_terms(emi_question)
+    assert classify_query_intent(emi_question, terms) == QueryIntentProfile.BALANCED
+
     seed = build_agent_qa_seed()
     hit = seed.hit_for_path(
         "src/loan.utils.ts",
@@ -270,8 +276,8 @@ def test_g2_emi_calculation_exercises_confidence_path(
     run = _run_scripted_question(
         monkeypatch,
         seed,
-        question="how is EMI calculated?",
-        turns=[_turn("search_hybrid", query="how is EMI calculated?")],
+        question=emi_question,
+        turns=[_turn("search_hybrid", query=emi_question)],
         hits_by_tool={"search_hybrid": [hit]},
         confidence_outcomes=[(0.87, True)],
     )
@@ -283,6 +289,28 @@ def test_g2_emi_calculation_exercises_confidence_path(
     )
     assert metrics["evidenceConfidence"] == 0.87
     assert metrics["agentIterations"] == 1
+
+
+def test_g2_path_follow_up_reads_loan_utils(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Follow-up naming loan.utils.ts should cite that file via read_chunks_for_path."""
+    seed = build_agent_qa_seed()
+    hit = seed.hit_for_path(
+        "src/loan.utils.ts",
+        scores={},
+    )
+    run = _run_scripted_question(
+        monkeypatch,
+        seed,
+        question="did you check loan.utils.ts?",
+        turns=[_turn("read_chunks_for_path", path="loan.utils.ts")],
+        hits_by_tool={"read_chunks_for_path": [hit]},
+        confidence_outcomes=[(0.87, True)],
+    )
+
+    assert run.tool_names == ["read_chunks_for_path"]
+    assert "src/loan.utils.ts" in _citation_paths(run)
 
 
 def test_g3_user_service_uses_symbol_tool(

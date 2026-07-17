@@ -1,5 +1,10 @@
 # Plan 03 — QA retrieval tools (`services/qa/tools.py`)
 
+> **Superseded behavior (path read):** Plan 03’s first-N path listing is superseded by
+> [plan 14](./14-span-aware-path-evidence.md) — `read_chunks_for_path` is span-windowed
+> (`around_line` / `start_line` / `chunk_id`) and no longer emits `scores={"path": 1.0}`.
+> Keep this plan as the historical tool-module design; implement path windowing per plan 14.
+
 **ADR:** [0026](../../adr/0026-agent-orchestrated-developer-qa.md)  
 **Depends on:** [02](./02-config-and-constants.md)  
 **Blocks:** plans 04–09  

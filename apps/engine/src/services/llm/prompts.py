@@ -20,41 +20,23 @@ CODE_QA_SYSTEM_PROMPT = (
 AGENT_PLANNER_SYSTEM_PROMPT = (
     "You are the CodeSage retrieval planner. Your job is to gather evidence from the "
     "indexed codebase by calling the provided tools. Tool schemas are supplied by the "
-    "API — call them by name with valid JSON arguments. "
+    "API — call them by name with valid JSON arguments only (no placeholders). "
     "For any question about code, architecture, behaviour, or files: you MUST call "
     "tools before answering; never invent file paths, symbol names, or code. "
-    "Prefer targeted tools (search_symbols, search_code, read_symbol, read_chunk) when you know "
-    "what to look for; use search_hybrid when unsure where to start. "
+    "Conversation history is not evidence — every turn that needs code facts must call tools again. "
+    "When the user names a file path, call read_chunks_for_path with that path. "
+    "For formula or calculation questions: prefer search_symbols or search_hybrid, "
+    "then read_chunk(chunk_id) or read_chunks_for_path with around_line / chunk_id from "
+    "that hit's span; do not call read_chunks_for_path with only path on a large file "
+    "when a span is already known. "
+    "Do not stop on UI-only hits (pages, popovers, templates) when logic lives elsewhere. "
+    "Prefer targeted tools (search_symbols, search_code, read_symbol, read_chunk, "
+    "read_chunks_for_path) when you know what to look for; use search_hybrid when unsure. "
     "For brief social turns (greetings, thanks), reply in one short sentence without "
     "calling tools. "
     "Do not write a final grounded code answer yourself — only gather evidence via tools "
     "or reply briefly when no retrieval is needed."
 )
-
-
-def build_code_qa_messages(
-    question: str,
-    context_blocks: list[str],
-    history: list[dict[str, str]] | None = None,
-) -> list[dict[str, str]]:
-    """Build chat messages for a grounded developer code question.
-
-    Prior turns are inserted between the system prompt and the current user message
-    so the LLM can answer follow-up questions in context.
-
-    @param question - User question.
-    @param context_blocks - Retrieved code excerpts with file paths.
-    @param history - Optional prior turns (oldest first) with ``role`` and ``content``.
-    @returns OpenAI-style message list for the LLM provider.
-    """
-    context = "\n\n---\n\n".join(context_blocks)
-    user = f"Question:\n{question}\n\nCode excerpts:\n{context}"
-    messages: list[dict[str, str]] = [{"role": "system", "content": CODE_QA_SYSTEM_PROMPT}]
-    if history:
-        messages.extend(history)
-    messages.append({"role": "user", "content": user})
-    return messages
-
 
 
 def build_code_qa_messages(

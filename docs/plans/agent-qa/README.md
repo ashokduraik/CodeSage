@@ -33,6 +33,19 @@ plan (or a tight pair where noted) per PR to keep review manageable.
 | 11 | [Playbooks learning service](./11-playbooks-learning-service.md) | `services/qa/playbooks.py` promotion + similarity | 0027 | Complete |
 | 12 | [Playbooks invalidation & hints](./12-playbooks-invalidation-and-hints.md) | Embed hook, planner hints, warm-start flag (default off) | 0027 | Complete |
 | 13 | [Documentation & ADR acceptance](./13-documentation-and-adr-acceptance.md) | Accept ADRs, update phase plans, remove stale README sections | 0026, 0027 | Complete |
+| 14 | [Span-aware path evidence](./14-span-aware-path-evidence.md) | Windowed `read_chunks_for_path` (`around_line` / `chunk_id`); remove fake `path: 1.0` | 0026 | Complete |
+| 15 | [Gate coupling & honest abstain](./15-agent-loop-gate-coupling.md) | Nudge planner when gate fails with pool; distinct abstain copy | 0026 | Planned |
+| 16 | [Evidence confidence accuracy](./16-evidence-confidence-accuracy.md) | `symbol_refs` + excerpt overlap; EMI golden answer; no threshold-first | 0026 | Planned |
+
+### Accuracy follow-up (14–16)
+
+False abstain when hybrid already found the formula (e.g. EMI `getEMIAmount`) but path
+drill-down truncated the wrong region, the planner stopped while confidence &lt; 0.8, and the
+gate under-scored answerable excerpts. **No new ADR** for 14–16 unless plan 16 introduces a
+gate bypass (forbidden by default). Execute **14 → 15 → 16** (14 and 15 may overlap in one PR
+if small; keep 16 after evidence excerpts are correct).
+
+Short overview: [ACCURACY-FOLLOWUP.md](./ACCURACY-FOLLOWUP.md).
 
 ## Dependency graph
 
@@ -51,6 +64,10 @@ flowchart LR
   P11 --> P12[12 invalidation]
   P09 --> P13[13 docs accept]
   P12 --> P13
+  P03 --> P14[14 path window]
+  P05 --> P15[15 gate coupling]
+  P14 --> P16[16 confidence]
+  P15 --> P16
 ```
 
 ## Out of scope (these plans)

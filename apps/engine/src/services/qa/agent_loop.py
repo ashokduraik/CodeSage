@@ -476,15 +476,21 @@ def _metrics_payload(
     return metrics
 
 
-def _tool_result_content(tool_name: str, hits: list[QaToolHit], truncated: bool) -> str:
+def _tool_result_content(
+    tool_name: str,
+    hits: list[QaToolHit],
+    truncated: bool,
+    meta: dict[str, Any] | None = None,
+) -> str:
     """Serialize a compact tool result for the next planner turn.
 
     @param tool_name - Tool that ran.
     @param hits - Hits returned.
     @param truncated - Whether the tool capped results.
+    @param meta - Optional planner hints (e.g. ``pathHint`` for truncated path reads).
     @returns JSON string for the ``tool`` role message.
     """
-    payload = {
+    payload: dict[str, Any] = {
         "tool": tool_name,
         "truncated": truncated,
         "hitCount": len(hits),
@@ -500,6 +506,8 @@ def _tool_result_content(tool_name: str, hits: list[QaToolHit], truncated: bool)
             for h in hits
         ],
     }
+    if meta:
+        payload.update(meta)
     return json.dumps(payload, separators=(",", ":"))
 
 
@@ -915,7 +923,10 @@ def stream_agent_answer(
                         "role": "tool",
                         "tool_call_id": call_id,
                         "content": _tool_result_content(
-                            result.tool_name, result.hits, result.truncated
+                            result.tool_name,
+                            result.hits,
+                            result.truncated,
+                            result.meta,
                         ),
                     }
                 )

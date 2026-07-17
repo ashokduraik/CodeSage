@@ -40,9 +40,13 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 - [x] `retrieval/` — hybrid retrieval: symbol + keyword (`pg_trgm`) search + RRF fusion (ADR 0020).
 - [x] `retrieval/` — intent weights, adaptive top-k, and hybrid confidence (ADR 0021/0026).
 - [x] `qa/` — SSE answer streaming with citations.
-- [x] `qa/tools.py` — agent retrieval tools (symbol/code/vector/hybrid/graph/read) (ADR 0026 plan 03).
+- [x] `qa/tools.py` — agent retrieval tools (symbol/code/vector/hybrid/graph/read/path) (ADR 0026).
 - [x] `qa/agent_loop.py` — confidence-gated planner/tool loop; thin stream entrypoint (ADR 0026 plan 05).
-- [x] `repositories/qa_playbooks.py` + ORM — playbook CRUD/similarity (ADR 0027 plan 10).
+- [x] Fix `QaPlaybook.source_message_id` ORM FK (plain UUID; DB FK unchanged).
+- [x] Intent reframe + acronym symbol expand + `read_chunks_for_path` tool.
+- [x] Span-aware `read_chunks_for_path` (`around_line` / `chunk_id`); remove fake `path: 1.0` (plan 14).
+- [ ] Agent loop nudge when gate fails with non-empty pool; honest abstain copy (plan 15).
+- [ ] Confidence accuracy: `symbol_refs` + excerpt overlap; EMI golden answers (plan 16).
 - [x] `qa/playbooks.py` — promote, hints, invalidation, optional warm-start (ADR 0027 plans 11–12).
 - [x] `graph/` — file + symbol node extraction during parse; HTTP/route API signals (Phase 2).
 - [x] `xrepo/` — cross-repo link resolver job (Phase 2).

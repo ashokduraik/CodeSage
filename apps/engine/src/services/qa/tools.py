@@ -72,6 +72,7 @@ class QaToolResult:
     @param hits - Ranked hits, already capped to ``QA_AGENT_MAX_TOOL_HITS``.
     @param truncated - True when more hits were available than returned.
     @param duration_ms - Wall-clock execution time in milliseconds.
+    @param meta - Optional planner-facing hints (e.g. path window guidance).
     """
 
     tool_name: str
@@ -79,6 +80,7 @@ class QaToolResult:
     hits: list[QaToolHit]
     truncated: bool
     duration_ms: float
+    meta: dict[str, Any] | None = None
 
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -217,6 +219,47 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_chunks_for_path",
+            "description": (
+                "Load active indexed chunks for a repo-relative file path (exact or basename "
+                "match), merged in source span order under a strict hit cap. Large files return "
+                "a window — after hybrid/search citations, pass around_line from the citation "
+                "span or chunk_id so the window covers the relevant region; do not assume the "
+                "first page of a large file contains the answer."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Repo-relative path or basename (e.g. loan.utils.ts).",
+                    },
+                    "around_line": {
+                        "type": "integer",
+                        "description": (
+                            "Prefer chunks whose span overlaps or is nearest this 1-based line."
+                        ),
+                    },
+                    "start_line": {
+                        "type": "integer",
+                        "description": (
+                            "Prefer chunks with span.startLine at or after this 1-based line."
+                        ),
+                    },
+                    "chunk_id": {
+                        "type": "string",
+                        "description": (
+                            "Center the returned window on this chunk's span, then expand neighbors."
+                        ),
+                    },
+                },
+                "required": ["path"],
+            },
+        },
+    },
 ]
 
 
@@ -265,6 +308,7 @@ def execute_tool(
         "graph_expand": _graph_expand,
         "read_symbol": _read_symbol,
         "read_chunk": _read_chunk,
+        "read_chunks_for_path": _read_chunks_for_path,
     }
     handler = handlers.get(tool_name)
     if handler is None:
@@ -278,12 +322,22 @@ def execute_tool(
         repo_ids=repo_ids,
     )
     duration_ms = (time.perf_counter() - started) * 1000.0
+    # Truncated path reads need an explicit planner hint so the next turn can
+    # re-anchor with around_line / chunk_id instead of re-fetching the same first page.
+    meta: dict[str, Any] | None = None
+    if tool_name == "read_chunks_for_path" and truncated:
+        meta = {
+            "pathHint": (
+                "Use around_line or chunk_id to load another region of this file."
+            ),
+        }
     return QaToolResult(
         tool_name=tool_name,
         args=dict(args),
         hits=hits,
         truncated=truncated,
         duration_ms=duration_ms,
+        meta=meta,
     )
 
 
@@ -389,6 +443,201 @@ def _parse_uuid_arg(args: dict[str, Any], key: str) -> uuid.UUID:
         return uuid.UUID(raw)
     except ValueError as exc:
         raise ValueError(f"Tool argument '{key}' must be a valid UUID") from exc
+
+
+def _optional_int_arg(args: dict[str, Any], key: str) -> int | None:
+    """Parse an optional integer tool argument.
+
+    Accepts ints or digit strings from the planner JSON. Missing or null yields
+    ``None`` so path windowing can fall through to other anchors.
+
+    @param args - Planner argument dict.
+    @param key - Argument name.
+    @returns Parsed integer, or ``None`` when absent.
+    @raises ValueError when the value is present but not a valid integer.
+    """
+    if key not in args or args[key] is None:
+        return None
+    value = args[key]
+    if isinstance(value, bool):
+        raise ValueError(f"Tool argument '{key}' must be an integer")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value.strip())
+    raise ValueError(f"Tool argument '{key}' must be an integer")
+
+
+def _optional_uuid_arg(args: dict[str, Any], key: str) -> uuid.UUID | None:
+    """Parse an optional UUID tool argument.
+
+    @param args - Planner argument dict.
+    @param key - Argument name.
+    @returns Parsed UUID, or ``None`` when absent or empty.
+    @raises ValueError when the value is present but not a valid UUID.
+    """
+    if key not in args or args[key] is None:
+        return None
+    raw = args[key]
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        return uuid.UUID(raw.strip())
+    except ValueError as exc:
+        raise ValueError(f"Tool argument '{key}' must be a valid UUID") from exc
+
+
+def _chunk_span_bounds(chunk: CodeChunk) -> tuple[int, int]:
+    """Return ``(start_line, end_line)`` for window-distance scoring.
+
+    @param chunk - Chunk whose span is inspected.
+    @returns Inclusive 1-based line bounds; missing ends fall back to start.
+    """
+    span = chunk.span if isinstance(chunk.span, dict) else {}
+    start = int(span.get("startLine") or span.get("start_line") or 0)
+    end = int(span.get("endLine") or span.get("end_line") or start)
+    return start, end
+
+
+def _distance_to_line(chunk: CodeChunk, target_line: int) -> float:
+    """Score how far a chunk's span is from a target line.
+
+    Overlapping spans score ``0``. Otherwise distance is to mid-span so the
+    window centers on the nearest region for ``around_line``.
+
+    @param chunk - Candidate chunk.
+    @param target_line - 1-based line from the planner.
+    @returns Non-negative distance (lower is better).
+    """
+    start, end = _chunk_span_bounds(chunk)
+    if start <= target_line <= end:
+        return 0.0
+    mid = (start + end) / 2.0
+    return abs(mid - target_line)
+
+
+def _select_path_window(
+    chunks: list[CodeChunk],
+    max_hits: int,
+    *,
+    around_line: int | None,
+    start_line: int | None,
+    chunk_id: uuid.UUID | None,
+) -> list[CodeChunk]:
+    """Select up to ``max_hits`` span-ordered chunks, optionally centered on an anchor.
+
+    When no anchor is provided, returns the first page (document default). Anchors
+    prefer ``chunk_id``, then ``around_line``, then ``start_line``.
+
+    @param chunks - Span-ordered active chunks for one file path.
+    @param max_hits - Maximum chunks to return for this file.
+    @param around_line - Optional 1-based line to center near.
+    @param start_line - Optional 1-based window start preference.
+    @param chunk_id - Optional chunk id to center on when present in ``chunks``.
+    @returns Window of chunks, never longer than ``max_hits``.
+    """
+    if len(chunks) <= max_hits:
+        return list(chunks)
+
+    center_idx: int | None = None
+    if chunk_id is not None:
+        for idx, chunk in enumerate(chunks):
+            if chunk.id == chunk_id:
+                center_idx = idx
+                break
+
+    if center_idx is None and around_line is not None:
+        center_idx = min(
+            range(len(chunks)),
+            key=lambda i: _distance_to_line(chunks[i], around_line),
+        )
+    elif center_idx is None and start_line is not None:
+        # Prefer chunks that start at/after start_line; otherwise nearest start.
+        def _start_key(i: int) -> tuple[float, float]:
+            start, _ = _chunk_span_bounds(chunks[i])
+            if start >= start_line:
+                return (0.0, float(start - start_line))
+            return (1.0, float(start_line - start))
+
+        center_idx = min(range(len(chunks)), key=_start_key)
+
+    if center_idx is None:
+        # No usable anchor: first page keeps backward-compatible behavior.
+        return list(chunks[:max_hits])
+
+    half = max_hits // 2
+    window_start = max(0, center_idx - half)
+    window_end = window_start + max_hits
+    if window_end > len(chunks):
+        window_end = len(chunks)
+        window_start = max(0, window_end - max_hits)
+    return list(chunks[window_start:window_end])
+
+
+def _window_path_chunks(
+    chunks: list[CodeChunk],
+    max_hits: int,
+    *,
+    around_line: int | None,
+    start_line: int | None,
+    chunk_id: uuid.UUID | None,
+) -> list[CodeChunk]:
+    """Window large path results, round-robining when basename matches many files.
+
+    Single-file paths take one centered window. Multi-file basename matches window
+    each file independently, then round-robin picks until the shared hit budget
+    is filled so one huge file cannot starve the others.
+
+    @param chunks - Span-ordered active chunks (may span multiple file_path values).
+    @param max_hits - Shared hit budget for the tool response.
+    @param around_line - Optional line anchor applied per file group.
+    @param start_line - Optional start-line preference applied per file group.
+    @param chunk_id - Optional chunk id; when found, that file's window centers on it.
+    @returns Selected chunks in round-robin / span order, length ≤ ``max_hits``.
+    """
+    if len(chunks) <= max_hits:
+        return list(chunks)
+
+    groups: dict[str, list[CodeChunk]] = {}
+    group_order: list[str] = []
+    for chunk in chunks:
+        path = chunk.file_path
+        if path not in groups:
+            groups[path] = []
+            group_order.append(path)
+        groups[path].append(chunk)
+
+    if len(group_order) == 1:
+        return _select_path_window(
+            groups[group_order[0]],
+            max_hits,
+            around_line=around_line,
+            start_line=start_line,
+            chunk_id=chunk_id,
+        )
+
+    windows = [
+        _select_path_window(
+            groups[path],
+            max_hits,
+            around_line=around_line,
+            start_line=start_line,
+            chunk_id=chunk_id,
+        )
+        for path in group_order
+    ]
+    selected: list[CodeChunk] = []
+    offset = 0
+    while len(selected) < max_hits:
+        progressed = False
+        for window in windows:
+            if offset < len(window) and len(selected) < max_hits:
+                selected.append(window[offset])
+                progressed = True
+        if not progressed:
+            break
+        offset += 1
+    return selected
 
 
 def _span_start(chunk: CodeChunk) -> int:
@@ -860,3 +1109,50 @@ def _read_chunk(
     if repo_ids is not None and chunk.repo_id not in repo_ids:
         return [], False
     return [_hit_from_chunk(chunk, settings, scores={})], False
+
+
+def _read_chunks_for_path(
+    session: Session,
+    settings: Settings,
+    *,
+    project_id: uuid.UUID,
+    args: dict[str, Any],
+    repo_ids: list[uuid.UUID] | None,
+) -> tuple[list[QaToolHit], bool]:
+    """Load span-ordered active chunks for a repo-relative path, windowed when large.
+
+    Resolves exact paths and basename suffixes (``loan.utils.ts`` → ``src/loan.utils.ts``).
+    When the file has more chunks than ``qa_agent_max_tool_hits``, returns a window
+    centered on ``chunk_id``, ``around_line``, or ``start_line`` when provided; otherwise
+    the first page. Multi-file basename matches window each file then round-robin into
+    the shared hit budget. Scores stay empty (not a retrieval leg) until plan 16.
+
+    @param session - Active SQLAlchemy session.
+    @param settings - Application settings.
+    @param project_id - Project scope.
+    @param args - Must include ``path``; optional ``around_line``, ``start_line``, ``chunk_id``.
+    @param repo_ids - Optional repo filter.
+    @returns Hits in file/span order, capped at ``qa_agent_max_tool_hits``.
+    """
+    path = _require_string_arg(args, "path")
+    around_line = _optional_int_arg(args, "around_line")
+    start_line = _optional_int_arg(args, "start_line")
+    chunk_id = _optional_uuid_arg(args, "chunk_id")
+    chunks_repo = CodeChunkRepository(session)
+    chunks = chunks_repo.list_active_by_project_path(
+        project_id,
+        path,
+        repo_ids=repo_ids,
+    )
+    max_hits = settings.qa_agent_max_tool_hits
+    selected = _window_path_chunks(
+        chunks,
+        max_hits,
+        around_line=around_line,
+        start_line=start_line,
+        chunk_id=chunk_id,
+    )
+    # Empty scores: path drill-down is not a symbol/keyword/vector leg (plan 14).
+    hits = [_hit_from_chunk(chunk, settings, scores={}) for chunk in selected]
+    truncated = len(chunks) > len(hits)
+    return hits, truncated

@@ -39,7 +39,7 @@ def _chunk(
     return chunk
 
 
-def test_tool_definitions_for_planner_lists_all_seven_tools() -> None:
+def test_tool_definitions_for_planner_lists_all_eight_tools() -> None:
     names = {entry["function"]["name"] for entry in tool_definitions_for_planner()}
     assert names == {
         "search_symbols",
@@ -49,8 +49,9 @@ def test_tool_definitions_for_planner_lists_all_seven_tools() -> None:
         "graph_expand",
         "read_symbol",
         "read_chunk",
+        "read_chunks_for_path",
     }
-    assert len(TOOL_DEFINITIONS) == 7
+    assert len(TOOL_DEFINITIONS) == 8
 
 
 def test_parse_qualified_name_bare_and_with_file() -> None:
@@ -496,5 +497,339 @@ def test_missing_required_arg_raises() -> None:
             project_id=uuid.uuid4(),
             tool_name="search_symbols",
             args={},
+            repo_ids=None,
+        )
+
+
+def test_read_chunks_for_path_returns_span_ordered_hits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id = uuid.uuid4()
+    chunk_a = _chunk(
+        project_id=project_id,
+        file_path="src/loan.utils.ts",
+        content="export function calculateEmi() {}",
+        span={"startLine": 20, "endLine": 35},
+    )
+    chunk_b = _chunk(
+        project_id=project_id,
+        file_path="src/loan.utils.ts",
+        content="export function getMinEmi() {}",
+        span={"startLine": 1, "endLine": 15},
+    )
+    chunks_repo = MagicMock()
+    chunks_repo.list_active_by_project_path.return_value = [chunk_b, chunk_a]
+    monkeypatch.setattr(
+        "services.qa.tools.CodeChunkRepository",
+        lambda _s: chunks_repo,
+    )
+
+    result = execute_tool(
+        MagicMock(),
+        Settings(),
+        project_id=project_id,
+        tool_name="read_chunks_for_path",
+        args={"path": "loan.utils.ts"},
+        repo_ids=None,
+    )
+
+    assert len(result.hits) == 2
+    assert result.hits[0].file_path == "src/loan.utils.ts"
+    assert result.hits[0].scores == {}
+    assert result.truncated is False
+    chunks_repo.list_active_by_project_path.assert_called_once_with(
+        project_id,
+        "loan.utils.ts",
+        repo_ids=None,
+    )
+
+
+def test_read_chunks_for_path_empty_when_file_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id = uuid.uuid4()
+    chunks_repo = MagicMock()
+    chunks_repo.list_active_by_project_path.return_value = []
+    monkeypatch.setattr(
+        "services.qa.tools.CodeChunkRepository",
+        lambda _s: chunks_repo,
+    )
+
+    result = execute_tool(
+        MagicMock(),
+        Settings(),
+        project_id=project_id,
+        tool_name="read_chunks_for_path",
+        args={"path": "missing.ts"},
+        repo_ids=None,
+    )
+    assert result.hits == []
+
+
+def test_read_chunks_for_path_window_around_line_includes_target_span(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """around_line near a late span must return that region, not only the file head."""
+    project_id = uuid.uuid4()
+    chunks = [
+        _chunk(
+            project_id=project_id,
+            content=f"chunk {i}",
+            span={"startLine": i * 20 + 1, "endLine": i * 20 + 20},
+        )
+        for i in range(20)
+    ]
+    target = chunks[18]
+    chunks_repo = MagicMock()
+    chunks_repo.list_active_by_project_path.return_value = chunks
+    monkeypatch.setattr(
+        "services.qa.tools.CodeChunkRepository",
+        lambda _s: chunks_repo,
+    )
+
+    result = execute_tool(
+        MagicMock(),
+        Settings(),
+        project_id=project_id,
+        tool_name="read_chunks_for_path",
+        args={"path": "loan.utils.ts", "around_line": 361},
+        repo_ids=None,
+    )
+
+    assert result.truncated is True
+    assert len(result.hits) == Settings().qa_agent_max_tool_hits
+    assert any(h.chunk_id == target.id for h in result.hits)
+    assert result.meta is not None
+    assert "around_line" in result.meta["pathHint"] or "chunk_id" in result.meta["pathHint"]
+
+
+def test_read_chunks_for_path_window_by_chunk_id_centers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id = uuid.uuid4()
+    chunks = [
+        _chunk(
+            project_id=project_id,
+            content=f"chunk {i}",
+            span={"startLine": i * 10 + 1, "endLine": i * 10 + 10},
+        )
+        for i in range(20)
+    ]
+    center = chunks[12]
+    chunks_repo = MagicMock()
+    chunks_repo.list_active_by_project_path.return_value = chunks
+    monkeypatch.setattr(
+        "services.qa.tools.CodeChunkRepository",
+        lambda _s: chunks_repo,
+    )
+
+    result = execute_tool(
+        MagicMock(),
+        Settings(),
+        project_id=project_id,
+        tool_name="read_chunks_for_path",
+        args={"path": "loan.utils.ts", "chunk_id": str(center.id)},
+        repo_ids=None,
+    )
+
+    hit_ids = {h.chunk_id for h in result.hits}
+    assert center.id in hit_ids
+    assert result.truncated is True
+
+
+def test_read_chunks_for_path_without_anchor_still_first_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id = uuid.uuid4()
+    chunks = [
+        _chunk(
+            project_id=project_id,
+            content=f"chunk {i}",
+            span={"startLine": i * 10 + 1, "endLine": i * 10 + 10},
+        )
+        for i in range(20)
+    ]
+    chunks_repo = MagicMock()
+    chunks_repo.list_active_by_project_path.return_value = chunks
+    monkeypatch.setattr(
+        "services.qa.tools.CodeChunkRepository",
+        lambda _s: chunks_repo,
+    )
+
+    result = execute_tool(
+        MagicMock(),
+        Settings(),
+        project_id=project_id,
+        tool_name="read_chunks_for_path",
+        args={"path": "loan.utils.ts"},
+        repo_ids=None,
+    )
+
+    max_hits = Settings().qa_agent_max_tool_hits
+    assert result.truncated is True
+    assert len(result.hits) == max_hits
+    assert [h.chunk_id for h in result.hits] == [c.id for c in chunks[:max_hits]]
+    assert result.meta is not None
+    assert "pathHint" in result.meta
+
+
+def test_read_chunks_for_path_does_not_emit_path_1_score(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id = uuid.uuid4()
+    chunk = _chunk(project_id=project_id)
+    chunks_repo = MagicMock()
+    chunks_repo.list_active_by_project_path.return_value = [chunk]
+    monkeypatch.setattr(
+        "services.qa.tools.CodeChunkRepository",
+        lambda _s: chunks_repo,
+    )
+
+    result = execute_tool(
+        MagicMock(),
+        Settings(),
+        project_id=project_id,
+        tool_name="read_chunks_for_path",
+        args={"path": "loan.utils.ts"},
+        repo_ids=None,
+    )
+
+    assert len(result.hits) == 1
+    assert "path" not in result.hits[0].scores
+    assert result.hits[0].scores == {}
+
+
+def test_tool_definition_includes_around_line() -> None:
+    entry = next(
+        e for e in TOOL_DEFINITIONS if e["function"]["name"] == "read_chunks_for_path"
+    )
+    props = entry["function"]["parameters"]["properties"]
+    assert "around_line" in props
+    assert "start_line" in props
+    assert "chunk_id" in props
+    assert "path" in props
+    assert entry["function"]["parameters"]["required"] == ["path"]
+
+
+def test_read_chunks_for_path_window_by_start_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """start_line prefers chunks whose span begins at or after the target."""
+    project_id = uuid.uuid4()
+    chunks = [
+        _chunk(
+            project_id=project_id,
+            content=f"chunk {i}",
+            span={"startLine": i * 10 + 1, "endLine": i * 10 + 10},
+        )
+        for i in range(20)
+    ]
+    target = chunks[15]
+    chunks_repo = MagicMock()
+    chunks_repo.list_active_by_project_path.return_value = chunks
+    monkeypatch.setattr(
+        "services.qa.tools.CodeChunkRepository",
+        lambda _s: chunks_repo,
+    )
+
+    result = execute_tool(
+        MagicMock(),
+        Settings(),
+        project_id=project_id,
+        tool_name="read_chunks_for_path",
+        args={"path": "loan.utils.ts", "start_line": 151},
+        repo_ids=None,
+    )
+
+    assert any(h.chunk_id == target.id for h in result.hits)
+    assert result.truncated is True
+
+
+def test_read_chunks_for_path_unknown_chunk_id_falls_back_to_first_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id = uuid.uuid4()
+    chunks = [
+        _chunk(
+            project_id=project_id,
+            content=f"chunk {i}",
+            span={"startLine": i * 10 + 1, "endLine": i * 10 + 10},
+        )
+        for i in range(20)
+    ]
+    chunks_repo = MagicMock()
+    chunks_repo.list_active_by_project_path.return_value = chunks
+    monkeypatch.setattr(
+        "services.qa.tools.CodeChunkRepository",
+        lambda _s: chunks_repo,
+    )
+
+    result = execute_tool(
+        MagicMock(),
+        Settings(),
+        project_id=project_id,
+        tool_name="read_chunks_for_path",
+        args={"path": "loan.utils.ts", "chunk_id": str(uuid.uuid4())},
+        repo_ids=None,
+    )
+
+    max_hits = Settings().qa_agent_max_tool_hits
+    assert [h.chunk_id for h in result.hits] == [c.id for c in chunks[:max_hits]]
+
+
+def test_read_chunks_for_path_multi_file_round_robins_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Basename matches across files window each path then share the hit budget."""
+    project_id = uuid.uuid4()
+    file_a = [
+        _chunk(
+            project_id=project_id,
+            file_path="src/a/loan.utils.ts",
+            content=f"a{i}",
+            span={"startLine": i * 10 + 1, "endLine": i * 10 + 10},
+        )
+        for i in range(12)
+    ]
+    file_b = [
+        _chunk(
+            project_id=project_id,
+            file_path="src/b/loan.utils.ts",
+            content=f"b{i}",
+            span={"startLine": i * 10 + 1, "endLine": i * 10 + 10},
+        )
+        for i in range(12)
+    ]
+    chunks_repo = MagicMock()
+    chunks_repo.list_active_by_project_path.return_value = file_a + file_b
+    monkeypatch.setattr(
+        "services.qa.tools.CodeChunkRepository",
+        lambda _s: chunks_repo,
+    )
+
+    result = execute_tool(
+        MagicMock(),
+        Settings(),
+        project_id=project_id,
+        tool_name="read_chunks_for_path",
+        args={"path": "loan.utils.ts", "around_line": "5"},
+        repo_ids=None,
+    )
+
+    max_hits = Settings().qa_agent_max_tool_hits
+    assert len(result.hits) == max_hits
+    paths = {h.file_path for h in result.hits}
+    assert paths == {"src/a/loan.utils.ts", "src/b/loan.utils.ts"}
+    assert result.truncated is True
+
+
+def test_read_chunks_for_path_rejects_invalid_around_line() -> None:
+    with pytest.raises(ValueError, match="around_line"):
+        execute_tool(
+            MagicMock(),
+            Settings(),
+            project_id=uuid.uuid4(),
+            tool_name="read_chunks_for_path",
+            args={"path": "loan.utils.ts", "around_line": True},
             repo_ids=None,
         )

@@ -1,6 +1,6 @@
 """Tests for grounded QA prompt templates."""
 
-from services.llm.prompts import build_code_qa_messages
+from services.llm.prompts import AGENT_PLANNER_SYSTEM_PROMPT, build_code_qa_messages
 
 
 def test_build_code_qa_messages_includes_exact_abstain_phrase() -> None:
@@ -22,3 +22,10 @@ def test_build_code_qa_messages_includes_prior_history() -> None:
     assert messages[0]["role"] == "system"
     assert messages[1:3] == history
     assert messages[-1]["role"] == "user"
+
+
+def test_planner_prompt_mentions_around_line_or_chunk_id_for_path() -> None:
+    """Planner must steer path drill-down toward citation spans on large files."""
+    prompt = AGENT_PLANNER_SYSTEM_PROMPT
+    assert "around_line" in prompt or "chunk_id" in prompt
+    assert "read_chunks_for_path" in prompt

@@ -35,7 +35,7 @@ flowchart TB
   subgraph QUERY["Agent QA — POST /engine/query (SSE)"]
     direction TB
     Q["User question<br/>(via Node proxy)"] --> PLAN["Planner LLM<br/>select retrieval tools"]
-    PLAN --> TOOLS["search_symbols · search_code<br/>search_vectors · search_hybrid<br/>graph_expand · read_symbol · read_chunk"]
+    PLAN --> TOOLS["search_symbols · search_code<br/>search_vectors · search_hybrid<br/>graph_expand · read_symbol · read_chunk<br/>read_chunks_for_path"]
     TOOLS --> POOL["Deduplicated evidence pool<br/>bounded hits + token caps"]
     POOL --> GATE{"Evidence confidence ≥ 0.8?"}
     GATE -- "no; iteration < 5" --> PLAN
@@ -217,6 +217,13 @@ Call `execute_tool(...)` or pass `tool_definitions_for_planner()` to the LLM too
 | `graph_expand` | `expand_graph_neighbors` → overlapping chunks |
 | `read_symbol` | `qualified_name` (`symbol` or `path::symbol`) → graph node → chunk |
 | `read_chunk` | `CodeChunkRepository.get_by_id` (project + active guard) |
+| `read_chunks_for_path` | `CodeChunkRepository.list_active_by_project_path` (exact/basename, span order); **windowed** for large files — pass `around_line` / `chunk_id` (or `start_line`) from a prior citation so the hit cap covers the relevant region (ADR 0026 §Tools token-cap intent; plan 14) |
+
+**Query intent (hybrid RRF):** ``how is/does …`` and domain acronyms (EMI, JWT, …) classify as
+**balanced** (symbol + keyword + vector) so implementation code is preferred over UI copy.
+**Conceptual** (vector-heavy) is reserved for overview-style questions without domain identifiers.
+Symbol search expands ALLCAPS acronyms to symbol names containing that substring (e.g. EMI →
+``calculateEmi``).
 
 | Constant | Default | Purpose |
 |---|---|---|
@@ -226,7 +233,7 @@ Call `execute_tool(...)` or pass `tool_definitions_for_planner()` to the LLM too
 | `QA_AGENT_MAX_POOL_CHUNKS` | `20` | Evidence pool hard cap |
 | `QA_AGENT_MAX_TOOL_HITS` | `8` | Max hits per tool response |
 | `QA_AGENT_MAX_EXCERPT_TOKENS` | `512` | Per-hit excerpt token cap |
-| `QA_AGENT_PLANNER_TIMEOUT_SECONDS` | `60` | Planner LLM timeout per iteration |
+| `QA_AGENT_PLANNER_TIMEOUT_SECONDS` | `180` | Planner LLM timeout per iteration |
 | `QA_AGENT_FINAL_TIMEOUT_SECONDS` | `300` | Final answer stream timeout |
 | `RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS` | `100000` | xlarge tier lower bound |
 | `RETRIEVAL_VECTOR_TOP_K_XLARGE` | `20` | Vector leg top-k at xlarge |
