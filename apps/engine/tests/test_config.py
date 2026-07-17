@@ -50,6 +50,8 @@ def test_tuning_defaults_come_from_constants(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.delenv("RETRIEVAL_VECTOR_TOP_K", raising=False)
     monkeypatch.delenv("QA_AGENT_MAX_ITERATIONS", raising=False)
     monkeypatch.delenv("QA_AGENT_MIN_CONFIDENCE", raising=False)
+    monkeypatch.delenv("QA_PLAYBOOK_MAX_PER_PROJECT", raising=False)
+    monkeypatch.delenv("QA_PLAYBOOK_LEARNING_ENABLED", raising=False)
     monkeypatch.delenv("RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS", raising=False)
     settings = load_settings()
     assert settings.retrieval_vector_top_k == constants.RETRIEVAL_VECTOR_TOP_K
@@ -63,6 +65,10 @@ def test_tuning_defaults_come_from_constants(monkeypatch: pytest.MonkeyPatch) ->
     assert settings.qa_agent_max_excerpt_tokens == constants.QA_AGENT_MAX_EXCERPT_TOKENS
     assert settings.qa_agent_planner_timeout_seconds == constants.QA_AGENT_PLANNER_TIMEOUT_SECONDS
     assert settings.qa_agent_final_timeout_seconds == constants.QA_AGENT_FINAL_TIMEOUT_SECONDS
+    assert settings.qa_playbook_max_per_project == constants.QA_PLAYBOOK_MAX_PER_PROJECT
+    assert settings.qa_playbook_min_similarity == constants.QA_PLAYBOOK_MIN_SIMILARITY
+    assert settings.qa_playbook_merge_similarity == constants.QA_PLAYBOOK_MERGE_SIMILARITY
+    assert settings.qa_playbook_learning_enabled == constants.QA_PLAYBOOK_LEARNING_ENABLED
     assert (
         settings.retrieval_adaptive_xlarge_min_chunks
         == constants.RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS

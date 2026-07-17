@@ -90,6 +90,15 @@ def test_soft_delete_returns_false_when_missing_or_deleted() -> None:
     assert repo.soft_delete(uuid.uuid4()) is False
 
 
+def test_find_eviction_candidate_orders_lowest_success() -> None:
+    session = MagicMock()
+    victim = _playbook(success_count=1)
+    session.scalars.return_value.first.return_value = victim
+    repo = QaPlaybookRepository(session)
+    assert repo.find_eviction_candidate(uuid.uuid4()) is victim
+    session.scalars.assert_called_once()
+
+
 def test_build_similarity_query_compiles() -> None:
     repo = QaPlaybookRepository(MagicMock())
     stmt = repo.build_similarity_query(

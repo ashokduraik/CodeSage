@@ -26,7 +26,7 @@ LLM_TIMEOUT_SECONDS = 300.0  # LLM stream timeout; raise for slow CPU / cold loa
 # When true, request a final usage SSE frame. Some OpenAI-compatible servers buffer
 # the whole completion when this is set — leave off for reliable token streaming.
 LLM_STREAM_INCLUDE_USAGE = False
-STARTUP_PROBE_TIMEOUT_SECONDS = 5.0  # per-backend reachability probe at boot (non-fatal)
+STARTUP_PROBE_TIMEOUT_SECONDS = 30.0  # per-backend reachability probe at boot (non-fatal)
 
 # --- Context window (grounded QA) ---
 LLM_MAX_CONTEXT_TOKENS = 8192  # fallback window when auto-detection is off or fails
@@ -69,6 +69,12 @@ QA_AGENT_MAX_TOOL_HITS = 8  # max hits returned per tool call
 QA_AGENT_MAX_EXCERPT_TOKENS = 512  # per-hit excerpt token cap in tool JSON
 QA_AGENT_PLANNER_TIMEOUT_SECONDS = 60.0  # planner LLM timeout per iteration
 QA_AGENT_FINAL_TIMEOUT_SECONDS = LLM_TIMEOUT_SECONDS  # final answer stream timeout
+
+# --- QA playbooks (ADR 0027) — constants only; not listed in .env.example ---
+QA_PLAYBOOK_MAX_PER_PROJECT = 500  # hard cap on active playbooks per project
+QA_PLAYBOOK_MIN_SIMILARITY = 0.85  # cosine floor for planner hint retrieval
+QA_PLAYBOOK_MERGE_SIMILARITY = 0.95  # merge into existing playbook vs insert new row
+QA_PLAYBOOK_LEARNING_ENABLED = True  # kill-switch for promote + hint lookup
 
 # --- Sync ---
 SYNC_MAX_FILE_BYTES = 512_000  # skip indexing files larger than this

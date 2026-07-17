@@ -115,14 +115,35 @@ Server-Sent Events.
 8. **SSE** — events are `tool_start`, `tool_result`, `citation`, `token`, `metrics`, and
    terminal `done` / `abstain` / `error`.
 
-Successful traces may be promoted to project-scoped investigation playbooks
+Successful traces are promoted to project-scoped investigation playbooks
 ([ADR 0027](../../docs/adr/0027-qa-investigation-playbooks.md)). A playbook is only a retrieval
 hint: every answer must run fresh tools and cite current indexed evidence.
+
+#### Playbooks (ADR 0027)
+
+`services/qa/playbooks.py` promotes successful investigation traces after a grounded answer
+and injects similar playbooks into the planner system prompt on iteration 1.
+
+**Promotion rules (all required):**
+
+| Rule | Condition |
+|---|---|
+| L1 | `finalConfidence >= QA_AGENT_MIN_CONFIDENCE` (0.8) |
+| L2 | Not abstain; at least one citation |
+| L3 | Trace contains ≥1 retrieval tool call |
+| L4 | Same `project_id` (never cross-project) |
+| L5 | Only active rows (`status = 'A'`) |
+
+Near-duplicate questions merge at `QA_PLAYBOOK_MERGE_SIMILARITY` (0.95). Active rows are
+capped at `QA_PLAYBOOK_MAX_PER_PROJECT` (500). Learning is controlled by
+`QA_PLAYBOOK_LEARNING_ENABLED` in `constants.py` only — **not** in `.env.example`. Warm-start
+(deterministic tool replay) is plan 12 and is not enabled yet.
 
 #### Current implementation
 
 - `services/qa/agent_loop.py`, retrieval tools, xlarge adaptive top-k, and `QA_AGENT_*` settings
   implement the developer QA path.
+- `services/qa/playbooks.py` — promote + similarity hints (ADR 0027 plan 11).
 - Social turns enter the same planner loop and use the narrow no-tools exception from ADR 0026.
 - Full sequence: [`docs/plans/agent-qa/`](../../docs/plans/agent-qa/README.md).
 
@@ -133,7 +154,7 @@ hint: every answer must run fresh tools and cite current indexed evidence.
 | `code_chunks` (`+ embedding` pgvector, `+ pg_trgm` keyword) | parse (rows), embed (vectors) | hybrid vector + keyword + symbol retrieval |
 | `graph_nodes` / `graph_edges` | parse | symbol search, xrepo linking, agent `graph_expand` tool |
 | `conversations` / `messages` | Node API (chat persistence) | multi-turn history for the prompt |
-| `qa_playbooks` (planned, ADR 0027) | successful agent investigations | similar-question retrieval hints; never answer ground truth |
+| `qa_playbooks` | successful agent investigations (promote) | similar-question retrieval hints; never answer ground truth |
 | `jobs` | Node (enqueue) + worker | worker claim loop |
 
 ## Configuration
@@ -205,6 +226,18 @@ Call `execute_tool(...)` or pass `tool_definitions_for_planner()` to the LLM too
 | `RETRIEVAL_KEYWORD_TOP_K_XLARGE` | `12` | Keyword leg top-k at xlarge |
 | `RETRIEVAL_SYMBOL_TOP_K_XLARGE` | `5` | Symbol leg top-k at xlarge |
 
+#### QA playbooks (`QA_PLAYBOOK_*`, ADR 0027)
+
+Tuning defaults in `constants.py` only (not listed in `.env.example`). Still env-overridable
+in an emergency via `Settings`.
+
+| Constant | Default | Purpose |
+|---|---|---|
+| `QA_PLAYBOOK_MAX_PER_PROJECT` | `500` | Hard cap on active playbooks per project |
+| `QA_PLAYBOOK_MIN_SIMILARITY` | `0.85` | Cosine floor for planner hint retrieval |
+| `QA_PLAYBOOK_MERGE_SIMILARITY` | `0.95` | Merge into existing playbook vs insert |
+| `QA_PLAYBOOK_LEARNING_ENABLED` | `true` | Kill-switch for promote + hint lookup |
+
 ### Local inference with Ollama (low-spec friendly)
 
 Both the embedding and LLM clients speak the OpenAI API, so [Ollama](https://ollama.com) works
@@ -256,7 +289,7 @@ WARNING [ENGINE]  LLM backend unreachable — cannot reach localhost: ... Is the
 WARNING [ENGINE]  Embedding model "mxbai-embed-large" not found at localhost — run: ollama pull mxbai-embed-large. Indexing and search will fail until the model is available.
 ```
 
-Tune the probe timeout with `STARTUP_PROBE_TIMEOUT_SECONDS` (default `5`).
+Tune the probe timeout with `STARTUP_PROBE_TIMEOUT_SECONDS` (default `30`).
 
 ### Context window & answer metrics
 

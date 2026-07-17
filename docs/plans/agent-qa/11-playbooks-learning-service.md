@@ -36,12 +36,15 @@ def format_playbook_hints_for_planner(hints: list[PlaybookHint]) -> str: ...
 
 ## Constants (`constants.py`)
 
-| Constant | Default |
-|---|---|
-| `QA_PLAYBOOK_MAX_PER_PROJECT` | `500` |
-| `QA_PLAYBOOK_MIN_SIMILARITY` | `0.85` |
-| `QA_PLAYBOOK_MERGE_SIMILARITY` | `0.95` |
-| `QA_PLAYBOOK_LEARNING_ENABLED` | `true` | Feature in constants only — not `.env.example` |
+All of these live in `apps/engine/src/config/constants.py`. **Do not** add them to `.env` /
+`.env.example` (engine tuning defaults — see `engine-config.mdc`).
+
+| Constant | Default | Purpose |
+|---|---|---|
+| `QA_PLAYBOOK_MAX_PER_PROJECT` | `500` | Hard cap on active playbooks per project |
+| `QA_PLAYBOOK_MIN_SIMILARITY` | `0.85` | Minimum cosine similarity for hint retrieval |
+| `QA_PLAYBOOK_MERGE_SIMILARITY` | `0.95` | Merge into existing playbook vs insert new row |
+| `QA_PLAYBOOK_LEARNING_ENABLED` | `true` | Kill-switch for promote + hint lookup (code constant only) |
 
 ---
 
@@ -86,7 +89,7 @@ planner_messages = [system + format_playbook_hints_for_planner(hints) + ...]
 Coverage ≥ 80% on `playbooks.py`.
 
 ```bash
-cd apps/engine && uv run pytest tests/services/test_playbooks.py --cov=services/qa/playbooks --cov-branch --cov-fail-under=80
+cd apps/engine && uv run pytest tests/services/test_playbooks.py --override-ini="addopts=" --cov=services.qa.playbooks --cov-branch --cov-fail-under=80
 ```
 
 ---
@@ -102,10 +105,10 @@ cd apps/engine && uv run pytest tests/services/test_playbooks.py --cov=services/
 
 ## Definition of Done
 
-- [ ] `playbooks.py` implements promote + find + format
-- [ ] Agent loop calls find hints iteration 1; promote after success
-- [ ] Tests ≥ 80% on playbooks module
-- [ ] `QA_PLAYBOOK_WARM_START_ENABLED` **not** added yet
+- [x] `playbooks.py` implements promote + find + format
+- [x] Agent loop calls find hints iteration 1; promote after success
+- [x] Tests ≥ 80% on playbooks module
+- [x] `QA_PLAYBOOK_WARM_START_ENABLED` **not** added yet
 
 ---
 

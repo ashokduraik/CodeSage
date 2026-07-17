@@ -122,6 +122,29 @@ class QaPlaybookRepository:
         self._session.flush()
         return True
 
+    def find_eviction_candidate(self, project_id: uuid.UUID) -> QaPlaybook | None:
+        """Pick the active playbook to soft-delete when the per-project cap is hit.
+
+        Prefers the lowest ``success_count``, then the oldest ``last_success_at``, so
+        rarely reinforced and stale paths leave first.
+
+        @param project_id - Owning project UUID.
+        @returns The eviction candidate, or None when the project has no active playbooks.
+        """
+        stmt = (
+            select(QaPlaybook)
+            .where(
+                QaPlaybook.project_id == project_id,
+                QaPlaybook.status == RowStatus.ACTIVE,
+            )
+            .order_by(
+                QaPlaybook.success_count.asc(),
+                QaPlaybook.last_success_at.asc(),
+            )
+            .limit(1)
+        )
+        return self._session.scalars(stmt).first()
+
     def build_similarity_query(
         self,
         *,

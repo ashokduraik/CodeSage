@@ -21,6 +21,22 @@ from services.qa.tools import QaToolHit, QaToolResult
 from services.retrieval.query_intent import QueryIntentProfile
 
 
+@pytest.fixture(autouse=True)
+def _stub_playbook_learning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disable playbook DB I/O in agent-loop tests (plan 11 hooks).
+
+    MagicMock sessions would hang if similarity_search iterated mock rows.
+    """
+    monkeypatch.setattr(
+        "services.qa.agent_loop.find_similar_playbooks",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.promote_trace_to_playbook",
+        lambda *a, **k: None,
+    )
+
+
 def _parse_events(raw: list[str]) -> list[dict]:
     """Decode SSE data lines into JSON payloads.
 

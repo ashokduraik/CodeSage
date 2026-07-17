@@ -113,6 +113,15 @@ def _run_scripted_question(
     configured_hits = hits_by_tool or {}
 
     monkeypatch.setattr(
+        "services.qa.agent_loop.find_similar_playbooks",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.promote_trace_to_playbook",
+        lambda *a, **k: None,
+    )
+
+    monkeypatch.setattr(
         "services.qa.agent_loop.complete_with_tools",
         _scripted_planner(turns),
     )

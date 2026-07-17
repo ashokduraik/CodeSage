@@ -31,6 +31,11 @@ from services.llm.vllm_client import (
     complete_with_tools,
     stream_final_answer,
 )
+from services.qa.playbooks import (
+    find_similar_playbooks,
+    format_playbook_hints_for_planner,
+    promote_trace_to_playbook,
+)
 from services.qa.tools import (
     QaToolHit,
     execute_tool,
@@ -586,19 +591,43 @@ def stream_agent_answer(
     pool = EvidencePool(max_chunks=settings.qa_agent_max_pool_chunks)
     tools = tool_definitions_for_planner()
 
-    planner_messages: list[dict[str, Any]] = [
-        {"role": "system", "content": AGENT_PLANNER_SYSTEM_PROMPT},
-    ]
-    if history:
-        planner_messages.extend(history[-settings.llm_max_history_turns :])
-    planner_messages.append({"role": "user", "content": question})
-
     tool_call_count = 0
     last_confidence = 0.0
     iteration_records: list[dict[str, Any]] = []
 
     session = session_factory()
     try:
+        # Inject past playbooks before iteration 1 so the planner can reuse known paths.
+        system_prompt = AGENT_PLANNER_SYSTEM_PROMPT
+        try:
+            hints = find_similar_playbooks(
+                session,
+                settings,
+                project_id=project_id,
+                question=question,
+            )
+            hint_block = format_playbook_hints_for_planner(hints)
+            if hint_block:
+                system_prompt = f"{system_prompt}\n\n{hint_block}"
+                log_event(
+                    _logger,
+                    logging.DEBUG,
+                    f"Injected {len(hints)} playbook hint(s) for planner",
+                )
+        except Exception as exc:
+            log_event(
+                _logger,
+                logging.WARNING,
+                f"Playbook hint lookup failed: {sanitize_log_message(str(exc))}",
+            )
+
+        planner_messages: list[dict[str, Any]] = [
+            {"role": "system", "content": system_prompt},
+        ]
+        if history:
+            planner_messages.extend(history[-settings.llm_max_history_turns :])
+        planner_messages.append({"role": "user", "content": question})
+
         for iteration in range(1, settings.qa_agent_max_iterations + 1):
             try:
                 turn: PlannerTurnResult = complete_with_tools(
@@ -793,6 +822,29 @@ def stream_agent_answer(
                     investigation_trace=investigation_trace,
                 )
                 yield _chunk_event("metrics", metrics=metrics)
+
+                # Learn after the answer streams; failure must not break the SSE done path.
+                try:
+                    promote_trace_to_playbook(
+                        session,
+                        settings,
+                        project_id=project_id,
+                        question=question,
+                        trace=investigation_trace,
+                        message_id=None,
+                        user_id=None,
+                        message_meta={
+                            "abstained": False,
+                            "citation_count": len(pool.entries),
+                        },
+                    )
+                except Exception as exc:
+                    log_event(
+                        _logger,
+                        logging.WARNING,
+                        f"Playbook promote failed: {sanitize_log_message(str(exc))}",
+                    )
+
                 yield _chunk_event("done")
                 return
 

@@ -105,6 +105,11 @@ class Settings(BaseSettings):
     qa_agent_max_excerpt_tokens: int = constants.QA_AGENT_MAX_EXCERPT_TOKENS
     qa_agent_planner_timeout_seconds: float = constants.QA_AGENT_PLANNER_TIMEOUT_SECONDS
     qa_agent_final_timeout_seconds: float = constants.QA_AGENT_FINAL_TIMEOUT_SECONDS
+    # QA playbooks (ADR 0027) — env-overridable; defaults from constants (not in .env.example).
+    qa_playbook_max_per_project: int = constants.QA_PLAYBOOK_MAX_PER_PROJECT
+    qa_playbook_min_similarity: float = constants.QA_PLAYBOOK_MIN_SIMILARITY
+    qa_playbook_merge_similarity: float = constants.QA_PLAYBOOK_MERGE_SIMILARITY
+    qa_playbook_learning_enabled: bool = constants.QA_PLAYBOOK_LEARNING_ENABLED
     sync_max_file_bytes: int = constants.SYNC_MAX_FILE_BYTES
 
     # Per-deploy toggle documented in ``.env.example``; interval is a constant.
