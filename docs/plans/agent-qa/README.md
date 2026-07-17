@@ -18,21 +18,21 @@ plan (or a tight pair where noted) per PR to keep review manageable.
 
 ## Plan sequence
 
-| # | Plan | Delivers | ADR |
-|---|---|---|---|
-| 01 | [Contracts & codegen](./01-contracts-and-codegen.md) | SSE `tool_*` chunks, metrics fields, trace schema | 0026 |
-| 02 | [Config & constants](./02-config-and-constants.md) | `QA_AGENT_*`, xlarge tier; remove reranker + `RETRIEVAL_GRAPH_ENABLED` | 0026 |
-| 03 | [QA retrieval tools](./03-qa-retrieval-tools.md) | `services/qa/tools.py` (all tools; graph always on) | 0026 |
-| 04 | [LLM tool calling](./04-llm-tool-calling.md) | Tool-call support in `vllm_client.py` + health probe | 0026 |
-| 05 | [Agent loop & stream replace](./05-agent-loop-and-stream-replace.md) | `agent_loop.py`, replace `stream_answer` path; **delete small_talk** | 0026 |
-| 06 | [Legacy retrieval cleanup](./06-legacy-retrieval-cleanup.md) | **Delete** `retrieve_code_chunks`, reranker, prune QA path; verify graph toggle gone | 0026 |
-| 07 | [Node & web stream passthrough](./07-node-web-stream-passthrough.md) | Proxy new chunks; optional UI; persistence `investigation_trace` column prep | 0026 |
-| 08 | [Engine unit & integration tests](./08-engine-agent-tests.md) | Golden scenarios, ≥80% coverage on new QA modules | 0026 |
-| 09 | [E2E developer chat journey](./09-e2e-developer-chat-journey.md) | Playwright chat + citations + abstain — **exit:** `journey-developer-chat.spec.ts` + helpers; soft-skip without tools; `E2E_AGENT_QA_REQUIRED` | 0026 |
-| 10 | [Playbooks schema & migration](./10-playbooks-schema-migration.md) | `qa_playbooks`, `messages.investigation_trace` | 0027 |
-| 11 | [Playbooks learning service](./11-playbooks-learning-service.md) | `services/qa/playbooks.py` promotion + similarity | 0027 |
-| 12 | [Playbooks invalidation & hints](./12-playbooks-invalidation-and-hints.md) | Embed hook, planner hints, warm-start flag (default off) | 0027 |
-| 13 | [Documentation & ADR acceptance](./13-documentation-and-adr-acceptance.md) | Accept ADRs, update phase plans, remove stale README sections | 0026, 0027 |
+| # | Plan | Delivers | ADR | Status |
+|---|---|---|---|---|
+| 01 | [Contracts & codegen](./01-contracts-and-codegen.md) | SSE `tool_*` chunks, metrics fields, trace schema | 0026 | Complete |
+| 02 | [Config & constants](./02-config-and-constants.md) | `QA_AGENT_*`, xlarge tier; remove reranker + `RETRIEVAL_GRAPH_ENABLED` | 0026 | Complete |
+| 03 | [QA retrieval tools](./03-qa-retrieval-tools.md) | `services/qa/tools.py` (all tools; graph always on) | 0026 | Complete |
+| 04 | [LLM tool calling](./04-llm-tool-calling.md) | Tool-call support in `vllm_client.py` + health probe | 0026 | Complete |
+| 05 | [Agent loop & stream replace](./05-agent-loop-and-stream-replace.md) | `agent_loop.py`, replace `stream_answer` path; **delete small_talk** | 0026 | Complete |
+| 06 | [Legacy retrieval cleanup](./06-legacy-retrieval-cleanup.md) | **Delete** `retrieve_code_chunks`, reranker, prune QA path; verify graph toggle gone | 0026 | Complete |
+| 07 | [Node & web stream passthrough](./07-node-web-stream-passthrough.md) | Proxy new chunks; optional UI; persistence `investigation_trace` column prep | 0026 | Complete |
+| 08 | [Engine unit & integration tests](./08-engine-agent-tests.md) | Golden scenarios, ≥80% coverage on new QA modules | 0026 | Complete |
+| 09 | [E2E developer chat journey](./09-e2e-developer-chat-journey.md) | Playwright chat + citations + abstain — **exit:** `journey-developer-chat.spec.ts` + helpers; soft-skip without tools; `E2E_AGENT_QA_REQUIRED` | 0026 | Complete |
+| 10 | [Playbooks schema & migration](./10-playbooks-schema-migration.md) | `qa_playbooks`, `messages.investigation_trace` | 0027 | Complete |
+| 11 | [Playbooks learning service](./11-playbooks-learning-service.md) | `services/qa/playbooks.py` promotion + similarity | 0027 | Complete |
+| 12 | [Playbooks invalidation & hints](./12-playbooks-invalidation-and-hints.md) | Embed hook, planner hints, warm-start flag (default off) | 0027 | Complete |
+| 13 | [Documentation & ADR acceptance](./13-documentation-and-adr-acceptance.md) | Accept ADRs, update phase plans, remove stale README sections | 0026, 0027 | Complete |
 
 ## Dependency graph
 

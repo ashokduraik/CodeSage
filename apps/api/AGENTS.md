@@ -16,6 +16,9 @@ instead. Heavy/blocking work is Python's job.
 - Use **generated types** from `contracts/` (via `packages/shared-types`) for all requests,
   responses, and job payloads. Validate inputs at the edge.
 - **Encrypt repo tokens at rest**; enforce **RBAC**; **audit-log** sensitive actions.
+- The chat proxy passes `tool_start` / `tool_result` SSE chunks through without treating them as
+  answer content. Persist `metrics.investigationTrace` to the assistant message's
+  `investigation_trace` column; do not reconstruct or hand-write the trace shape.
 - Small files, descriptive names, colocated `*.test.ts`.
 
 ## Auto-migrate & auto-seed on startup

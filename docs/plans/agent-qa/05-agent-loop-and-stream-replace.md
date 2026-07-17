@@ -144,11 +144,11 @@ cd apps/engine && uv run pytest tests/services/test_agent_loop.py tests/services
 
 ## Definition of Done
 
-- [ ] `agent_loop.py` implements full loop per ADR 0026
-- [ ] `small_talk.py` and tests **deleted**; `rg small_talk` clean
-- [ ] `stream_answer.py` delegates; no `retrieve_code_chunks` import
-- [ ] Unit tests ≥ 80% on `services/qa/`
-- [ ] `POST /engine/query` uses agent path (manual smoke: symbol question returns citations)
+- [x] `agent_loop.py` implements full loop per ADR 0026
+- [x] `small_talk.py` and tests **deleted**; runtime source is clean
+- [x] `stream_answer.py` delegates; no `retrieve_code_chunks` import
+- [x] Unit tests ≥ 80% on `services/qa/`
+- [x] `POST /engine/query` uses the agent path; developer-chat E2E covers cited answers
 
 ---
 

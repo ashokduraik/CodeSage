@@ -50,10 +50,10 @@ expert loop (Phase 5), end-user product QA (Phase 6).
 - [x] Implementation complete (API signals, `xrepo` job, graph-augmented retrieval, UI polling).
 - [x] Shapes from `contracts/` (`XrepoPayload` in `jobs.schema.json`).
 - [x] `xrepo` job handler idempotent; deduped enqueue per project.
-- [x] Graph expansion enabled for developer QA path.
+- [x] `graph_expand` is always available as a bounded developer-QA tool.
 - [x] Tests ≥ 80% (line + branch) on touched packages.
 - [x] `TODO.md` / `PLAN.md` updated in `apps/engine`.
-- [x] `.env.example` documents retrieval + graph expansion tunables (`RETRIEVAL_GRAPH_*`).
+- [x] Graph depth/extra-chunk caps are documented as constants; no graph-enable toggle exists.
 
 ---
 

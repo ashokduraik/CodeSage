@@ -30,6 +30,12 @@ src/config/                → settings, env
 - **Agent QA retrieval tools** live in one module: `src/services/qa/tools.py` (not
   `services/retrieval/tools.py` and not a `tools/` package). They wrap repositories; the
   planner gets `TOOL_DEFINITIONS` / `execute_tool` only.
+- **Agent QA orchestration** lives in `src/services/qa/agent_loop.py`. Application code owns
+  iteration limits, evidence-pool caps, deterministic confidence, citations, final generation,
+  and abstention; never delegate those trust controls to planner self-assessment.
+- **QA playbooks** live in `src/services/qa/playbooks.py`. They store project-scoped retrieval
+  strategy only, are invalidated/validated against the active index, and remain non-authoritative:
+  every answer must execute fresh tools and cite fresh evidence.
 - Use **repositories** for DB access; **models** for ORM shapes only.
 - **Stream** QA answers with **citations**; implement abstain path (NFR-7).
 - Register FastAPI **global exception handlers** (`api/error_handlers.py`) so unhandled

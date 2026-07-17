@@ -42,8 +42,8 @@ Consequences · Alternatives considered · Escape hatch**.
 | [0023](./0023-cross-repo-linking.md) | Cross-repo linking — regex API signals, `xrepo` job, graph-augmented retrieval | Accepted |
 | [0024](./0024-freshness-scheduled-poll.md) | Freshness scheduled poll fallback (`git ls-remote` + `cron_poll` sync) | Accepted |
 | [0025](./0025-distillation-derived-knowledge.md) | Distillation of derived product knowledge (workflows, pages, permissions, data-flows) | Accepted |
-| [0026](./0026-agent-orchestrated-developer-qa.md) | Agent-orchestrated developer QA — tool loop, evidence confidence gate, grounded citations | Proposed |
-| [0027](./0027-qa-investigation-playbooks.md) | QA investigation playbooks — learned retrieval paths per project | Proposed |
+| [0026](./0026-agent-orchestrated-developer-qa.md) | Agent-orchestrated developer QA — tool loop, evidence confidence gate, grounded citations | Accepted |
+| [0027](./0027-qa-investigation-playbooks.md) | QA investigation playbooks — learned retrieval paths per project | Accepted |
 
 ## Adding a new ADR
 

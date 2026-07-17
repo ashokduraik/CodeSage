@@ -146,11 +146,11 @@ Verify:
 
 ## Definition of Done
 
-- [ ] `openapi.engine.yaml` and `openapi.node.yaml` updated as above
-- [ ] `npm run codegen:check` passes
-- [ ] No hand-edits in generated folders
-- [ ] `docs/schema/messages.md` mentions `investigation_trace`
-- [ ] PR does **not** change `stream_answer.py` behavior yet
+- [x] `openapi.engine.yaml` and `openapi.node.yaml` updated as above
+- [x] `npm run codegen:check` passes
+- [x] No hand-edits in generated folders
+- [x] `docs/schema/messages.md` mentions `investigation_trace`
+- [x] PR does **not** change `stream_answer.py` behavior yet
 
 ---
 

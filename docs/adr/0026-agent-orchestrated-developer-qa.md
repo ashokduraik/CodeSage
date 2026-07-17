@@ -1,6 +1,6 @@
 # ADR 0026 — Agent-orchestrated developer QA (tool loop, evidence confidence, grounded citations)
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-16
 - **Supersedes (orchestration only):** [ADR 0020](./0020-hybrid-retrieval.md) (fixed retrieve-then-answer pipeline),
   [ADR 0021](./0021-retrieval-quality-pass.md) (pipeline-level prune, pre-LLM abstain, pipeline reranker wiring)
@@ -18,7 +18,7 @@
 
 ### Problem
 
-Developer QA today follows a **fixed pipeline** implemented in `stream_answer.py`:
+Before this ADR, developer QA followed a **fixed pipeline** implemented in `stream_answer.py`:
 
 1. Optional small-talk short-circuit (`services/router/small_talk.py`).
 2. Monolithic `retrieve_code_chunks()` — parallel symbol + keyword + vector search, weighted RRF,
@@ -132,8 +132,8 @@ flowchart TB
 
 ### Retrieval tools (normative surface)
 
-Tools are implemented in `apps/engine/src/services/qa/tools/` (or `services/retrieval/tools.py`)
-as thin wrappers over existing repositories. The LLM receives JSON Schema descriptions only.
+Tools are implemented in `apps/engine/src/services/qa/tools.py` as thin wrappers over existing
+repositories. The LLM receives JSON Schema descriptions only.
 
 | Tool | Purpose | Backend (existing) | Notes |
 |---|---|---|---|
@@ -142,7 +142,7 @@ as thin wrappers over existing repositories. The LLM receives JSON Schema descri
 | `search_vectors(query)` | Semantic similarity | `repositories/vector.similarity_search` + `EmbeddingClient` | Embeds `query` once per call |
 | `search_hybrid(query)` | Parallel three-leg search + weighted RRF | `retrieval/fusion`, `query_intent`, `adaptive_top_k` | Recommended first tool when planner is uncertain |
 | `graph_expand(node_id)` | Walk outgoing edges from a graph node | `repositories/graph_queries.expand_graph_neighbors` | Includes cross-repo `http_call` per ADR 0023. **Always available** — no `RETRIEVAL_GRAPH_ENABLED` toggle. Caps: `RETRIEVAL_GRAPH_MAX_DEPTH`, `RETRIEVAL_GRAPH_MAX_EXTRA_CHUNKS`. |
-| `read_symbol(qualified_name)` | Exact symbol → overlapping chunk(s) | `graph_nodes` + `code_chunks` join | `qualified_name` format TBD in contracts (e.g. `file.ts::Symbol` or dotted name) |
+| `read_symbol(qualified_name)` | Exact symbol → overlapping chunk(s) | `graph_nodes` + `code_chunks` join | Accepts `symbol_name` or `file_path::symbol_name` per `QaQualifiedSymbolName` |
 | `read_chunk(chunk_id)` | Fetch one indexed excerpt by id | `CodeChunkRepository` | For drill-down after search results |
 
 **Not in scope for v1 of this ADR:** `search_docs` (derived KB — Phase 4–6), `read_file(path)`
@@ -219,12 +219,13 @@ When the gate passes:
 | `is_confident_match` pre-abstain | **Remove** — replaced by per-iteration gate + max-iteration abstain |
 | `_pack_context` fixed packing | **Replace** — evidence pool packing for final answer only |
 
-Retain modules on disk until follow-up cleanup PR; they must not be called from `stream_answer`.
+The follow-up cleanup removed the legacy retrieval entrypoint, prune/reranker modules, and
+standalone small-talk bypass. `stream_answer.py` now delegates developer requests to the agent loop.
 
 ### LLM requirements
 
 - **Planner model** — must support OpenAI-compatible tool / function calling (vLLM or Ollama with
-  a documented model). Implementation adds `services/llm/tool_client.py` (name TBD).
+  a documented model). The implementation extends `services/llm/vllm_client.py`.
 - **Failure modes** — if the backend does not support tools, startup health check fails with a
   clear configuration error (do not silently fall back to the legacy pipeline).
 - **Two roles** — may use the same model weights with different prompts, or a smaller model for
@@ -256,7 +257,9 @@ Persist the full investigation trace on the assistant `messages` row — see ADR
 | `QA_AGENT_MAX_EXCERPT_TOKENS` | `512` | Per-chunk excerpt cap in tool results |
 | `QA_AGENT_PLANNER_TIMEOUT_SECONDS` | `60` | Planner LLM timeout per iteration |
 | `RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS` | `100000` | New tier boundary for 5M LOC projects |
-| `RETRIEVAL_*_TOP_K` xlarge row | TBD in implementation | Scale vector/keyword legs for xlarge tier |
+| `RETRIEVAL_VECTOR_TOP_K_XLARGE` | `20` | Vector leg top-k for xlarge projects |
+| `RETRIEVAL_KEYWORD_TOP_K_XLARGE` | `12` | Keyword leg top-k for xlarge projects |
+| `RETRIEVAL_SYMBOL_TOP_K_XLARGE` | `5` | Symbol leg top-k for xlarge projects |
 
 Retire `RETRIEVAL_MIN_CONFIDENCE` from the QA abstain path (may remain for metrics only until
 removed).
@@ -285,13 +288,13 @@ toggle; the tool is always registered for the planner.
 
 ### Implementation milestones
 
-| Milestone | Deliverable | Exit criterion |
+| Milestone | Deliverable | Outcome |
 |---|---|---|
-| **A** | Tool handlers + unit tests | Each tool returns stable JSON against test DB fixtures |
-| **B** | `agent_loop.py` + confidence gate | Integration test: symbol question reaches ≥ 0.8 within 2 iterations |
-| **C** | Tool-calling LLM client + SSE `tool_*` chunks | Contract codegen; web shows tool progress (optional UI) |
-| **D** | Replace `stream_answer` entry; remove dead branches | E2E developer question with citations; abstain when no evidence |
-| **E** | xlarge adaptive tier + 5M LOC fixture benchmark | Document p95 tool latencies on stated hardware |
+| **A** | Tool handlers + unit tests | **Complete** — seven bounded tools in `services/qa/tools.py` |
+| **B** | `agent_loop.py` + confidence gate | **Complete** — deterministic confidence gate and abstain tests |
+| **C** | Tool-calling LLM client + SSE `tool_*` chunks | **Complete** — contracts/codegen and pass-through implemented; UI v1 ignores progress events |
+| **D** | Replace `stream_answer` entry; remove dead branches | **Complete** — developer E2E journey implemented with documented live-stack requirements |
+| **E** | xlarge adaptive tier + 5M LOC fixture benchmark | **Partial** — xlarge tier complete; manual 5M LOC benchmark deferred |
 
 ### Testing requirements
 
@@ -328,10 +331,10 @@ toggle; the tool is always registered for the planner.
 
 ### Migration
 
-- No database migration required for milestone A–D except ADR 0027 `investigation_trace` column.
+- The ADR 0027 migration adds `messages.investigation_trace` and `qa_playbooks`.
 - Deploy as a breaking **behavior** change on `/engine/query` (same URL; different internal flow).
-- Update `apps/engine/README.md`, `docs/plans/phase-1-mvp-code-qa.md`, and `docs/README.md`
-  status when Accepted.
+- `apps/engine/README.md`, `docs/plans/phase-1-mvp-code-qa.md`, and `docs/README.md` document the
+  accepted agent path.
 
 ---
 
@@ -364,12 +367,12 @@ toggle; the tool is always registered for the planner.
 
 ---
 
-## Open questions (must be resolved before Status → Accepted)
+## Resolutions recorded at acceptance
 
 | # | Question | Owner / when |
 |---|---|---|
 | 1 | Exact `qualified_name` format for `read_symbol` | **Resolved** — `symbol_name` or `file_path::symbol_name` (`QaQualifiedSymbolName` in `contracts/openapi.engine.yaml`) |
-| 2 | Supported vLLM / Ollama models for tool calling in CI and prod | Engine README + health probe |
-| 3 | Product SLO for p95 end-to-end QA at 5M LOC (seconds) | Phase plan + benchmark |
-| 4 | Whether `search_hybrid` is mandatory on iteration 1 or planner-opt-in | Implement + eval |
-| 5 | Citation post-validation strictness (warn vs abstain) | Product / NFR-7 review |
+| 2 | Supported vLLM / Ollama models for tool calling in CI and prod | **Resolved** — require OpenAI-compatible tool calling; `/health` reports `plannerTools`. Ollama model families and vLLM behavior are documented in `apps/engine/README.md`; CI uses mocked HTTP rather than asserting a live model id |
+| 3 | Product SLO for p95 end-to-end QA at 5M LOC (seconds) | **Deferred** — no benchmark artifact or measured p95 exists. Run the documented manual benchmark before setting the product SLO; record results in `docs/plans/agent-qa/benchmark-results.md` |
+| 4 | Whether `search_hybrid` is mandatory on iteration 1 or planner-opt-in | **Resolved** — planner-opt-in. The prompt recommends targeted tools when known and `search_hybrid` when unsure; warm-start may deterministically replay a validated playbook |
+| 5 | Citation post-validation strictness (warn vs abstain) | **Resolved for v1** — citations and final context are restricted to evidence-pool paths, and the prompt requires those paths. There is no post-stream answer-text abstain validator |

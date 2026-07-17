@@ -135,14 +135,14 @@ cd apps/engine && uv run pytest tests/services/test_adaptive_top_k.py -q
 
 ## Definition of Done
 
-- [ ] All `QA_AGENT_*` and xlarge constants in `constants.py` with one-line comments
-- [ ] `Settings` exposes fields; no inline magic numbers
-- [ ] `.env.example` / `.env` reranker keys **and** `RETRIEVAL_GRAPH_ENABLED` removed
-- [ ] `Settings.retrieval_graph_enabled` gone; no `RETRIEVAL_GRAPH_ENABLED` in compose/env examples
-- [ ] Graph expand no longer gated by a boolean flag (depth/extra caps remain)
-- [ ] xlarge tier in `adaptive_top_k.py` + tests green
-- [ ] Engine still uses **legacy** `stream_answer` (behavior unchanged) until plan 05
-- [ ] `rg RETRIEVAL_GRAPH_ENABLED` on repo is empty (docs may mention removal until plan 13)
+- [x] All `QA_AGENT_*` and xlarge constants in `constants.py` with one-line comments
+- [x] `Settings` exposes fields; no inline magic numbers
+- [x] `.env.example` / `.env` reranker keys **and** `RETRIEVAL_GRAPH_ENABLED` removed
+- [x] `Settings.retrieval_graph_enabled` gone; no active `RETRIEVAL_GRAPH_ENABLED` config
+- [x] Graph expand no longer gated by a boolean flag (depth/extra caps remain)
+- [x] xlarge tier in `adaptive_top_k.py` + tests green
+- [x] Engine retained legacy `stream_answer` behavior until plan 05
+- [x] Removed toggle is absent from runtime code, compose, and env assignments
 
 ---
 

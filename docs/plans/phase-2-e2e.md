@@ -44,6 +44,12 @@ Missing required env → **console error + non-zero exit** ([`validate-e2e-env.t
 
 Run: `npm run test:e2e -- journey-developer-chat`
 
+**CI policy:** GitHub Actions currently runs unit/coverage, lint, typecheck, build, and codegen
+checks but does not provision the live PostgreSQL/API/web/engine/model stack required by
+Playwright. Journey #2 is therefore operator-run and soft-skips when planner tools are unsupported;
+`E2E_AGENT_QA_REQUIRED=1` turns that condition into a failure. A tracking issue is still required
+before live-stack E2E can be made a mandatory CI gate.
+
 ---
 
 ## Prerequisites

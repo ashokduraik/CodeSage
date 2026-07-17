@@ -136,10 +136,10 @@ cd apps/engine && uv run pytest tests/services/test_qa_tools.py --cov=services/q
 
 ## Definition of Done
 
-- [ ] `services/qa/tools.py` implements all 7 tools + schemas
-- [ ] `test_qa_tools.py` ≥ 80% coverage on `tools.py`
-- [ ] No imports from deleted modules (rerank still exists until plan 06 — do not import rerank)
-- [ ] `stream_answer.py` **unchanged** — tools not wired yet
+- [x] `services/qa/tools.py` implements all 7 tools + schemas
+- [x] `test_qa_tools.py` ≥ 80% coverage on `tools.py`
+- [x] No imports from deleted modules
+- [x] `stream_answer.py` remained unchanged until plan 05
 
 ---
 

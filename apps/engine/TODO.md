@@ -5,7 +5,7 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 ## api/
 - [x] FastAPI app + `/health` + worker lifespan.
 - [x] `POST /engine/query` route (SSE streaming).
-- [x] Wire to `services/` QA pipeline (Phase 1 developer path + abstain).
+- [x] Wire to `services/qa/agent_loop.py` (developer tool loop + grounded abstain).
 
 ## workers/
 - [x] Job type registry + background thread.

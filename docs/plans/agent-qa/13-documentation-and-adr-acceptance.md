@@ -101,12 +101,17 @@ If not run — document in ADR 0026 open question #3 as **deferred** with target
 
 ## Definition of Done
 
-- [ ] ADR 0026 + 0027 **Accepted**
-- [ ] All docs in sweep table updated
-- [ ] Grep cleanliness checks pass
-- [ ] CI green
+- [x] ADR 0026 + 0027 **Accepted**
+- [x] All docs in sweep table updated
+- [x] Grep cleanliness checks pass
+- [x] CI green (engine 463 passed @ 86%; API/web ≥ 80%; codegen check clean)
 - [ ] E2E journeys documented and passing or explicitly skipped in CI with issue link
-- [ ] No **Proposed** agent-qa plans left open (README shows complete)
+- [x] No **Proposed** agent-qa plans left open (README shows complete)
+
+**E2E note:** Journey #2 is implemented and documented with soft-skip policy
+(`E2E_SKIP`, unsupported `plannerTools`, optional `E2E_AGENT_QA_REQUIRED=1`).
+GitHub Actions does not run Playwright yet — a tracking issue is still required
+before this checkbox can close.
 
 ---
 

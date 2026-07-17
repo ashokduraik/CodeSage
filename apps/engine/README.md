@@ -4,10 +4,11 @@ Single Python deployable for MVP. **All application code lives under `src/`**; p
 config, tests, and docs only.
 
 > **Status:** **Phases 1–4 implemented in `services/`** — indexing pipeline (`sync` → `parse` →
-> `embed` → `xrepo` → `distill`), developer RAG with citations + abstain, cross-repo graph linking,
-> freshness (webhooks + cron poll), and derived product knowledge (workflows, pages, permissions,
-> data flows). Layers `config/`, `models/`, `repositories/`, `api/`, and `workers/` are wired with
-> ≥ 80% test coverage. Phases 5+ (expert loop, end-user product QA) are not started.
+> `embed` → `xrepo` → `distill`), developer agent QA with bounded tools, citations, confidence
+> abstention and investigation playbooks, cross-repo graph linking, freshness (webhooks + cron
+> poll), and derived product knowledge (workflows, pages, permissions, data flows). Layers
+> `config/`, `models/`, `repositories/`, `api/`, and `workers/` are wired with ≥ 80% test coverage.
+> Phases 5+ (expert loop, end-user product QA) are not started.
 
 Setup (deps, env, tests): root [`README.md`](../../README.md) — `npm run setup`, `npm run sync:python`,
 `npm run test:python`.
@@ -16,7 +17,7 @@ Setup (deps, env, tests): root [`README.md`](../../README.md) — `npm run setup
 
 CodeSage runs in **two phases**: an offline **indexing** phase (when a repo is attached or pushed)
 that turns source code into searchable vectors + a symbol graph, and an online **agent-QA**
-phase. In the target QA architecture, the LLM plans bounded retrieval calls while application
+phase. In the QA architecture, the LLM plans bounded retrieval calls while application
 code owns confidence, iteration limits, citations, and abstention.
 
 ```mermaid
@@ -31,7 +32,7 @@ flowchart TB
     E -. "multi-repo" .-> X["xrepo · link<br/>http_call → route"]
   end
 
-  subgraph QUERY["Agent-QA target — POST /engine/query (SSE)"]
+  subgraph QUERY["Agent QA — POST /engine/query (SSE)"]
     direction TB
     Q["User question<br/>(via Node proxy)"] --> PLAN["Planner LLM<br/>select retrieval tools"]
     PLAN --> TOOLS["search_symbols · search_code<br/>search_vectors · search_hybrid<br/>graph_expand · read_symbol · read_chunk"]
@@ -94,7 +95,7 @@ parsers are cached (`functools.lru_cache`).
 `POST /engine/query` (`api/routes/query.py` → `services/qa/stream_answer.py`) streams the answer as
 Server-Sent Events.
 
-#### Target agent loop (ADR 0026)
+#### Agent loop (ADR 0026)
 
 1. **Title and audience** — the first request may emit `title`; Phase 1 continues to abstain for
    `end_user` until product QA is implemented.
@@ -252,9 +253,9 @@ Both the embedding and LLM clients speak the OpenAI API, so [Ollama](https://oll
 as a drop-in local backend — no code changes. This is the `.env.example` default. Pull small
 models once, then point both `*_BASE_URL` at Ollama's OpenAI endpoint:
 
-> The target agent loop additionally requires a model/backend combination that supports
-> OpenAI-compatible tool calls. The implementation plan adds a startup capability probe; do not
-> assume every Ollama model supports tools.
+> The agent loop requires a model/backend combination that supports OpenAI-compatible tool calls.
+> A startup capability probe reports support through `/health`; do not assume every Ollama model
+> supports tools.
 
 ```bash
 ollama pull qwen2.5:7b           # chat model (VLLM_MODEL); lighter option: llama3.2:1b
@@ -307,14 +308,13 @@ unavailable. `LLM_COMPLETION_RESERVE_TOKENS` is held back for the answer, and te
 measured with `tiktoken` (`o200k_base` — model-agnostic and approximate, kept safe by the
 reserve).
 
-The current fixed pipeline packs ranked retrieved excerpts. The target agent loop instead
-accumulates a bounded evidence pool across tool rounds, then packs only that pool plus trimmed
-history after the 0.8 confidence gate passes.
+The agent loop accumulates a bounded evidence pool across tool rounds, then packs only that pool
+plus trimmed history after the 0.8 confidence gate passes.
 
 On the grounded path the stream emits a `metrics` chunk (before `done`) with the context window
-used vs max, chunks packed, total tokens, and tokens/sec. The chat UI renders these under each
-assistant reply. Agent metrics will additionally include iteration count, evidence confidence,
-and tool-call count. Abstain and excerpt-fallback paths may omit token/speed metrics.
+used vs max, chunks packed, total tokens, tokens/sec, iteration count, evidence confidence, and
+tool-call count. The chat UI renders answer metrics under each assistant reply. Abstain and
+excerpt-fallback paths may omit token/speed metrics.
 
 Notes:
 

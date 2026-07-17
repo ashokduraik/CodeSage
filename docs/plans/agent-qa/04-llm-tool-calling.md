@@ -117,11 +117,11 @@ cd apps/engine && uv run pytest tests/services/test_vllm_tool_calling.py tests/s
 
 ## Definition of Done
 
-- [ ] `complete_with_tools` in `vllm_client.py` with docstrings
-- [ ] `AGENT_PLANNER_SYSTEM_PROMPT` in `prompts.py`
-- [ ] Health probe for tool support
-- [ ] Unit tests with mocked HTTP ≥ 80% on new functions in `vllm_client.py` (branch coverage on parse paths)
-- [ ] `stream_answer.py` still unchanged
+- [x] `complete_with_tools` in `vllm_client.py` with docstrings
+- [x] `AGENT_PLANNER_SYSTEM_PROMPT` in `prompts.py`
+- [x] Health probe for tool support
+- [x] Unit tests with mocked HTTP ≥ 80% on new functions in `vllm_client.py` (branch coverage on parse paths)
+- [x] `stream_answer.py` remained unchanged until plan 05
 
 ---
 

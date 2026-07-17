@@ -429,22 +429,24 @@ hallucinations.
 
 **Why here:** Core product value: cited, codebase-grounded answers.
 
-**How used:** `services/retrieval/` + `api/` — vector search, optional rerank, context
-assembly, citation attachment, abstain when unsupported.
+**How used:** `services/qa/agent_loop.py` + `services/qa/tools.py` — planner-selected symbol,
+keyword, vector, hybrid, graph, and exact-read tools; bounded evidence pooling; deterministic
+confidence; citation attachment; abstain when unsupported.
 
 **Learn:** Chunking, retrieval metrics, context window budgeting, citation format, and abstain
 / “unknown” paths.
 
 ---
 
-### Router (code vs product questions)
+### Audience dispatch and agent planning
 
-A classifier routes questions to code retrieval vs structured product knowledge (workflows,
-permissions, data flows).
+Audience dispatch sends developer questions to the agent evidence loop. Product/end-user
+questions will use structured product knowledge (workflows, permissions, data flows) in Phase 6.
 
-**How used:** `services/router/`; page-scoped context for end-user questions.
+**How used:** `services/router/` for audience dispatch; `services/qa/agent_loop.py` for developer
+tool orchestration; page-scoped context remains planned for end-user questions.
 
-**Learn:** Intent classification, few-shot prompts, and separate retrieval paths.
+**Learn:** Tool-calling prompts, application-owned trust gates, and audience-specific retrieval.
 
 ---
 

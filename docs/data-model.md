@@ -13,8 +13,8 @@ Postgres covers everything the MVP needs, eliminating extra services:
 - **Relational metadata + KB** (with JSONB for flexible derived artifacts).
 - **Vectors** via `pgvector` (HNSW index, `halfvec`/fp16 storage).
 - **Keyword / exact search** via `pg_trgm` trigram (GIN) indexes for hybrid code retrieval (ADR 0020).
-  Query-time ranking refinements (dynamic weights, prune, hybrid confidence) are ADR 0021 — no
-  additional schema for M3.2.
+  Query-time ranking primitives (dynamic weights, adaptive top-k, hybrid confidence) are retained
+  from ADR 0021 and orchestrated by the ADR 0026 agent loop; no additional schema is required.
 - **Code graph** via adjacency tables + recursive CTEs.
 - **Job queue** via `SELECT … FOR UPDATE SKIP LOCKED` (or Procrastinate).
 - **Encrypted repo tokens** (app-level envelope encryption).

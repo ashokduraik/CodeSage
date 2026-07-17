@@ -9,6 +9,8 @@ Local rules for the React frontend. Root [`/AGENTS.md`](../../AGENTS.md) also ap
   calls. Never hand-write request/response types.
 - Put stateful/data logic in **hooks**; keep components presentational.
 - Render **citations** wherever an answer is displayed; handle the "unknown" answer path.
+- Accept `tool_start` / `tool_result` SSE chunks but ignore them in UI v1. Do not append tool
+  metadata to assistant text; a future tool-progress UI requires its own product change.
 - One component/hook per file; descriptive names; colocated `*.test.tsx`.
 - Cross-service project/repo flows are covered in [`tests/e2e/`](../../tests/e2e/) (journey specs); keep
   unit tests colocated here for dialogs and hooks.

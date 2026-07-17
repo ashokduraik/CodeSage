@@ -63,12 +63,14 @@ models land in `apps/engine/` (when generated).** See [`development-workflow.md`
 2. **Derived product knowledge** (for end-users): `workflows`, `page_map`, `permission_rules`,
    `data_flows` — every row carries **confidence** + **source citations**.
 
-QA routing: a small fast model classifies each question as **code** (→ hybrid retrieval + graph)
-or **product** (→ structured KB), then a larger model answers with citations. Code retrieval is
-**hybrid** (ADR 0020): symbol, keyword (`pg_trgm`), and vector (pgvector) search run in parallel,
-fused with weighted RRF, graph expansion, then **prune to top 8–10** and a **hybrid confidence**
-gate (ADR 0021). Optional **cross-encoder rerank** before packing (ADR 0021 M3.3). Unsupported
-questions get an honest "unknown" and may raise an expert question.
+Developer questions use the [ADR 0026](./adr/0026-agent-orchestrated-developer-qa.md) agent loop.
+An OpenAI-compatible planner selects bounded symbol, keyword, vector, hybrid, graph, and exact-read
+tools. Application code merges a capped evidence pool and applies deterministic hybrid confidence;
+it retries for at most five iterations, then generates from fresh evidence only or abstains.
+Project-scoped [playbooks](./adr/0027-qa-investigation-playbooks.md) provide non-authoritative
+retrieval hints and an optional default-off warm-start. Product/end-user QA remains Phase 6 and
+will retrieve from the structured KB. Unsupported questions get an honest "unknown" and may raise
+an expert question.
 
 ## 6. Key runtime flows (summary)
 
@@ -79,12 +81,12 @@ questions get an honest "unknown" and may raise an expert question.
 - **Incremental freshness:** webhook/cron enqueues job → `git diff` vs SHA → re-parse/re-embed
   changed files → mark touched derived artifacts stale → re-distill only those (Phase 3+).
 - **Cross-repo linking (Phase 2):** `xrepo` job matches `http_call` nodes to `route` nodes by
-  method + path across repos; QA retrieval expands fused hits along those edges.
+  method + path across repos; the agent follows those edges only when it calls `graph_expand`.
 - **Distillation:** walk graph from entrypoints → LLM produces workflows/pages/perms/data-flows
   with citations + confidence.
-- **QA serving:** route → **hybrid retrieve** (symbol + keyword + vector → weighted RRF) → graph
-  expand → **prune / optional rerank** → hybrid confidence → grounded prompt → stream answer +
-  citations (ADR 0020, ADR 0021).
+- **Developer QA serving:** audience dispatch → planner tools → bounded evidence pool →
+  deterministic confidence gate → retry, grounded answer, or abstain → stream tool events,
+  citations, tokens, metrics, and trace (ADR 0026, ADR 0027).
 
 See [`final-solution.md`](./final-solution.md) §6–§8 for full detail and the mermaid diagrams.
 

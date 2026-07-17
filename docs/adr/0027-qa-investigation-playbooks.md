@@ -1,6 +1,6 @@
 # ADR 0027 — QA investigation playbooks (learned retrieval paths)
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-16
 - **Depends on:** [ADR 0026](./0026-agent-orchestrated-developer-qa.md) (agent loop + investigation traces)
 - **Related:** [ADR 0019](./0019-persist-chat-history-in-postgres.md), [ADR 0020](./0020-hybrid-retrieval.md),
@@ -27,12 +27,12 @@ This is **organizational memory** scoped to a **project** — not fine-tuning mo
 storing answers as ground truth (answers can still go stale; evidence must always come from fresh
 tool results at answer time per NFR-7).
 
-### What exists today
+### Implementation baseline
 
-- `messages` stores `content`, `citations`, `metrics` — **no** tool trace ([`messages.md`](../schema/messages.md)).
-- `expert_answers` stores **authoritative factual overrides** (Phase 5) — different trust model.
-- `graph_nodes` / `graph_edges` model **source code**, not QA investigation history.
-- No table for playbooks or investigation paths.
+- `messages.investigation_trace` persists the full tool trace ([`messages.md`](../schema/messages.md)).
+- `qa_playbooks` stores project-scoped retrieval strategies and question embeddings.
+- `expert_answers` stores **authoritative factual overrides** (Phase 5) — a different trust model.
+- `graph_nodes` / `graph_edges` continue to model **source code**, not QA investigation history.
 
 ### Scale target (explicit)
 
@@ -160,8 +160,8 @@ New tables follow audit columns and `status char(1)` per ADR 0018.
 
 #### `messages.investigation_trace`
 
-Add nullable `investigation_trace jsonb` to `messages` (same migration). Populated by engine on
-every agent run; Node persists via existing SSE accumulator.
+The migration adds nullable `investigation_trace jsonb` to `messages`. The engine includes the
+trace in answer metrics and Node persists it through the SSE accumulator.
 
 #### Playbook `steps` JSON (normative)
 
@@ -208,16 +208,15 @@ Playbooks go stale when anchors no longer exist in the active index.
 
 | Event | Action |
 |---|---|
-| Re-index removes / renames `file_path` | Mark playbooks referencing that path `status = 'D'` or set `stale_at` (implementation picks one; prefer soft delete) |
-| `graph_node_id` missing | Drop node-specific steps; if no valid steps remain, soft-delete playbook |
+| Re-index removes / renames `file_path` | Soft-delete playbooks referencing that path (`status = 'D'`) |
+| `graph_node_id` missing | Anchor validation skips the playbook; re-index invalidation soft-deletes paths changed by embed |
 | Chunk ids in trace | Ignored for matching — only anchors matter |
 
-**Validation on use:** before warm-start (and optionally before hint injection), verify
-`evidence_anchors` against active `graph_nodes` / `code_chunks` for the project. Invalid playbooks
-are skipped silently.
+**Validation on use:** before hint injection and warm-start, verify `evidence_anchors` against
+active `graph_nodes` / `code_chunks` for the project. Invalid playbooks are skipped silently.
 
-Hook: call `playbook_invalidation` from embed job completion (`run_embed.py`) with changed file
-list — same incremental footprint as distillation stale marking (ADR 0025 pattern).
+`run_embed.py` calls `invalidate_playbooks_for_files` after embedding changed chunks, using their
+file paths — the same incremental footprint as distillation stale marking (ADR 0025 pattern).
 
 ### Caps and deduplication (5M LOC posture)
 
@@ -256,14 +255,14 @@ A playbook must **not** short-circuit the expert-question or abstain paths.
 
 ### Implementation milestones
 
-| Milestone | Deliverable | Depends on |
+| Milestone | Deliverable | Outcome |
 |---|---|---|
-| **P1** | `investigation_trace` on `messages` + engine writes trace | ADR 0026 milestone D |
-| **P2** | `qa_playbooks` table + promotion job on successful messages | P1 |
-| **P3** | Similarity search + planner hint injection | P2, TEI embeddings |
-| **P4** | Invalidation on embed + anchor validation | P2, `run_embed.py` hook |
-| **P5** | Warm-start (feature `QA_PLAYBOOK_WARM_START_ENABLED`, default `false`) | P3 + eval |
-| **P6** | Admin/debug API `GET /projects/:id/playbooks` (optional) | P2 |
+| **P1** | `investigation_trace` on `messages` + engine writes trace | **Complete** |
+| **P2** | `qa_playbooks` table + promotion on successful messages | **Complete** — synchronous promotion after grounded answers |
+| **P3** | Similarity search + planner hint injection | **Complete** |
+| **P4** | Invalidation on embed + anchor validation | **Complete** |
+| **P5** | Warm-start (`QA_PLAYBOOK_WARM_START_ENABLED`, default `false`) | **Complete** — disabled by default pending real-world evaluation |
+| **P6** | Admin/debug API `GET /projects/:id/playbooks` | **Deferred / optional** |
 
 ### Contracts and docs
 
@@ -328,12 +327,12 @@ A playbook must **not** short-circuit the expert-question or abstain paths.
 
 ---
 
-## Open questions (must be resolved before Status → Accepted)
+## Resolutions recorded at acceptance
 
 | # | Question | Owner / when |
 |---|---|---|
-| 1 | `QA_PLAYBOOK_MIN_SIMILARITY` default 0.85 — validate on real question paraphrase set | Eval milestone P3 |
+| 1 | `QA_PLAYBOOK_MIN_SIMILARITY` default 0.85 — validate on real question paraphrase set | **Accepted as the shipping default; evaluation deferred** — no real paraphrase-set artifact exists yet. Tune after representative project questions are available |
 | 2 | Soft-delete vs `stale_at` column for invalid playbooks | **Resolved** — soft-delete only (`status = 'D'`); no `stale_at` column (plan 10 + plan 12 invalidation) |
 | 3 | Whether promotion runs synchronously post-answer or via `playbook_promote` job | **Resolved (plan 11/12)** — synchronous after successful answer in `agent_loop` (try/except; failure must not break SSE). Async `playbook_promote` job deferred unless sync latency becomes an issue |
-| 4 | User feedback (thumbs up) as additional promotion signal — phase? | Product |
-| 5 | HNSW index per `project_id` vs global index with filter — benchmark at 500 playbooks × 10 projects | DBA review |
+| 4 | User feedback (thumbs up) as additional promotion signal — phase? | **Deferred** — v1 promotion uses L1–L5 only; feedback-driven reinforcement belongs to a later product phase |
+| 5 | HNSW index per `project_id` vs global index with filter — benchmark at 500 playbooks × 10 projects | **Resolved** — one partial active-row HNSW index with `project_id` filtering in repository queries; revisit only if measured similarity latency regresses |

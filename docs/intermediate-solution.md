@@ -286,10 +286,11 @@ hardware chosen in §5 (still open — see §10).
 - **Recommendation: serve an open-weight LLM with vLLM** (production) / **Ollama** (dev),
   behind a **provider abstraction** so the specific model can change without rewrites.
   Pick the largest open instruct/code model that fits the available GPUs (confirm hardware —
-  §5/§10). Use a **smaller, fast open model for the question router/classifier**
-  and a **larger model for final answers/distillation** to balance cost and quality.
-- **Reranking** (optional, improves retrieval): use an **open-source cross-encoder reranker**
-  served via TEI — avoid paid rerank APIs (Cohere/Jina) to honor the no-paid constraint.
+  §5/§10). The developer-QA planner must support OpenAI-compatible tool calling; it may use
+  smaller weights than the final answer/distillation model to balance cost and quality.
+- **Developer retrieval orchestration:** use the accepted ADR 0026 planner/tool/evidence loop.
+  The earlier pipeline cross-encoder reranker was removed; add tool-local reranking only if a
+  future evaluation demonstrates a precision gain.
 
 ---
 
@@ -480,9 +481,10 @@ A project's repos are indexed independently but unified into **one project-level
 
 ### 8.3 QA serving
 1. Question arrives (with optional page context + audience).
-2. Router classifies: **code** → vector + graph retrieval; **product** → structured KB.
-3. Assemble grounded prompt; LLM answers with citations.
-4. If unsupported by context → say so / optionally raise an expert question.
+2. **Developer/code** → planner selects bounded retrieval tools; application code accumulates
+   fresh evidence and applies deterministic confidence for at most five iterations.
+3. Confidence passes → final LLM receives only pooled evidence and answers with citations.
+4. Confidence remains low → abstain; **product** → structured KB tools in Phase 6.
 
 ---
 

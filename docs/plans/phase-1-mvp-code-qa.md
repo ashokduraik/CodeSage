@@ -67,13 +67,18 @@ flowchart LR
 
 | Step | Module | Key deliverables |
 |---|---|---|
-| 1 | `services/retrieval/` | Vector search over `code_chunks`; optional graph expansion |
-| 2 | `services/llm/` | vLLM provider; grounded prompt assembly |
-| 3 | `services/router/` | Phase 1: code-only path (product router stub returns code) |
-| 4 | `api/routes/query.py` | `POST /engine/query` — SSE stream of answer chunks + citations |
-| 5 | Abstain path | Return "not certain" when retrieval confidence is below threshold (NFR-7) |
+| 1 | `services/qa/tools.py` | Seven bounded retrieval tools over retained symbol, keyword, vector, RRF, graph, and exact-read primitives |
+| 2 | `services/qa/agent_loop.py` | Planner/tool loop, evidence pool, deterministic confidence, max-iteration abstain |
+| 3 | `services/llm/` | Tool-calling planner + grounded final-answer stream |
+| 4 | `api/routes/query.py` | `POST /engine/query` — SSE tool events, citations, answer chunks, metrics, trace |
+| 5 | `services/qa/playbooks.py` | Project-scoped successful-path hints, invalidation, optional default-off warm-start |
 
 **Done when:** `curl POST /engine/query` with a developer question returns streamed answer + code citations.
+
+> M3.2/M3.3 fixed-pipeline orchestration is superseded by
+> [ADR 0026](../adr/0026-agent-orchestrated-developer-qa.md). The complete implementation sequence
+> is [`agent-qa/`](./agent-qa/README.md); ADR 0020/0021 retrieval and confidence primitives remain
+> behind agent tools.
 
 #### M3.1 — Hybrid retrieval (ADR 0020) — **done**
 
@@ -105,9 +110,9 @@ hybrid confidence gate.
 |---|---|---|
 | 1 | `services/retrieval/query_intent.py` | Heuristic intent signals (identifier vs conceptual) |
 | 2 | `services/retrieval/fusion.py` | Dynamic RRF weight profiles (`symbol_lookup`, `conceptual`, `balanced`) |
-| 3 | `services/retrieval/search.py` | Adaptive per-leg top-k by project size; post-graph prune to 8–10 |
+| 3 | `services/retrieval/adaptive_top_k.py` | Adaptive per-leg top-k by project size (retained by agent tools); fixed post-graph prune removed |
 | 4 | `services/retrieval/` | Hybrid confidence score (retrieval + graph + symbol + citation coverage) |
-| 5 | `config/` | `RETRIEVAL_MIN_CONFIDENCE`, prune size, weight profiles, adaptive tier thresholds |
+| 5 | `config/` | Agent confidence/pool caps, weight profiles, adaptive tier thresholds; legacy prune/min-confidence knobs removed |
 
 **Done when:** identifier questions keep symbol-defined chunks in the top 3 after prune; conceptual
 questions no longer receive 15+ loosely related excerpts; abstain fires when hybrid confidence is
@@ -129,8 +134,8 @@ Optional open-source reranker (`BAAI/bge-reranker-v2-m3` via TEI `/rerank`) reor
 | 2 | ~~`config/` reranker settings~~ | Removed by agent-QA plan 06 |
 | 3 | ~~`tei-rerank` Compose service~~ | Removed by agent-QA plan 06 |
 
-**Done when:** with reranker enabled, precision@8 improves on a small golden set of code-QA
-questions without breaking abstain behaviour.
+**Historical completion criterion:** precision@8 improvement was evaluated before this stage was
+removed. The accepted agent path has no pipeline reranker.
 
 ### M4 — Node chat proxy + persistence
 
@@ -161,7 +166,7 @@ questions without breaking abstain behaviour.
 1. **Contracts** — unblocks all teams.
 2. **Sync handler** — proves job queue end-to-end (Node enqueues → Python consumes).
 3. **Parse + embed** — populates pgvector.
-4. **RAG query API** — retrieval + LLM + citations.
+4. **Agent QA query API** — planner tools + evidence gate + grounded LLM + citations.
 5. **Chat WebSocket** — Node proxy.
 6. **Web wiring** — replace mocks.
 
@@ -181,14 +186,14 @@ For local development without GPU:
 
 ## Definition of Done (Phase 1)
 
-- [ ] Exit criteria met on a single test repo (E2E journey #3 in [`workflows.md`](../../tests/e2e/workflows.md) — `npm run test:e2e` with stack up).
+- [ ] Exit criteria met on a single test repo (E2E journey #2 in [`workflows.md`](../../tests/e2e/workflows.md) — `npm run test:e2e -- journey-developer-chat` with a live stack and tool-calling model).
 - [x] All shapes from `contracts/`; codegen drift check passes.
 - [x] Node never blocks on heavy work (sync/parse/embed/query stay in Python).
 - [x] Answers include citations; abstain path works (NFR-7).
 - [x] Tests ≥ 80% (line + branch) on all workspaces; lint + typecheck clean in CI.
 - [x] `TODO.md` / `PLAN.md` updated in each touched component.
 - [x] `.env.example` documents new variables (TEI/vLLM model ids + `docker-compose.gpu.yml`).
-- [x] Graph expansion settings documented in `apps/engine/.env.example` (Phase 2 uses defaults).
+- [x] Graph expansion is always an agent tool; depth/extra-chunk caps are documented in `apps/engine/src/config/constants.py`.
 
 ---
 
@@ -203,7 +208,7 @@ Multi-repo linking is implemented — see [`phase-2-multi-repo.md`](./phase-2-mu
 | TEI/vLLM unavailable in CI | Mock providers in unit tests; optional manual GPU smoke test |
 | Large repo clone times | File filters, size limits, skip vendored dirs (see `final-solution.md` §6.1) |
 | Embedding dimension mismatch | Lock model + dimension in config; validate on first embed |
-| Low retrieval quality | Hybrid retrieval — symbol + keyword (`pg_trgm`) + vector fused with RRF (ADR 0020, M3.1); tune chunk size/top-k; cross-encoder reranker deferred |
+| Low retrieval quality | Agent retries with targeted symbol, keyword, vector, hybrid, graph, and exact-read tools; tune chunk size/top-k/confidence and evaluate on the golden set |
 
 ---
 

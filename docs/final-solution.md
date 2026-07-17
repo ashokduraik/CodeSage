@@ -37,8 +37,8 @@ questions and folds their answers back as authoritative knowledge.
 | Job queue | **Postgres-backed** — Procrastinate or `SELECT … FOR UPDATE SKIP LOCKED` | MIT / — |
 | Embeddings | **Self-hosted code embedding model via TEI** (`halfvec` storage) | Apache 2.0 |
 | LLM inference | **Open-weight model via vLLM** (Ollama for dev) behind a provider abstraction | Apache 2.0 / MIT |
-| Reranker (optional) | **Open-source cross-encoder via TEI** | Apache 2.0 |
-| RAG | **Thin custom retrieval layer** + LlamaIndex primitives | MIT |
+| Developer QA | **Custom agent loop** over bounded retrieval tools + deterministic evidence gate | — |
+| RAG primitives | **Thin custom retrieval layer** + LlamaIndex primitives | MIT |
 | Auth | **Auth.js / JWT** (Keycloak later if SSO required) | ISC |
 | Packaging | **Docker** containers | Apache 2.0 |
 | Orchestration | **Docker Compose** (2 machines); Kubernetes deferred | Apache 2.0 |
@@ -295,28 +295,33 @@ produce, with citations + confidence:
 ## 8. QA serving (LLM + RAG)
 
 ```mermaid
-flowchart LR
-    Q[Question + audience + optional page context] --> R{Router}
-    R -->|code question| C[Hybrid retrieve: symbol + keyword + vector\nRRF fuse, then graph expand]
-    R -->|product question| K[Retrieve: structured KB\nworkflows/pages/perms/data-flows]
-    C --> A[Assemble grounded prompt]
+flowchart TB
+    Q[Question + audience + optional page context] --> R{Audience}
+    R -->|developer| P[Planner LLM selects bounded tools]
+    P --> T[Symbol · keyword · vector · hybrid · graph · read]
+    T --> E[Deduplicated evidence pool]
+    E --> G{Evidence confidence ≥ 0.8?}
+    G -->|no; iterations remain| P
+    G -->|no; max reached| U[Abstain / say not certain]
+    G -->|yes| A[Final LLM uses only pooled evidence]
+    A --> OUT[Stream citations + answer + metrics]
+    R -->|end user, Phase 6| K[Structured product knowledge tools]
     K --> A
-    A --> L[vLLM answer + citations]
-    L --> G{Grounded?}
-    G -->|yes| OUT[Stream answer + citations]
-    G -->|no| QQ[Say 'unknown' / raise expert question]
 ```
 
-1. A small fast model (the **router**) classifies the question as **code** vs **product**, and
-   whether it is **page-scoped** (uses the user's current route as context).
-2. **Code** → **hybrid retrieval** over `code_chunks`: symbol, keyword (`pg_trgm`), vector
-   (pgvector); **weighted RRF** by query intent; graph expansion; **prune to 8–10** chunks;
-   optional cross-encoder rerank (M3.3); **hybrid confidence** abstain (ADR 0020, ADR 0021).
-   **Product** → structured retrieval from `workflows`/`page_map`/`permission_rules`/`data_flows`.
-3. The larger model assembles a **grounded answer with citations** (to code or expert-verified
-   knowledge).
-4. If unsupported by retrieved context → respond "not certain" and optionally raise an
-   `expert_question` instead of hallucinating.
+1. **Developer** questions enter the [ADR 0026](./adr/0026-agent-orchestrated-developer-qa.md)
+   loop. The planner chooses targeted retrieval tools; graph expansion is explicit and bounded,
+   not an automatic pipeline stage.
+2. Application code owns iteration limits, evidence-pool caps, and the deterministic confidence
+   gate. Low-confidence evidence triggers another planner turn and eventually abstains.
+3. The final model receives only fresh evidence returned by tools in this request. Citations,
+   tool progress, answer tokens, metrics, and the investigation trace stream through the API.
+4. Similar prior investigations may be injected as non-authoritative hints or a validated,
+   default-off warm-start ([ADR 0027](./adr/0027-qa-investigation-playbooks.md)); they never replace
+   fresh retrieval.
+5. **End-user/product** questions remain Phase 6 and will use structured
+   `workflows`/`page_map`/`permission_rules`/`data_flows` tools. Unsupported questions respond
+   "not certain" and may raise an `expert_question` instead of hallucinating.
 
 **End-user examples handled by the product path:** "How do I navigate this page?" (page_map),
 "What permission do I need for this action?" (permission_rules), "When will data appear here?"
