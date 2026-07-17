@@ -110,7 +110,13 @@ Server-Sent Events.
    `compute_hybrid_confidence` over the strongest evidence. The LLM does **not** self-report the
    score. At confidence **≥0.8**, proceed to generation; otherwise repeat, up to **5 iterations**.
 6. **Abstain** — after iteration 5 below threshold, emit `abstain`; do not ask the model to fill
-   missing facts.
+   missing facts. When the gate fails but evidence is already in the pool, the loop first
+   **nudges the planner** with concrete anchors (top pool file paths, spans, chunk ids) to call one
+   more tool instead of accepting an idle "done gathering" turn (plan 15). The abstain copy is
+   honest about pool state: empty pool → "couldn't find enough evidence"; related code found but
+   below threshold → "found related code … not strong enough to answer confidently" (citations were
+   already streamed). Two idle no-tool turns with an empty pool abstain early rather than idling to
+   the iteration cap.
 7. **Grounded generation** — pack only the evidence pool plus trimmed history into the detected
    model context window. The final model answers only from that evidence.
 8. **SSE** — events are `tool_start`, `tool_result`, `citation`, `token`, `metrics`, and

@@ -5,10 +5,10 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from models import CodeChunk, GraphEdge, GraphNode
+from models import CodeChunk, GraphEdge, GraphNode, Repo
 from models.enums import RowStatus
 from repositories.audit import stamp_created, stamp_updated
 
@@ -248,6 +248,59 @@ class CodeChunkRepository:
         )
         return self._session.scalars(stmt).first() is not None
 
+    def list_active_by_project_path(
+        self,
+        project_id: uuid.UUID,
+        path_query: str,
+        *,
+        repo_ids: list[uuid.UUID] | None = None,
+    ) -> list[CodeChunk]:
+        """List active chunks for a repo-relative path within a project.
+
+        Resolves ``path_query`` with exact ``file_path`` match first, then suffix /
+        basename match (``loan.utils.ts`` → ``src/loan.utils.ts``). Results are ordered
+        by file path then span start line.
+
+        @param project_id - Project UUID.
+        @param path_query - Exact or partial repo-relative path from the user/planner.
+        @param repo_ids - Optional repo filter.
+        @returns Active chunk rows for the resolved file(s), span-ordered.
+        """
+        normalized = path_query.strip().lstrip("./").replace("\\", "/")
+        if not normalized:
+            return []
+
+        basename = normalized.split("/")[-1]
+        suffix = f"/{normalized}"
+        stmt = (
+            select(CodeChunk)
+            .join(Repo, CodeChunk.repo_id == Repo.id)
+            .where(
+                CodeChunk.project_id == project_id,
+                CodeChunk.status == RowStatus.ACTIVE,
+                Repo.status == RowStatus.ACTIVE,
+                or_(
+                    CodeChunk.file_path == normalized,
+                    CodeChunk.file_path.like(f"%{suffix}"),
+                    CodeChunk.file_path == basename,
+                    CodeChunk.file_path.like(f"%/{basename}"),
+                ),
+            )
+        )
+        if repo_ids:
+            stmt = stmt.where(CodeChunk.repo_id.in_(repo_ids))
+
+        rows = list(self._session.scalars(stmt).all())
+        rows.sort(
+            key=lambda chunk: (
+                0 if chunk.file_path == normalized else 1,
+                chunk.file_path,
+                _span_start_line(chunk),
+                str(chunk.id),
+            ),
+        )
+        return rows
+
     def list_by_repo(self, repo_id: uuid.UUID) -> list[CodeChunk]:
         """List all chunks for a repository.
 
@@ -346,3 +399,12 @@ class CodeChunkRepository:
         )
         result = self._session.execute(stmt)
         return result.rowcount
+
+
+def _span_start_line(chunk: CodeChunk) -> int:
+    """Return the chunk span start line for ordering, or a large sentinel when missing.
+
+    @param chunk - Code chunk row with optional span JSON.
+    """
+    span = chunk.span if isinstance(chunk.span, dict) else {}
+    return int(span.get("startLine") or span.get("start_line") or 10**9)

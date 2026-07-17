@@ -15,6 +15,9 @@ _STRONG_IDENTIFIER_RE = re.compile(
     r"|\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b)",  # dotted
 )
 
+# Domain acronyms (EMI, JWT, APR, …) — length ≥ 3 to skip OR/IN noise.
+_ACRONYM_TOKEN_RE = re.compile(r"\b[A-Z]{3,}\b")
+
 _BACKTICK_RE = re.compile(r"`([^`]+)`")
 
 _SYMBOL_LOOKUP_PHRASES: tuple[str, ...] = (
@@ -28,15 +31,10 @@ _SYMBOL_LOOKUP_PHRASES: tuple[str, ...] = (
     "what is ",
 )
 
+# Overview / architecture explainers only — not "how is X calculated?" (implementation seeking).
 _CONCEPTUAL_PHRASES: tuple[str, ...] = (
-    "how does",
-    "how do",
-    "how is",
-    "how are",
     "explain",
     "lifecycle",
-    "authentication work",
-    "flow work",
     "overview",
 )
 
@@ -57,6 +55,14 @@ _PROFILE_WEIGHTS: dict[QueryIntentProfile, tuple[float, float, float]] = {
 }
 
 
+def _is_acronym_token(token: str) -> bool:
+    """Return True for ALLCAPS domain acronyms (EMI, JWT, …), length ≥ 3.
+
+    @param token - Single identifier token from the question.
+    """
+    return token.isupper() and len(token) >= 3
+
+
 def _has_strong_identifier(question: str, terms: list[str]) -> bool:
     """Return True when the question names a code symbol or path-like token.
 
@@ -65,10 +71,14 @@ def _has_strong_identifier(question: str, terms: list[str]) -> bool:
     """
     if _STRONG_IDENTIFIER_RE.search(question):
         return True
+    if _ACRONYM_TOKEN_RE.search(question):
+        return True
     if _BACKTICK_RE.search(question):
         return True
     for term in terms:
         if _STRONG_IDENTIFIER_RE.fullmatch(term):
+            return True
+        if _is_acronym_token(term):
             return True
         if "." in term or "_" in term:
             return True
@@ -82,6 +92,9 @@ def _matches_phrase(question_lower: str, phrases: tuple[str, ...]) -> bool:
 
 def classify_query_intent(question: str, terms: list[str]) -> QueryIntentProfile:
     """Classify retrieval intent from lightweight heuristics (no LLM).
+
+    Code QA treats ``how is/does X …`` as implementation-seeking (BALANCED) unless the
+    question is an overview-style explainer without domain identifiers (CONCEPTUAL).
 
     @param question - Raw user question text.
     @param terms - Identifier tokens from ``extract_search_terms``.

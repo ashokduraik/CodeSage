@@ -6,7 +6,11 @@ import uuid
 
 from sqlalchemy.dialects import postgresql
 
-from repositories.symbols import build_symbol_query, _chunk_matches_symbol
+from repositories.symbols import (
+    build_symbol_query,
+    is_acronym_search_term,
+    _chunk_matches_symbol,
+)
 
 
 def test_build_symbol_query_compiles_with_symbol_kinds() -> None:
@@ -21,6 +25,21 @@ def test_build_symbol_query_compiles_with_symbol_kinds() -> None:
     assert "graph_nodes" in compiled
     assert "function" in compiled
     assert "similarity" in compiled.lower()
+
+
+def test_build_symbol_query_includes_acronym_substring_match() -> None:
+    stmt = build_symbol_query(
+        project_id=uuid.uuid4(),
+        terms=["EMI"],
+        limit=5,
+    )
+    compiled = str(
+        stmt.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}),
+    )
+    assert "contains" in compiled.lower() or "lower" in compiled.lower()
+    assert is_acronym_search_term("EMI") is True
+    assert is_acronym_search_term("Emi") is False
+    assert is_acronym_search_term("OR") is False
 
 
 def test_chunk_matches_symbol_by_symbol_refs() -> None:

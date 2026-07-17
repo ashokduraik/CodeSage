@@ -270,6 +270,10 @@ def test_format_hints_includes_steps() -> None:
     assert "graph_expand" in text
     assert "src/loan.utils.ts" in text
     assert "hints only" in text
+    # Placeholders must not leak raw `{term:…}` braces into the planner prompt.
+    assert "{term:" not in text
+    assert "{anchor:" not in text
+    assert "term:getMinEmi" in text
     assert format_playbook_hints_for_planner([]) == ""
 
 

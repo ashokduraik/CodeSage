@@ -534,6 +534,73 @@ def _assistant_tool_call_message(calls: list[ParsedToolCall]) -> dict[str, Any]:
     }
 
 
+def _planner_evidence_nudge(
+    pool: EvidencePool,
+    confidence: float,
+    min_confidence: float,
+) -> str:
+    """Build a deterministic planner message that pushes for one more tool call.
+
+    Used when the planner emits no tool_calls while evidence already exists in the
+    pool but the confidence gate has not passed (ADR 0026 promise: iterate below
+    threshold, never silently stop). The copy is code-authored — never LLM text —
+    so the planner is anchored to concrete chunks it can drill into instead of
+    answering prematurely.
+
+    @param pool - Accumulated evidence with at least one hit.
+    @param confidence - Latest evidence-confidence score.
+    @param min_confidence - Gate threshold from ``QA_AGENT_MIN_CONFIDENCE``.
+    @returns A user-role instruction string listing the top pool anchors and
+        directing the planner to call another retrieval tool.
+    """
+    anchors: list[str] = []
+    for hit in pool.hits()[:3]:
+        span = json.dumps(hit.span, separators=(",", ":"))
+        anchors.append(
+            f"- {hit.file_path} span={span} chunk_id={hit.chunk_id}"
+        )
+    anchor_block = "\n".join(anchors)
+    return (
+        f"Evidence confidence is {confidence:.2f}, below the {min_confidence:.2f} "
+        f"gate, but {len(pool.entries)} evidence chunk(s) are already gathered:\n"
+        f"{anchor_block}\n"
+        "Call another tool to strengthen the evidence — for example read_chunk "
+        "with chunk_id, read_symbol, or read_chunks_for_path with around_line / "
+        "chunk_id from one of the anchors above, or a more specific search. "
+        "Do not answer in text; call a tool."
+    )
+
+
+def _abstain_content(
+    *,
+    pool_size: int,
+    last_confidence: float,
+    min_confidence: float,
+) -> str:
+    """Return the honest abstain message for the current pool state.
+
+    Citations are streamed as they are found, so telling the user "no evidence"
+    when related code was already cited is misleading. Distinguish the empty-pool
+    case (truly nothing found) from the below-threshold case (related code found,
+    confidence too low) per plan 15.
+
+    @param pool_size - Number of deduplicated chunks in the evidence pool.
+    @param last_confidence - Final confidence score (kept for future copy that may
+        surface the score; the v1 strings are fixed for test stability).
+    @param min_confidence - Gate threshold (reserved alongside ``last_confidence``).
+    @returns The abstain body string matching the pool state.
+    """
+    if pool_size == 0:
+        return (
+            "I couldn't find enough evidence in the indexed repository "
+            "to answer confidently."
+        )
+    return (
+        "I found related code in the index, but the evidence was not strong "
+        "enough to answer confidently."
+    )
+
+
 def _build_investigation_trace(
     *,
     agent_iterations: int,
@@ -789,7 +856,14 @@ def stream_agent_answer(
             planner_messages.extend(history[-settings.llm_max_history_turns :])
         planner_messages.append({"role": "user", "content": question})
 
+        # Tracks idle turns with no evidence at all so we can abstain early instead
+        # of burning every iteration on empty planner turns (plan 15 §2). Reset
+        # whenever a tool actually runs.
+        consecutive_empty_pool = 0
+        last_iteration = start_iteration - 1
+
         for iteration in range(start_iteration, settings.qa_agent_max_iterations + 1):
+            last_iteration = iteration
             try:
                 turn: PlannerTurnResult = complete_with_tools(
                     settings,
@@ -822,18 +896,65 @@ def stream_agent_answer(
                 yield _chunk_event("done")
                 return
 
-            if not turn.tool_calls:
-                iteration_records.append(
-                    {
-                        "index": iteration,
-                        "confidenceAfter": last_confidence,
-                        "toolCalls": [],
-                    }
-                )
+            # Empty tool_calls never bypass the confidence gate (ADR 0026). When the
+            # pool already holds evidence but the gate has not passed, nudge the
+            # planner with concrete anchors and re-prompt once in this same
+            # iteration; do not accept an idle "done gathering" turn (plan 15 §1).
+            nudged_this_iteration = False
+            if not turn.tool_calls and pool.entries:
                 if turn.assistant_content:
                     planner_messages.append(
                         {"role": "assistant", "content": turn.assistant_content}
                     )
+                planner_messages.append(
+                    {
+                        "role": "user",
+                        "content": _planner_evidence_nudge(
+                            pool, last_confidence, settings.qa_agent_min_confidence
+                        ),
+                    }
+                )
+                nudged_this_iteration = True
+                # Hard cap: exactly one re-call per iteration so a stubborn planner
+                # cannot spin complete_with_tools forever inside one loop step.
+                try:
+                    turn = complete_with_tools(settings, planner_messages, tools)
+                except LlmToolCallingError as exc:
+                    log_event(
+                        _logger,
+                        logging.WARNING,
+                        f"Agent planner failed: {sanitize_log_message(str(exc))}",
+                    )
+                    yield _chunk_event(
+                        "error",
+                        content=(
+                            "The retrieval planner could not run. "
+                            "Check LLM tool-calling support."
+                        ),
+                    )
+                    return
+
+            if not turn.tool_calls:
+                # Either the pool is still empty, or the nudge failed to elicit a
+                # tool call. Record the idle turn (auditable ``nudged`` flag) and
+                # count it toward the empty-pool early-abstain guard.
+                if turn.assistant_content and not nudged_this_iteration:
+                    planner_messages.append(
+                        {"role": "assistant", "content": turn.assistant_content}
+                    )
+                record: dict[str, Any] = {
+                    "index": iteration,
+                    "confidenceAfter": round(last_confidence, 4),
+                    "toolCalls": [],
+                }
+                if nudged_this_iteration:
+                    record["nudged"] = True
+                iteration_records.append(record)
+                consecutive_empty_pool += 1
+                # Early exit: two idle turns with zero evidence gathered will never
+                # reach the gate, so abstain now rather than idling to max.
+                if not pool.entries and consecutive_empty_pool >= 2:
+                    break
                 continue
 
             normalized_calls = [
@@ -944,13 +1065,17 @@ def stream_agent_answer(
             last_confidence, passes = evaluate_evidence_confidence(
                 pool, settings, intent=intent, terms=terms
             )
-            iteration_records.append(
-                {
-                    "index": iteration,
-                    "confidenceAfter": round(last_confidence, 4),
-                    "toolCalls": iter_tool_records,
-                }
-            )
+            # A tool ran this iteration, so this is active gathering — reset the
+            # idle-turn counter used by the empty-pool early-abstain guard.
+            consecutive_empty_pool = 0
+            tool_record: dict[str, Any] = {
+                "index": iteration,
+                "confidenceAfter": round(last_confidence, 4),
+                "toolCalls": iter_tool_records,
+            }
+            if nudged_this_iteration:
+                tool_record["nudged"] = True
+            iteration_records.append(tool_record)
 
             if passes:
                 selected, blocks, ctx_tokens, max_ctx, trimmed = _pack_pool_excerpts(
@@ -1012,17 +1137,20 @@ def stream_agent_answer(
                 yield _chunk_event("done")
                 return
 
+        pool_size = len(pool.entries)
         log_event(
             _logger,
             logging.INFO,
-            f"Agent abstain after {settings.qa_agent_max_iterations} iterations "
-            f"(confidence={last_confidence:.4f}, tools={tool_call_count})",
+            f"Agent abstain after {last_iteration} iterations "
+            f"(confidence={last_confidence:.4f}, tools={tool_call_count}, "
+            f"pool={pool_size})",
         )
         yield _chunk_event(
             "abstain",
-            content=(
-                "I couldn't find enough evidence in the indexed repository "
-                "to answer confidently."
+            content=_abstain_content(
+                pool_size=pool_size,
+                last_confidence=last_confidence,
+                min_confidence=settings.qa_agent_min_confidence,
             ),
         )
         yield _chunk_event("done")

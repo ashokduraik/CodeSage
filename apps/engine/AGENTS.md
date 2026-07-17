@@ -29,7 +29,8 @@ src/config/                → settings, env
 - Put **all business logic** in `src/services/` (`sync`, `parse`, `embed`, `xrepo`, `retrieval`, `qa`, …).
 - **Agent QA retrieval tools** live in one module: `src/services/qa/tools.py` (not
   `services/retrieval/tools.py` and not a `tools/` package). They wrap repositories; the
-  planner gets `TOOL_DEFINITIONS` / `execute_tool` only.
+  planner gets `TOOL_DEFINITIONS` / `execute_tool` only. Includes `read_chunks_for_path` for
+  file-path drill-down from indexed chunks (ADR 0026).
 - **Agent QA orchestration** lives in `src/services/qa/agent_loop.py`. Application code owns
   iteration limits, evidence-pool caps, deterministic confidence, citations, final generation,
   and abstention; never delegate those trust controls to planner self-assessment.

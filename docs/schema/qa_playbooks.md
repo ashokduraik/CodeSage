@@ -22,7 +22,7 @@ stale after re-index (invalidation in plan 12). Promotion/merge logic is plan 11
 | `evidence_anchors` | `jsonb` | NO | — | Stable `filePath` / `symbol` / `graphNodeId` anchors from a successful run |
 | `success_count` | `int` | NO | `1` | Times this playbook reinforced a successful answer |
 | `last_success_at` | `timestamptz` | NO | `now()` | Last successful use (UTC) |
-| `source_message_id` | `uuid` | YES | — | FK → `messages.id`; provenance of the promoting turn |
+| `source_message_id` | `uuid` | YES | — | Provenance of the promoting turn; Postgres FK → `messages.id` (Engine ORM stores plain UUID — Node owns `messages`) |
 | `created_at` | `timestamptz` | NO | `now()` | Row creation time (UTC) |
 | `updated_at` | `timestamptz` | NO | `now()` | Last update (UTC); set by `BEFORE UPDATE` trigger |
 | `created_by` | `uuid` | NO | — | FK → `users.id`; actor who created the row |
@@ -46,7 +46,7 @@ stale after re-index (invalidation in plan 12). Promotion/merge logic is plan 11
 | Column | References | On delete |
 |---|---|---|
 | `project_id` | `projects(id)` | `CASCADE` |
-| `source_message_id` | `messages(id)` | `SET NULL` |
+| `source_message_id` | `messages(id)` | `SET NULL` (DB only; Engine ORM has no FK declaration) |
 | `created_by` / `updated_by` | `users(id)` | — |
 
 ## Caps (application)

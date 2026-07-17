@@ -45,9 +45,9 @@ class QaPlaybook(Base):
         nullable=False,
         server_default=func.now(),
     )
+    # Plain UUID — Postgres FK to messages(id) exists in migration; Engine has no Message ORM.
     source_message_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("messages.id", ondelete="SET NULL"),
         nullable=True,
     )
     status: Mapped[RowStatus] = mapped_column(

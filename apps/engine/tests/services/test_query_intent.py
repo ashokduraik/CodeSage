@@ -21,8 +21,28 @@ def test_classify_symbol_lookup_for_backtick_name() -> None:
     assert classify_query_intent(question, terms) == QueryIntentProfile.SYMBOL_LOOKUP
 
 
-def test_classify_conceptual_for_how_question_without_identifiers() -> None:
+def test_classify_balanced_for_how_question_without_identifiers() -> None:
+    """Implementation-seeking how-questions are BALANCED, not vector-heavy CONCEPTUAL."""
     question = "how does authentication work?"
+    terms = extract_search_terms(question)
+    assert classify_query_intent(question, terms) == QueryIntentProfile.BALANCED
+
+
+def test_classify_balanced_for_emi_calculation_question() -> None:
+    question = "how is EMI calculated?"
+    terms = extract_search_terms(question)
+    assert classify_query_intent(question, terms) == QueryIntentProfile.BALANCED
+    assert "EMI" in terms
+
+
+def test_classify_balanced_for_login_flow_question() -> None:
+    question = "how does login work?"
+    terms = extract_search_terms(question)
+    assert classify_query_intent(question, terms) == QueryIntentProfile.BALANCED
+
+
+def test_classify_conceptual_for_overview_without_identifiers() -> None:
+    question = "overview of auth lifecycle"
     terms = extract_search_terms(question)
     assert classify_query_intent(question, terms) == QueryIntentProfile.CONCEPTUAL
 

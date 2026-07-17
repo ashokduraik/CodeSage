@@ -2,16 +2,29 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from models import CodeChunk, GraphNode, Repo
 from models.enums import RowStatus
 
 _SYMBOL_KINDS: tuple[str, ...] = ("function", "class", "method")
+_ACRONYM_TERM_RE = re.compile(r"^[A-Z]{3,}$")
+
+# Score assigned when a symbol name contains an ALLCAPS acronym substring (e.g. EMI → calculateEmi).
+_ACRONYM_SUBSTRING_SCORE = 0.95
+
+
+def is_acronym_search_term(term: str) -> bool:
+    """Return True when a search term is an ALLCAPS domain acronym (length ≥ 3).
+
+    @param term - Identifier token from the user question.
+    """
+    return bool(_ACRONYM_TERM_RE.fullmatch(term))
 
 
 def _chunk_matches_symbol(chunk: CodeChunk, symbol_name: str) -> bool:
@@ -40,6 +53,9 @@ def build_symbol_query(
 ) -> Select[tuple[GraphNode, float]]:
     """Build a trigram similarity query over symbol graph node names.
 
+    ALLCAPS acronyms (EMI, JWT, …) also match symbol names that contain the acronym
+    as a substring (case-insensitive), so ``calculateEmi`` is found for ``EMI``.
+
     @param project_id - Scope search to this project.
     @param terms - Identifier tokens from the user question.
     @param limit - Maximum symbol nodes to return.
@@ -50,8 +66,21 @@ def build_symbol_query(
     if not terms:
         return select(GraphNode).where(False)  # type: ignore[return-value]
 
-    similarity_exprs = [func.similarity(GraphNode.name, term) for term in terms]
-    best_score = func.greatest(*similarity_exprs).label("score")
+    match_clauses: list = []
+    score_exprs: list = []
+    for term in terms:
+        sim_expr = func.similarity(GraphNode.name, term)
+        score_exprs.append(sim_expr)
+        term_matches = [sim_expr >= min_similarity]
+        if is_acronym_search_term(term):
+            contains_expr = func.lower(GraphNode.name).contains(term.lower())
+            term_matches.append(contains_expr)
+            score_exprs.append(
+                case((contains_expr, _ACRONYM_SUBSTRING_SCORE), else_=0.0),
+            )
+        match_clauses.append(or_(*term_matches))
+
+    best_score = func.greatest(*score_exprs).label("score")
     stmt = (
         select(GraphNode, best_score)
         .join(Repo, GraphNode.repo_id == Repo.id)
@@ -61,7 +90,7 @@ def build_symbol_query(
             GraphNode.status == RowStatus.ACTIVE,
             Repo.status == RowStatus.ACTIVE,
             GraphNode.file_path.is_not(None),
-            or_(*[expr >= min_similarity for expr in similarity_exprs]),
+            or_(*match_clauses),
         )
         .order_by(best_score.desc())
         .limit(limit)

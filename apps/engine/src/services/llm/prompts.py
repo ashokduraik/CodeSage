@@ -30,6 +30,8 @@ AGENT_PLANNER_SYSTEM_PROMPT = (
     "that hit's span; do not call read_chunks_for_path with only path on a large file "
     "when a span is already known. "
     "Do not stop on UI-only hits (pages, popovers, templates) when logic lives elsewhere. "
+    "If prior tool results exist but you have not finished investigating, call another tool; "
+    "do not stop with empty tool_calls while formula or implementation questions remain unanswered. "
     "Prefer targeted tools (search_symbols, search_code, read_symbol, read_chunk, "
     "read_chunks_for_path) when you know what to look for; use search_hybrid when unsure. "
     "For brief social turns (greetings, thanks), reply in one short sentence without "

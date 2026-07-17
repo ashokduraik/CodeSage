@@ -362,6 +362,23 @@ def find_similar_playbooks(
     return hints
 
 
+def _hint_arg_display(value: object) -> str:
+    """Format one playbook argsTemplate value for the planner prompt.
+
+    Replaces ``{term:X}`` / ``{anchor:Y}`` braces with ``term:X`` / ``anchor:Y`` so
+    local tool-call parsers (Ollama / llama.cpp) do not treat curly braces inside the
+    system prompt as incomplete JSON objects.
+
+    @param value - Raw template value from a playbook step.
+    @returns Safe display string without bare ``{`` / ``}`` delimiters.
+    """
+    text = str(value).strip()
+    matched = _PLACEHOLDER_RE.fullmatch(text)
+    if matched:
+        return f"{matched.group(1)}:{matched.group(2)}"
+    return text.replace("{", "(").replace("}", ")")
+
+
 def format_playbook_hints_for_planner(hints: list[PlaybookHint]) -> str:
     """Format similar playbooks as a planner system-prompt section.
 
@@ -380,12 +397,16 @@ def format_playbook_hints_for_planner(hints: list[PlaybookHint]) -> str:
     for index, hint in enumerate(hints, start=1):
         step_parts: list[str] = []
         for step in hint.steps:
+            if not isinstance(step, dict):
+                continue
             tool = step.get("tool", "?")
             args = step.get("argsTemplate") or {}
             if isinstance(args, dict) and args:
-                # Compact one-arg display for the planner; full JSON remains in steps.
+                # Compact one-arg display for the planner; strip `{term:…}` braces so
+                # Ollama/llama.cpp tool parsers do not treat them as JSON object delimiters.
                 first_key = next(iter(args))
-                step_parts.append(f'{tool}("{args[first_key]}")')
+                display = _hint_arg_display(args[first_key])
+                step_parts.append(f"{tool}({first_key}={display})")
             else:
                 step_parts.append(str(tool))
         steps_text = " → ".join(step_parts) if step_parts else "(no steps)"
@@ -395,8 +416,8 @@ def format_playbook_hints_for_planner(hints: list[PlaybookHint]) -> str:
                 anchors.append(str(anchor["filePath"]))
         anchors_text = ", ".join(anchors) if anchors else "(none)"
         lines.append(
-            f'{index}. (similarity {hint.similarity:.2f}, used {hint.success_count} times) '
-            f'"{hint.canonical_question}"\n'
+            f"{index}. (similarity {hint.similarity:.2f}, used {hint.success_count} times) "
+            f"question={hint.canonical_question}\n"
             f"   Steps: {steps_text}\n"
             f"   Anchors: {anchors_text}"
         )

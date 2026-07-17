@@ -428,6 +428,65 @@ def _planner_timeout(settings: Settings) -> httpx.Timeout:
     )
 
 
+def _normalize_tool_call_arguments_for_api(
+    messages: list[dict[str, Any]],
+    *,
+    as_objects: bool,
+) -> list[dict[str, Any]]:
+    """Copy messages with tool-call ``arguments`` shaped for the target API.
+
+    OpenAI ``/chat/completions`` expects ``arguments`` as a JSON string. Ollama
+    native ``/api/chat`` expects a JSON object. Replaying the wrong shape on turn 2+
+    makes some servers return HTTP 400 while parsing the request history.
+
+    @param messages - Planner conversation including assistant tool_calls.
+    @param as_objects - True for Ollama native; False for OpenAI-compatible.
+    @returns Shallow-copied messages with normalized tool_call arguments.
+    """
+    normalized: list[dict[str, Any]] = []
+    for message in messages:
+        if message.get("role") != "assistant" or not isinstance(
+            message.get("tool_calls"), list
+        ):
+            normalized.append(message)
+            continue
+        new_message = dict(message)
+        new_calls: list[dict[str, Any]] = []
+        for call in message["tool_calls"]:
+            if not isinstance(call, dict):
+                continue
+            new_call = dict(call)
+            function = call.get("function")
+            if isinstance(function, dict):
+                new_function = dict(function)
+                raw_args = function.get("arguments")
+                if as_objects:
+                    if isinstance(raw_args, str):
+                        try:
+                            parsed = json.loads(raw_args) if raw_args.strip() else {}
+                        except json.JSONDecodeError:
+                            parsed = {}
+                        new_function["arguments"] = (
+                            parsed if isinstance(parsed, dict) else {}
+                        )
+                    elif isinstance(raw_args, dict):
+                        new_function["arguments"] = raw_args
+                    else:
+                        new_function["arguments"] = {}
+                else:
+                    if isinstance(raw_args, dict):
+                        new_function["arguments"] = json.dumps(raw_args)
+                    elif isinstance(raw_args, str):
+                        new_function["arguments"] = raw_args
+                    else:
+                        new_function["arguments"] = "{}"
+                new_call["function"] = new_function
+            new_calls.append(new_call)
+        new_message["tool_calls"] = new_calls
+        normalized.append(new_message)
+    return normalized
+
+
 def complete_with_tools(
     settings: Settings,
     messages: list[dict[str, Any]],
@@ -464,13 +523,17 @@ def complete_with_tools(
     # Thinking models on Ollama's /v1 often ignore think:false; native /api/chat
     # honours it and still accepts a tools array on recent Ollama builds.
     use_ollama_native = ollama_root is not None and _is_thinking_model(settings.vllm_model)
+    api_messages = _normalize_tool_call_arguments_for_api(
+        messages,
+        as_objects=use_ollama_native,
+    )
 
     if use_ollama_native:
         assert ollama_root is not None
         url = f"{ollama_root}/api/chat"
         body: dict[str, Any] = {
             "model": settings.vllm_model,
-            "messages": messages,
+            "messages": api_messages,
             "stream": False,
             "tools": tools,
             "think": False,
@@ -483,7 +546,7 @@ def complete_with_tools(
         url = f"{settings.vllm_base_url.rstrip('/')}/chat/completions"
         body = {
             "model": settings.vllm_model,
-            "messages": messages,
+            "messages": api_messages,
             "stream": False,
             "temperature": 0.2,
             "max_tokens": settings.llm_completion_reserve_tokens,

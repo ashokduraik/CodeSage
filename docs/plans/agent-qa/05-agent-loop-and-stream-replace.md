@@ -42,6 +42,12 @@ Implement the agent loop in **one module** `apps/engine/src/services/qa/agent_lo
    short reply, `done`, return
 10. **End-user audience** — keep `is_code_audience` check in `stream_answer.py` before agent loop
 
+> **Superseded by [plan 15](./15-agent-loop-gate-coupling.md):** the original item 8/9 behavior of
+> silently accepting an idle empty-`tool_calls` turn (record iteration + `continue`) is replaced.
+> When the gate fails but the pool is non-empty, the loop now nudges the planner (≤1 re-call per
+> iteration) to call another tool, and the abstain copy is honest about pool state (empty vs
+> related-code-found). The social exception in item 9 is unchanged.
+
 **Target size:** &lt; 1000 lines; do not split unless exceeded.
 
 ---

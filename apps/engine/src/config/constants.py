@@ -67,7 +67,7 @@ QA_AGENT_CONFIDENCE_TOP_N = 10  # pool matches scored for evidence confidence
 QA_AGENT_MAX_POOL_CHUNKS = 20  # hard cap on evidence pool size
 QA_AGENT_MAX_TOOL_HITS = 8  # max hits returned per tool call
 QA_AGENT_MAX_EXCERPT_TOKENS = 512  # per-hit excerpt token cap in tool JSON
-QA_AGENT_PLANNER_TIMEOUT_SECONDS = 60.0  # planner LLM timeout per iteration
+QA_AGENT_PLANNER_TIMEOUT_SECONDS = 180.0  # planner LLM timeout per iteration
 QA_AGENT_FINAL_TIMEOUT_SECONDS = LLM_TIMEOUT_SECONDS  # final answer stream timeout
 
 # --- QA playbooks (ADR 0027) — constants only; not listed in .env.example ---

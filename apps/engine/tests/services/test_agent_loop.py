@@ -153,6 +153,195 @@ def test_abstains_after_max_iterations_no_evidence(monkeypatch: pytest.MonkeyPat
     assert "abstain" in types
     assert types[-1] == "done"
     assert "token" not in types
+    abstain = next(e for e in events if e["type"] == "abstain")
+    assert abstain["content"] == (
+        "I couldn't find enough evidence in the indexed repository "
+        "to answer confidently."
+    )
+
+
+def test_empty_pool_two_idle_turns_early_abstain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two idle no-tool turns with an empty pool abstain before max iterations."""
+    settings = Settings(qa_agent_max_iterations=5, qa_agent_min_confidence=0.8)
+    session_factory = MagicMock(return_value=MagicMock())
+    planner_calls = {"n": 0}
+
+    def _planner(*_a: object, **_k: object) -> PlannerTurnResult:
+        planner_calls["n"] += 1
+        return PlannerTurnResult(tool_calls=[], assistant_content=None)
+
+    monkeypatch.setattr("services.qa.agent_loop.complete_with_tools", _planner)
+
+    events = _parse_events(
+        list(
+            stream_agent_answer(
+                settings,
+                session_factory,
+                question="where is AuthService defined?",
+                project_id=uuid.uuid4(),
+            )
+        )
+    )
+    types = [e["type"] for e in events]
+    assert "abstain" in types
+    assert types[-1] == "done"
+    # Early exit after two idle empty-pool turns — never runs all five iterations.
+    assert planner_calls["n"] == 2
+
+
+def test_abstain_message_when_pool_has_hits_but_gate_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When evidence exists but the gate never passes, abstain copy differs."""
+    settings = Settings(qa_agent_max_iterations=2, qa_agent_min_confidence=0.8)
+    session_factory = MagicMock(return_value=MagicMock())
+    hit = _hit()
+
+    turns = iter(
+        [
+            PlannerTurnResult(
+                tool_calls=[
+                    ParsedToolCall(
+                        name="search_symbols", arguments={"query": "login"}, id="c1"
+                    )
+                ]
+            ),
+            PlannerTurnResult(tool_calls=[], assistant_content=None),
+            PlannerTurnResult(tool_calls=[], assistant_content=None),
+        ]
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.complete_with_tools",
+        lambda *a, **k: next(turns),
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.execute_tool",
+        lambda *a, **k: QaToolResult(
+            tool_name="search_symbols",
+            args={"query": "login"},
+            hits=[hit],
+            truncated=False,
+            duration_ms=3.0,
+        ),
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.evaluate_evidence_confidence",
+        lambda *a, **k: (0.4, False),
+    )
+
+    events = _parse_events(
+        list(
+            stream_agent_answer(
+                settings,
+                session_factory,
+                question="how does login work?",
+                project_id=uuid.uuid4(),
+            )
+        )
+    )
+    types = [e["type"] for e in events]
+    assert "citation" in types
+    assert "abstain" in types
+    abstain = next(e for e in events if e["type"] == "abstain")
+    assert abstain["content"] == (
+        "I found related code in the index, but the evidence was not strong "
+        "enough to answer confidently."
+    )
+
+
+def test_nudge_reprompts_planner_when_gate_fails_with_pool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Empty tools with a non-empty pool nudge the planner to call one more tool."""
+    settings = Settings(
+        qa_agent_max_iterations=2,
+        qa_agent_min_confidence=0.5,
+        llm_max_context_tokens=8192,
+        vllm_model="test-model",
+    )
+    session_factory = MagicMock(return_value=MagicMock())
+    first_hit = _hit(file_path="src/loan.utils.ts", symbol=0.4, fused=0.02)
+    second_hit = _hit(file_path="src/loan.service.ts", symbol=0.99, fused=0.06)
+
+    planner_messages_seen: list[list[dict]] = []
+    turns = iter(
+        [
+            # Iteration 1: gather evidence, but gate fails.
+            PlannerTurnResult(
+                tool_calls=[
+                    ParsedToolCall(
+                        name="search_hybrid", arguments={"query": "emi"}, id="c1"
+                    )
+                ]
+            ),
+            # Iteration 2: idle first, triggering the nudge.
+            PlannerTurnResult(tool_calls=[], assistant_content=None),
+            # Nudge re-call: planner now issues a concrete read.
+            PlannerTurnResult(
+                tool_calls=[
+                    ParsedToolCall(
+                        name="read_chunk", arguments={"chunk_id": "x"}, id="c2"
+                    )
+                ]
+            ),
+        ]
+    )
+
+    def _planner(_settings: object, messages: list[dict], _tools: object):
+        planner_messages_seen.append([dict(m) for m in messages])
+        return next(turns)
+
+    monkeypatch.setattr("services.qa.agent_loop.complete_with_tools", _planner)
+
+    def _execute(*_a: object, tool_name: str = "", **_k: object) -> QaToolResult:
+        hit = second_hit if tool_name == "read_chunk" else first_hit
+        return QaToolResult(
+            tool_name=tool_name,
+            args={},
+            hits=[hit],
+            truncated=False,
+            duration_ms=2.0,
+        )
+
+    monkeypatch.setattr(
+        "services.qa.agent_loop.execute_tool",
+        lambda *a, **k: _execute(*a, tool_name=k["tool_name"]),
+    )
+
+    conf = iter([(0.4, False), (0.9, True)])
+    monkeypatch.setattr(
+        "services.qa.agent_loop.evaluate_evidence_confidence",
+        lambda *a, **k: next(conf),
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.stream_final_answer",
+        lambda *a, **k: iter(["grounded answer"]),
+    )
+
+    events = _parse_events(
+        list(
+            stream_agent_answer(
+                settings,
+                session_factory,
+                question="how is EMI calculated?",
+                project_id=uuid.uuid4(),
+            )
+        )
+    )
+    types = [e["type"] for e in events]
+    # Nudge produced a second tool call that reached the gate → answered, not abstain.
+    assert "token" in types
+    assert types[-1] == "done"
+    assert "abstain" not in types
+    # The nudge message carries the confidence and a pool anchor file path.
+    nudge_msg = planner_messages_seen[-1][-1]
+    assert nudge_msg["role"] == "user"
+    assert "confidence" in nudge_msg["content"].lower()
+    assert "src/loan.utils.ts" in nudge_msg["content"]
+    metrics = next(e["metrics"] for e in events if e["type"] == "metrics")
+    assert metrics["investigationTrace"]["iterations"][-1]["nudged"] is True
 
 
 def test_social_turn_without_tools(monkeypatch: pytest.MonkeyPatch) -> None:

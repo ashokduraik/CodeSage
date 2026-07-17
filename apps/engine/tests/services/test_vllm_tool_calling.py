@@ -276,6 +276,55 @@ def test_complete_with_tools_thinking_model_uses_ollama_native(
     assert result.assistant_content == "hi"
 
 
+def test_complete_with_tools_ollama_native_converts_argument_strings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ollama /api/chat expects tool_call arguments as objects, not JSON strings."""
+    settings = Settings(vllm_base_url="http://localhost:11434/v1", vllm_model="qwen3:8b")
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "message": {"role": "assistant", "content": "", "tool_calls": []}
+    }
+    captured: dict[str, object] = {}
+
+    def fake_post(url: str, json: dict[str, object], timeout: object) -> MagicMock:
+        captured["body"] = json
+        return response
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    messages = [
+        {"role": "user", "content": "emi?"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "search_hybrid",
+                        "arguments": '{"query": "EMI"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_1", "content": "{}"},
+    ]
+    complete_with_tools(settings, messages, tools=[])
+    body = captured["body"]
+    assert isinstance(body, dict)
+    sent = body["messages"]
+    assert isinstance(sent, list)
+    assistant = sent[1]
+    assert isinstance(assistant, dict)
+    tool_calls = assistant["tool_calls"]
+    assert isinstance(tool_calls, list)
+    args = tool_calls[0]["function"]["arguments"]
+    assert isinstance(args, dict)
+    assert args == {"query": "EMI"}
+
+
 def test_complete_with_tools_thinking_model_on_vllm_shim(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
