@@ -10,7 +10,12 @@ from typing import Any
 from sqlalchemy.orm import Session, sessionmaker
 
 from config import Settings
-from config.logging import format_indexing_context, get_indexing_logger, log_event
+from config.logging import (
+    format_indexing_context,
+    get_indexing_logger,
+    log_event,
+    sanitize_log_message,
+)
 from models.enums import ProjectStatus
 from repositories import (
     CodeChunkRepository,
@@ -30,6 +35,7 @@ from services.indexing.progress_recorder import IndexingProgressRecorder
 from services.indexing.failure_status import recompute_project_lifecycle
 from services.indexing.xrepo_enqueue import maybe_enqueue_xrepo
 from services.indexing.distill_enqueue import maybe_enqueue_distill
+from services.qa.playbooks import invalidate_playbooks_for_files
 
 logger = get_indexing_logger()
 
@@ -116,6 +122,31 @@ def handle_embed_job(
     vectors = client.embed_texts([row.content for row in valid_rows])
     for row, vector in zip(valid_rows, vectors, strict=True):
         chunks_repo.update_embedding(row.id, vector)
+
+    # Derive changed paths from embedded chunks (embed payload has chunkIds, not files).
+    # Soft-delete playbooks whose anchors reference these paths so hints stay fresh.
+    changed_paths = sorted({row.file_path for row in valid_rows if row.file_path})
+    try:
+        invalidated = invalidate_playbooks_for_files(
+            session,
+            project_id=repo.project_id,
+            file_paths=changed_paths,
+        )
+        if invalidated:
+            log_event(
+                logger,
+                logging.INFO,
+                f"Invalidated {invalidated} QA playbook(s) for {context_label} "
+                f"({len(changed_paths)} changed file(s))",
+            )
+    except Exception as exc:
+        # Invalidation must not fail the embed job — stale hints are skipped at use time.
+        log_event(
+            logger,
+            logging.WARNING,
+            f"Playbook invalidation failed for {context_label}: "
+            f"{sanitize_log_message(str(exc))}",
+        )
 
     elapsed_s = max(1, round(time.monotonic() - started))
     log_event(

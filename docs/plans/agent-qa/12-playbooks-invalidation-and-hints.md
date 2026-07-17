@@ -104,11 +104,11 @@ Add test 7 (skip if `E2E_PLAYBOOK_WARM_START` not set):
 
 ## Definition of Done
 
-- [ ] Embed hook calls invalidation
-- [ ] Anchor validation on hint + warm-start paths
-- [ ] Warm-start behind `QA_PLAYBOOK_WARM_START_ENABLED=false`
-- [ ] Tests pass
-- [ ] No dead code paths from warm-start when disabled
+- [x] Embed hook calls invalidation
+- [x] Anchor validation on hint + warm-start paths
+- [x] Warm-start behind `QA_PLAYBOOK_WARM_START_ENABLED=false`
+- [x] Tests pass
+- [x] No dead code paths from warm-start when disabled
 
 ---
 

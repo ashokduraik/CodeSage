@@ -470,3 +470,164 @@ def test_evaluate_evidence_confidence_rejects_weak_vector_only() -> None:
     )
     assert confidence >= 0.0
     assert passes is False
+
+
+def test_warm_start_answers_when_gate_passes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Enabled warm-start can jump to the final answer without a planner call."""
+    from services.qa.playbooks import PlaybookHint, WarmStartStepResult
+
+    settings = Settings(
+        qa_agent_max_iterations=3,
+        qa_agent_min_confidence=0.5,
+        llm_max_context_tokens=8192,
+        vllm_model="test-model",
+        qa_playbook_warm_start_enabled=True,
+    )
+    session_factory = MagicMock(return_value=MagicMock())
+    hit = _hit(symbol=0.99)
+    hint = PlaybookHint(
+        playbook_id=uuid.uuid4(),
+        canonical_question="where is login?",
+        similarity=0.95,
+        success_count=2,
+        steps=[{"order": 1, "tool": "search_symbols", "argsTemplate": {"query": "{term:login}"}}],
+        evidence_anchors=[{"filePath": "src/auth.ts"}],
+        intent_profile="symbol_lookup",
+    )
+    planner_called = {"n": 0}
+
+    monkeypatch.setattr(
+        "services.qa.agent_loop.find_similar_playbooks",
+        lambda *a, **k: [hint],
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.select_warm_start_playbook",
+        lambda *a, **k: hint,
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.execute_warm_start_steps",
+        lambda *a, **k: [
+            WarmStartStepResult(
+                tool="search_symbols",
+                args={"query": "login"},
+                result=QaToolResult(
+                    tool_name="search_symbols",
+                    args={"query": "login"},
+                    hits=[hit],
+                    truncated=False,
+                    duration_ms=4.0,
+                ),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.evaluate_evidence_confidence",
+        lambda *a, **k: (0.9, True),
+    )
+
+    def _planner(*a, **k):
+        planner_called["n"] += 1
+        return PlannerTurnResult(tool_calls=[], assistant_content=None)
+
+    monkeypatch.setattr("services.qa.agent_loop.complete_with_tools", _planner)
+    monkeypatch.setattr(
+        "services.qa.agent_loop.stream_final_answer",
+        lambda *a, **k: iter(["warm answer"]),
+    )
+
+    events = _parse_events(
+        list(
+            stream_agent_answer(
+                settings,
+                session_factory,
+                question="where is login?",
+                project_id=uuid.uuid4(),
+            )
+        )
+    )
+    types = [e["type"] for e in events]
+    assert planner_called["n"] == 0
+    assert "tool_start" in types
+    assert "token" in types
+    assert types[-1] == "done"
+
+
+def test_warm_start_falls_through_to_planner(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Low warm-start confidence continues the planner from iteration 2."""
+    from services.qa.playbooks import PlaybookHint, WarmStartStepResult
+
+    settings = Settings(
+        qa_agent_max_iterations=2,
+        qa_agent_min_confidence=0.8,
+        qa_playbook_warm_start_enabled=True,
+    )
+    session_factory = MagicMock(return_value=MagicMock())
+    hit = _hit(symbol=0.2)
+    hint = PlaybookHint(
+        playbook_id=uuid.uuid4(),
+        canonical_question="where is login?",
+        similarity=0.94,
+        success_count=1,
+        steps=[{"order": 1, "tool": "search_symbols", "argsTemplate": {"query": "{term:login}"}}],
+        evidence_anchors=[{"filePath": "src/auth.ts"}],
+        intent_profile="symbol_lookup",
+    )
+    planner_iters: list[int] = []
+
+    monkeypatch.setattr(
+        "services.qa.agent_loop.find_similar_playbooks",
+        lambda *a, **k: [hint],
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.select_warm_start_playbook",
+        lambda *a, **k: hint,
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.execute_warm_start_steps",
+        lambda *a, **k: [
+            WarmStartStepResult(
+                tool="search_symbols",
+                args={"query": "login"},
+                result=QaToolResult(
+                    tool_name="search_symbols",
+                    args={"query": "login"},
+                    hits=[hit],
+                    truncated=False,
+                    duration_ms=3.0,
+                ),
+            )
+        ],
+    )
+
+    conf_calls = {"n": 0}
+
+    def _confidence(*a, **k):
+        conf_calls["n"] += 1
+        # First call = warm-start (fail gate); later planner iterations also fail → abstain.
+        return (0.2, False)
+
+    monkeypatch.setattr(
+        "services.qa.agent_loop.evaluate_evidence_confidence",
+        _confidence,
+    )
+    monkeypatch.setattr(
+        "services.qa.agent_loop.complete_with_tools",
+        lambda *a, **k: (
+            planner_iters.append(1)
+            or PlannerTurnResult(tool_calls=[], assistant_content=None)
+        ),
+    )
+
+    events = _parse_events(
+        list(
+            stream_agent_answer(
+                settings,
+                session_factory,
+                question="where is login?",
+                project_id=uuid.uuid4(),
+            )
+        )
+    )
+    assert len(planner_iters) >= 1
+    assert conf_calls["n"] >= 1
+    assert "abstain" in [e["type"] for e in events]

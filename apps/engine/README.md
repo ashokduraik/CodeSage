@@ -122,7 +122,10 @@ hint: every answer must run fresh tools and cite current indexed evidence.
 #### Playbooks (ADR 0027)
 
 `services/qa/playbooks.py` promotes successful investigation traces after a grounded answer
-and injects similar playbooks into the planner system prompt on iteration 1.
+and injects similar playbooks into the planner system prompt on iteration 1. After each
+successful embed batch, playbooks whose anchors reference re-indexed file paths are
+soft-deleted (`invalidate_playbooks_for_files`). Hints and warm-start skip playbooks whose
+anchors no longer exist in active `code_chunks` / `graph_nodes`.
 
 **Promotion rules (all required):**
 
@@ -136,14 +139,17 @@ and injects similar playbooks into the planner system prompt on iteration 1.
 
 Near-duplicate questions merge at `QA_PLAYBOOK_MERGE_SIMILARITY` (0.95). Active rows are
 capped at `QA_PLAYBOOK_MAX_PER_PROJECT` (500). Learning is controlled by
-`QA_PLAYBOOK_LEARNING_ENABLED` in `constants.py` only — **not** in `.env.example`. Warm-start
-(deterministic tool replay) is plan 12 and is not enabled yet.
+`QA_PLAYBOOK_LEARNING_ENABLED` in `constants.py` only — **not** in `.env.example`.
+`QA_PLAYBOOK_WARM_START_ENABLED` defaults to **`false`**: when enabled and the best hint
+similarity ≥ `QA_PLAYBOOK_WARM_START_SIMILARITY` (0.92), iteration 1 can replay playbook
+tools deterministically (no planner LLM); otherwise the planner runs as usual.
 
 #### Current implementation
 
 - `services/qa/agent_loop.py`, retrieval tools, xlarge adaptive top-k, and `QA_AGENT_*` settings
   implement the developer QA path.
-- `services/qa/playbooks.py` — promote + similarity hints (ADR 0027 plan 11).
+- `services/qa/playbooks.py` — promote, similarity hints, invalidation, optional warm-start
+  (ADR 0027 plans 11–12).
 - Social turns enter the same planner loop and use the narrow no-tools exception from ADR 0026.
 - Full sequence: [`docs/plans/agent-qa/`](../../docs/plans/agent-qa/README.md).
 
@@ -237,6 +243,8 @@ in an emergency via `Settings`.
 | `QA_PLAYBOOK_MIN_SIMILARITY` | `0.85` | Cosine floor for planner hint retrieval |
 | `QA_PLAYBOOK_MERGE_SIMILARITY` | `0.95` | Merge into existing playbook vs insert |
 | `QA_PLAYBOOK_LEARNING_ENABLED` | `true` | Kill-switch for promote + hint lookup |
+| `QA_PLAYBOOK_WARM_START_ENABLED` | `false` | Deterministic iteration-1 tool replay |
+| `QA_PLAYBOOK_WARM_START_SIMILARITY` | `0.92` | Cosine floor to warm-start without planner |
 
 ### Local inference with Ollama (low-spec friendly)
 

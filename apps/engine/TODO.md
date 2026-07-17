@@ -43,7 +43,7 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 - [x] `qa/tools.py` — agent retrieval tools (symbol/code/vector/hybrid/graph/read) (ADR 0026 plan 03).
 - [x] `qa/agent_loop.py` — confidence-gated planner/tool loop; thin stream entrypoint (ADR 0026 plan 05).
 - [x] `repositories/qa_playbooks.py` + ORM — playbook CRUD/similarity (ADR 0027 plan 10).
-- [x] `qa/playbooks.py` — promote successful traces + planner hint injection (ADR 0027 plan 11).
+- [x] `qa/playbooks.py` — promote, hints, invalidation, optional warm-start (ADR 0027 plans 11–12).
 - [x] `graph/` — file + symbol node extraction during parse; HTTP/route API signals (Phase 2).
 - [x] `xrepo/` — cross-repo link resolver job (Phase 2).
 - [x] `llm/` — vLLM streaming provider with excerpt fallback when unset.

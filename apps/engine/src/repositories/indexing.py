@@ -227,6 +227,27 @@ class CodeChunkRepository:
             stmt = stmt.where(CodeChunk.repo_id.in_(repo_ids))
         return int(self._session.scalar(stmt) or 0)
 
+    def has_active_path(self, project_id: uuid.UUID, file_path: str) -> bool:
+        """Return whether an active chunk exists for a project-scoped file path.
+
+        Used by playbook anchor validation (ADR 0027) so hints and warm-start skip
+        playbooks whose files were removed or renamed after re-index.
+
+        @param project_id - Project UUID.
+        @param file_path - Repo-relative path from a playbook evidence anchor.
+        @returns True when at least one active ``code_chunks`` row matches.
+        """
+        stmt = (
+            select(CodeChunk.id)
+            .where(
+                CodeChunk.project_id == project_id,
+                CodeChunk.file_path == file_path,
+                CodeChunk.status == RowStatus.ACTIVE,
+            )
+            .limit(1)
+        )
+        return self._session.scalars(stmt).first() is not None
+
     def list_by_repo(self, repo_id: uuid.UUID) -> list[CodeChunk]:
         """List all chunks for a repository.
 

@@ -1,12 +1,14 @@
-"""QA investigation playbook learning — promote successful traces and retrieve hints.
+"""QA investigation playbooks — promote, hint, invalidate, and optional warm-start.
 
-Implements ADR 0027 milestones P2–P3 (promotion + planner hint injection). Warm-start
-(deterministic iteration-1 tool replay) is plan 12 and is not handled here.
+Implements ADR 0027 milestones P2–P4: promote successful traces, retrieve planner
+hints, soft-delete stale playbooks on re-index, validate anchors before use, and
+(optionally) warm-start iteration 1 when ``QA_PLAYBOOK_WARM_START_ENABLED`` is on.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -16,8 +18,12 @@ from sqlalchemy.orm import Session
 from config import Settings
 from config import constants
 from config.logging import get_indexing_logger, log_event, sanitize_log_message
+from models.enums import RowStatus
+from models.qa_playbook import QaPlaybook
+from repositories.indexing import CodeChunkRepository, GraphNodeRepository
 from repositories.qa_playbooks import QaPlaybookRepository
 from services.embedding.tei_client import EmbeddingClient
+from services.qa.tools import QaToolHit, QaToolResult, execute_tool
 
 _logger = get_indexing_logger()
 
@@ -34,6 +40,9 @@ _RETRIEVAL_TOOLS = frozenset(
         "read_chunks_for_path",
     }
 )
+
+# Placeholder forms stored in playbook steps (ADR 0027): {term:…} / {anchor:…}.
+_PLACEHOLDER_RE = re.compile(r"^\{(term|anchor):([^}]+)\}$")
 
 
 @dataclass(frozen=True)
@@ -56,6 +65,22 @@ class PlaybookHint:
     steps: list[Any]
     evidence_anchors: list[Any]
     intent_profile: str
+
+
+@dataclass
+class WarmStartStepResult:
+    """One warm-start tool execution for SSE / investigation-trace recording.
+
+    @param tool - Tool name executed.
+    @param args - Resolved concrete arguments (placeholders substituted).
+    @param result - Tool result when execution succeeded; None on failure.
+    @param error - Sanitized error message when execution failed.
+    """
+
+    tool: str
+    args: dict[str, Any]
+    result: QaToolResult | None = None
+    error: str | None = None
 
 
 def is_trace_promotable(trace: dict[str, Any], message_meta: dict[str, Any]) -> bool:
@@ -107,7 +132,7 @@ def _template_args(args: dict[str, Any], terms: set[str]) -> dict[str, Any]:
     """Convert concrete tool args into replay placeholders where possible.
 
     Query strings become ``{term:…}``; node ids and qualified names become
-    ``{anchor:…}`` so warm-start (plan 12) can resolve them against the new question.
+    ``{anchor:…}`` so warm-start can resolve them against the new question.
 
     @param args - Concrete args from a tool call in the trace.
     @param terms - Extracted search terms from the successful run.
@@ -272,18 +297,22 @@ def find_similar_playbooks(
     project_id: uuid.UUID,
     question: str,
     limit: int = 3,
+    validate_anchors: bool = True,
 ) -> list[PlaybookHint]:
     """Retrieve active playbooks similar to a new question for planner hints.
 
     Embeds the question and runs pgvector cosine search at
     ``QA_PLAYBOOK_MIN_SIMILARITY``. Returns an empty list when learning is disabled
-    or embedding fails (caller should continue without hints).
+    or embedding fails (caller should continue without hints). When
+    ``validate_anchors`` is True (default), playbooks whose anchors no longer exist
+    in the active index are skipped silently.
 
     @param session - Open SQLAlchemy session.
     @param settings - Application settings.
     @param project_id - Project scope.
     @param question - New user question.
     @param limit - Maximum hints (ADR default K=3).
+    @param validate_anchors - When True, drop playbooks that fail anchor checks.
     @returns Playbook hints ordered by descending similarity.
     """
     if not settings.qa_playbook_learning_enabled:
@@ -303,24 +332,34 @@ def find_similar_playbooks(
         )
         return []
 
+    # Over-fetch slightly so anchor validation can drop stale rows without undershooting K.
+    fetch_limit = limit * 3 if validate_anchors else limit
     rows = QaPlaybookRepository(session).similarity_search(
         project_id=project_id,
         query_embedding=embedding,
-        limit=limit,
+        limit=fetch_limit,
         min_similarity=settings.qa_playbook_min_similarity,
     )
-    return [
-        PlaybookHint(
-            playbook_id=playbook.id,
-            canonical_question=playbook.canonical_question,
-            similarity=similarity,
-            success_count=playbook.success_count,
-            steps=list(playbook.steps or []),
-            evidence_anchors=list(playbook.evidence_anchors or []),
-            intent_profile=playbook.intent_profile,
+    hints: list[PlaybookHint] = []
+    for playbook, similarity in rows:
+        if validate_anchors and not validate_playbook_anchors(
+            session, project_id=project_id, playbook=playbook
+        ):
+            continue
+        hints.append(
+            PlaybookHint(
+                playbook_id=playbook.id,
+                canonical_question=playbook.canonical_question,
+                similarity=similarity,
+                success_count=playbook.success_count,
+                steps=list(playbook.steps or []),
+                evidence_anchors=list(playbook.evidence_anchors or []),
+                intent_profile=playbook.intent_profile,
+            )
         )
-        for playbook, similarity in rows
-    ]
+        if len(hints) >= limit:
+            break
+    return hints
 
 
 def format_playbook_hints_for_planner(hints: list[PlaybookHint]) -> str:
@@ -365,3 +404,304 @@ def format_playbook_hints_for_planner(hints: list[PlaybookHint]) -> str:
         "Use these as hints only. You must still call tools and cite fresh evidence."
     )
     return "\n".join(lines)
+
+
+def _file_paths_from_playbook(playbook: QaPlaybook | PlaybookHint) -> set[str]:
+    """Collect file paths referenced by a playbook's anchors and step templates.
+
+    Invalidation (v1) uses fetch-and-filter in Python rather than a JSONB containment
+    SQL query: active playbooks are capped at ``QA_PLAYBOOK_MAX_PER_PROJECT`` (500),
+    so scanning anchors/steps in process is simpler and easy to unit-test.
+
+    @param playbook - ORM row or hint with ``evidence_anchors`` / ``steps``.
+    @returns Set of repo-relative file paths found on the playbook.
+    """
+    paths: set[str] = set()
+    anchors = (
+        playbook.evidence_anchors
+        if isinstance(playbook, QaPlaybook)
+        else playbook.evidence_anchors
+    )
+    for anchor in anchors or []:
+        if not isinstance(anchor, dict):
+            continue
+        path = anchor.get("filePath") or anchor.get("file_path")
+        if isinstance(path, str) and path.strip():
+            paths.add(path.strip())
+
+    steps = playbook.steps if isinstance(playbook, QaPlaybook) else playbook.steps
+    for step in steps or []:
+        if not isinstance(step, dict):
+            continue
+        args = step.get("argsTemplate") or {}
+        if not isinstance(args, dict):
+            continue
+        for value in args.values():
+            if not isinstance(value, str) or value.startswith("{"):
+                continue
+            # ``path::symbol`` qualified names and bare file paths in templates.
+            if "::" in value:
+                paths.add(value.split("::", 1)[0])
+            elif "/" in value or value.endswith((".ts", ".tsx", ".js", ".jsx", ".py")):
+                paths.add(value)
+    return paths
+
+
+def invalidate_playbooks_for_files(
+    session: Session,
+    *,
+    project_id: uuid.UUID,
+    file_paths: list[str],
+) -> int:
+    """Soft-delete active playbooks that reference any of the given file paths.
+
+    Called from the embed job after chunks for changed files are re-vectorized so
+    planner hints do not point at renamed or removed paths. Uses fetch-and-filter
+    over active playbooks (see ``_file_paths_from_playbook``) and commits when at
+    least one row is soft-deleted.
+
+    @param session - Open SQLAlchemy session (embed job session).
+    @param project_id - Project that owns the re-indexed repo.
+    @param file_paths - Repo-relative paths whose chunks were just embedded.
+    @returns Number of playbooks soft-deleted.
+    """
+    unique_paths = {p.strip() for p in file_paths if isinstance(p, str) and p.strip()}
+    if not unique_paths:
+        return 0
+
+    repo = QaPlaybookRepository(session)
+    # Cap equals the hard project limit so we never miss an active row at max capacity.
+    active = repo.list_active(project_id, limit=constants.QA_PLAYBOOK_MAX_PER_PROJECT)
+    invalidated = 0
+    for playbook in active:
+        referenced = _file_paths_from_playbook(playbook)
+        if referenced & unique_paths:
+            if repo.soft_delete(playbook.id):
+                invalidated += 1
+
+    if invalidated:
+        session.commit()
+    return invalidated
+
+
+def validate_playbook_anchors(
+    session: Session,
+    *,
+    project_id: uuid.UUID,
+    playbook: QaPlaybook | PlaybookHint,
+) -> bool:
+    """Return whether a playbook's evidence anchors still exist in the active index.
+
+    Every ``filePath`` in anchors must have at least one active ``code_chunks`` row
+    for the project. When a ``graphNodeId`` / ``graph_node_id`` is present it must
+    resolve to an active ``graph_nodes`` row in the same project. Callers skip
+    invalid playbooks silently (hints and warm-start).
+
+    @param session - Open SQLAlchemy session.
+    @param project_id - Project scope for chunk / node lookups.
+    @param playbook - ORM row or hint whose anchors to check.
+    @returns True when all present anchors are still valid.
+    """
+    anchors = (
+        playbook.evidence_anchors
+        if isinstance(playbook, QaPlaybook)
+        else playbook.evidence_anchors
+    )
+    if not anchors:
+        # A playbook with no anchors cannot be validated against the index — treat
+        # as invalid so we never warm-start or hint from an empty-anchor path.
+        return False
+
+    chunks = CodeChunkRepository(session)
+    nodes = GraphNodeRepository(session)
+    for anchor in anchors:
+        if not isinstance(anchor, dict):
+            return False
+        path = anchor.get("filePath") or anchor.get("file_path")
+        if isinstance(path, str) and path.strip():
+            if not chunks.has_active_path(project_id, path.strip()):
+                return False
+        node_raw = anchor.get("graphNodeId") or anchor.get("graph_node_id")
+        if node_raw is not None:
+            try:
+                node_id = uuid.UUID(str(node_raw))
+            except (TypeError, ValueError):
+                return False
+            node = nodes.get_by_id(node_id)
+            if (
+                node is None
+                or node.project_id != project_id
+                or node.status != RowStatus.ACTIVE
+            ):
+                return False
+    return True
+
+
+def resolve_args_template(
+    args_template: dict[str, Any],
+    *,
+    terms: list[str],
+    anchors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Resolve ``{term:…}`` / ``{anchor:…}`` placeholders for warm-start tool args.
+
+    Term placeholders prefer an exact match in the new question's extracted terms,
+    then the first new term, then the stored exemplar term. Anchor placeholders
+    read from the playbook's evidence anchors plus any anchors collected from
+    earlier warm-start tool hits in the same run.
+
+    @param args_template - Step ``argsTemplate`` from the playbook.
+    @param terms - Search terms from the new question.
+    @param anchors - Combined playbook + runtime anchors (dicts with filePath/symbol/…).
+    @returns Concrete args dict safe to pass to ``execute_tool``.
+    """
+    term_set = {t for t in terms if t}
+    resolved: dict[str, Any] = {}
+    for key, value in args_template.items():
+        if not isinstance(value, str):
+            resolved[key] = value
+            continue
+        match = _PLACEHOLDER_RE.match(value.strip())
+        if match is None:
+            resolved[key] = value
+            continue
+        kind, name = match.group(1), match.group(2)
+        if kind == "term":
+            if name in term_set:
+                resolved[key] = name
+            elif terms:
+                resolved[key] = terms[0]
+            else:
+                resolved[key] = name
+        else:
+            # anchor — map common keys from evidence / hit provenance.
+            resolved[key] = _resolve_anchor_value(name, anchors) or value
+    return resolved
+
+
+def _resolve_anchor_value(name: str, anchors: list[dict[str, Any]]) -> str | None:
+    """Pick a concrete value for an ``{anchor:name}`` placeholder.
+
+    @param name - Anchor key (``graphNodeId``, ``symbol``, ``filePath``, …).
+    @param anchors - Ordered anchor dicts; first non-empty match wins.
+    @returns String value or None when no anchor provides the key.
+    """
+    key_aliases = {
+        "graphNodeId": ("graphNodeId", "graph_node_id"),
+        "graph_node_id": ("graphNodeId", "graph_node_id"),
+        "symbol": ("symbol",),
+        "filePath": ("filePath", "file_path"),
+        "file_path": ("filePath", "file_path"),
+    }
+    keys = key_aliases.get(name, (name,))
+    for anchor in anchors:
+        for key in keys:
+            raw = anchor.get(key)
+            if raw is not None and str(raw).strip():
+                return str(raw).strip()
+    return None
+
+
+def _anchors_from_hits(hits: list[QaToolHit]) -> list[dict[str, Any]]:
+    """Build runtime anchors from tool hits for subsequent placeholder resolution.
+
+    @param hits - Hits from the previous warm-start tool call.
+    @returns Anchor dicts with filePath / symbol / graphNodeId when present.
+    """
+    out: list[dict[str, Any]] = []
+    for hit in hits:
+        anchor: dict[str, Any] = {"filePath": hit.file_path}
+        if hit.graph_node_id is not None:
+            anchor["graphNodeId"] = str(hit.graph_node_id)
+        out.append(anchor)
+    return out
+
+
+def select_warm_start_playbook(
+    settings: Settings,
+    hints: list[PlaybookHint],
+) -> PlaybookHint | None:
+    """Return the best hint eligible for warm-start, or None.
+
+    Requires ``QA_PLAYBOOK_WARM_START_ENABLED``, similarity ≥
+    ``QA_PLAYBOOK_WARM_START_SIMILARITY``, and a non-empty step list. Anchor
+    validation is the caller's responsibility (hints from ``find_similar_playbooks``
+    are already validated by default).
+
+    @param settings - Application settings including warm-start knobs.
+    @param hints - Similarity-ordered playbook hints (best first).
+    @returns The first eligible hint, or None when warm-start must not run.
+    """
+    if not settings.qa_playbook_warm_start_enabled:
+        return None
+    for hint in hints:
+        if hint.similarity < settings.qa_playbook_warm_start_similarity:
+            continue
+        if not hint.steps:
+            continue
+        return hint
+    return None
+
+
+def execute_warm_start_steps(
+    session: Session,
+    settings: Settings,
+    *,
+    project_id: uuid.UUID,
+    playbook: PlaybookHint,
+    terms: list[str],
+    repo_ids: list[uuid.UUID] | None,
+) -> list[WarmStartStepResult]:
+    """Execute playbook steps deterministically for warm-start iteration 1.
+
+    Resolves placeholders against the new question's terms and the playbook's
+    evidence anchors, then calls ``execute_tool`` for each step. Runtime anchors
+    from earlier hits feed later ``{anchor:…}`` placeholders (e.g. graph expand).
+
+    @param session - Open SQLAlchemy session.
+    @param settings - Application settings (tool limits).
+    @param project_id - Project scope.
+    @param playbook - Hint / playbook whose ``steps`` to replay.
+    @param terms - Extracted terms from the new question.
+    @param repo_ids - Optional repo filter for tools.
+    @returns Ordered step results (including failed tools).
+    """
+    runtime_anchors: list[dict[str, Any]] = [
+        a for a in playbook.evidence_anchors if isinstance(a, dict)
+    ]
+    ordered = sorted(
+        (s for s in playbook.steps if isinstance(s, dict)),
+        key=lambda s: int(s.get("order") or 0),
+    )
+    results: list[WarmStartStepResult] = []
+    for step in ordered:
+        tool = step.get("tool")
+        if not tool or tool not in _RETRIEVAL_TOOLS:
+            continue
+        raw_template = step.get("argsTemplate") or {}
+        if not isinstance(raw_template, dict):
+            raw_template = {}
+        args = resolve_args_template(
+            raw_template, terms=terms, anchors=runtime_anchors
+        )
+        try:
+            result = execute_tool(
+                session,
+                settings,
+                project_id=project_id,
+                tool_name=str(tool),
+                args=args,
+                repo_ids=repo_ids,
+            )
+        except ValueError as exc:
+            results.append(
+                WarmStartStepResult(
+                    tool=str(tool),
+                    args=args,
+                    error=sanitize_log_message(str(exc)),
+                )
+            )
+            continue
+        runtime_anchors = _anchors_from_hits(result.hits) + runtime_anchors
+        results.append(WarmStartStepResult(tool=str(tool), args=args, result=result))
+    return results

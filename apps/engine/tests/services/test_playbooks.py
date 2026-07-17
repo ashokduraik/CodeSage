@@ -202,6 +202,10 @@ def test_find_similar_above_threshold() -> None:
     with (
         patch("services.qa.playbooks.EmbeddingClient") as embed_cls,
         patch("services.qa.playbooks.QaPlaybookRepository") as repo_cls,
+        patch(
+            "services.qa.playbooks.validate_playbook_anchors",
+            return_value=True,
+        ),
     ):
         embed_cls.return_value.embed_texts.return_value = [[0.4] * 8]
         repo_cls.return_value.similarity_search.return_value = [(row, 0.91)]
@@ -230,6 +234,7 @@ def test_find_similar_empty_below_threshold() -> None:
             _settings(),
             project_id=uuid.uuid4(),
             question="unrelated question",
+            validate_anchors=False,
         )
     assert hints == []
 

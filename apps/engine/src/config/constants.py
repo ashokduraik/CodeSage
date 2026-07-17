@@ -75,6 +75,8 @@ QA_PLAYBOOK_MAX_PER_PROJECT = 500  # hard cap on active playbooks per project
 QA_PLAYBOOK_MIN_SIMILARITY = 0.85  # cosine floor for planner hint retrieval
 QA_PLAYBOOK_MERGE_SIMILARITY = 0.95  # merge into existing playbook vs insert new row
 QA_PLAYBOOK_LEARNING_ENABLED = True  # kill-switch for promote + hint lookup
+QA_PLAYBOOK_WARM_START_ENABLED = False  # deterministic iteration-1 tool replay (off until eval)
+QA_PLAYBOOK_WARM_START_SIMILARITY = 0.92  # cosine floor to warm-start without planner LLM
 
 # --- Sync ---
 SYNC_MAX_FILE_BYTES = 512_000  # skip indexing files larger than this

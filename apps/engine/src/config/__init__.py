@@ -110,6 +110,8 @@ class Settings(BaseSettings):
     qa_playbook_min_similarity: float = constants.QA_PLAYBOOK_MIN_SIMILARITY
     qa_playbook_merge_similarity: float = constants.QA_PLAYBOOK_MERGE_SIMILARITY
     qa_playbook_learning_enabled: bool = constants.QA_PLAYBOOK_LEARNING_ENABLED
+    qa_playbook_warm_start_enabled: bool = constants.QA_PLAYBOOK_WARM_START_ENABLED
+    qa_playbook_warm_start_similarity: float = constants.QA_PLAYBOOK_WARM_START_SIMILARITY
     sync_max_file_bytes: int = constants.SYNC_MAX_FILE_BYTES
 
     # Per-deploy toggle documented in ``.env.example``; interval is a constant.

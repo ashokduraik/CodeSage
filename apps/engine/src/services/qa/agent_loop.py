@@ -32,9 +32,12 @@ from services.llm.vllm_client import (
     stream_final_answer,
 )
 from services.qa.playbooks import (
+    PlaybookHint,
+    execute_warm_start_steps,
     find_similar_playbooks,
     format_playbook_hints_for_planner,
     promote_trace_to_playbook,
+    select_warm_start_playbook,
 )
 from services.qa.tools import (
     QaToolHit,
@@ -594,11 +597,15 @@ def stream_agent_answer(
     tool_call_count = 0
     last_confidence = 0.0
     iteration_records: list[dict[str, Any]] = []
+    start_iteration = 1
 
     session = session_factory()
     try:
         # Inject past playbooks before iteration 1 so the planner can reuse known paths.
+        # Hints are validated against active anchors; warm-start (default off) may
+        # deterministically replay the best match as iteration 1 without a planner call.
         system_prompt = AGENT_PLANNER_SYSTEM_PROMPT
+        hints: list[PlaybookHint] = []
         try:
             hints = find_similar_playbooks(
                 session,
@@ -621,6 +628,152 @@ def stream_agent_answer(
                 f"Playbook hint lookup failed: {sanitize_log_message(str(exc))}",
             )
 
+        warm_hint = select_warm_start_playbook(settings, hints)
+        if warm_hint is not None:
+            warm_steps = execute_warm_start_steps(
+                session,
+                settings,
+                project_id=project_id,
+                playbook=warm_hint,
+                terms=terms,
+                repo_ids=repo_ids,
+            )
+            iter_tool_records: list[dict[str, Any]] = []
+            for step in warm_steps:
+                tool_call_count += 1
+                yield _chunk_event(
+                    "tool_start",
+                    tool={
+                        "name": step.tool,
+                        "iteration": 1,
+                        "args": step.args,
+                    },
+                )
+                if step.result is None:
+                    yield _chunk_event(
+                        "tool_result",
+                        tool={
+                            "name": step.tool,
+                            "iteration": 1,
+                            "args": step.args,
+                            "hitCount": 0,
+                            "truncated": False,
+                            "durationMs": 0,
+                        },
+                    )
+                    iter_tool_records.append(
+                        {
+                            "tool": step.tool,
+                            "args": step.args,
+                            "hitCount": 0,
+                            "topAnchors": [],
+                        }
+                    )
+                    continue
+                result = step.result
+                yield _chunk_event(
+                    "tool_result",
+                    tool={
+                        "name": result.tool_name,
+                        "iteration": 1,
+                        "args": result.args,
+                        "hitCount": len(result.hits),
+                        "truncated": result.truncated,
+                        "durationMs": int(result.duration_ms),
+                    },
+                )
+                for hit in result.hits:
+                    is_new = pool.add(hit, tool=result.tool_name, iteration=1)
+                    if is_new:
+                        yield _chunk_event(
+                            "citation", citation=_citation_from_hit(hit)
+                        )
+                iter_tool_records.append(
+                    {
+                        "tool": result.tool_name,
+                        "args": result.args,
+                        "hitCount": len(result.hits),
+                        "topAnchors": [
+                            {"filePath": h.file_path} for h in result.hits[:3]
+                        ],
+                    }
+                )
+
+            last_confidence, passes = evaluate_evidence_confidence(
+                pool, settings, intent=intent, terms=terms
+            )
+            iteration_records.append(
+                {
+                    "index": 1,
+                    "confidenceAfter": round(last_confidence, 4),
+                    "toolCalls": iter_tool_records,
+                }
+            )
+            log_event(
+                _logger,
+                logging.INFO,
+                f"Playbook warm-start used playbook {warm_hint.playbook_id} "
+                f"(confidence={last_confidence:.4f}, passes={passes})",
+            )
+            if passes:
+                selected, blocks, ctx_tokens, max_ctx, trimmed = _pack_pool_excerpts(
+                    settings, question, pool.hits(), history
+                )
+                investigation_trace = _build_investigation_trace(
+                    agent_iterations=1,
+                    final_confidence=last_confidence,
+                    intent=intent,
+                    terms=terms,
+                    iterations=iteration_records,
+                    pool=pool,
+                )
+                stats = LlmStreamStats()
+                for token in stream_final_answer(
+                    settings,
+                    question=question,
+                    context_blocks=blocks,
+                    history=trimmed,
+                    stats=stats,
+                ):
+                    yield _chunk_event("token", content=token)
+
+                metrics = _metrics_payload(
+                    context_chunks=len(selected),
+                    context_tokens=ctx_tokens,
+                    max_context_tokens=max_ctx,
+                    model=settings.vllm_model,
+                    stats=stats,
+                    agent_iterations=1,
+                    evidence_confidence=last_confidence,
+                    tool_call_count=tool_call_count,
+                    investigation_trace=investigation_trace,
+                )
+                yield _chunk_event("metrics", metrics=metrics)
+                try:
+                    promote_trace_to_playbook(
+                        session,
+                        settings,
+                        project_id=project_id,
+                        question=question,
+                        trace=investigation_trace,
+                        message_id=None,
+                        user_id=None,
+                        message_meta={
+                            "abstained": False,
+                            "citation_count": len(pool.entries),
+                        },
+                    )
+                except Exception as exc:
+                    log_event(
+                        _logger,
+                        logging.WARNING,
+                        f"Playbook promote failed: {sanitize_log_message(str(exc))}",
+                    )
+                yield _chunk_event("done")
+                return
+            # Warm-start gathered evidence but stayed below the gate — planner from 2.
+            start_iteration = 2
+
         planner_messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt},
         ]
@@ -628,7 +781,7 @@ def stream_agent_answer(
             planner_messages.extend(history[-settings.llm_max_history_turns :])
         planner_messages.append({"role": "user", "content": question})
 
-        for iteration in range(1, settings.qa_agent_max_iterations + 1):
+        for iteration in range(start_iteration, settings.qa_agent_max_iterations + 1):
             try:
                 turn: PlannerTurnResult = complete_with_tools(
                     settings,
@@ -684,7 +837,7 @@ def stream_agent_answer(
                 for index, call in enumerate(turn.tool_calls, start=1)
             ]
             planner_messages.append(_assistant_tool_call_message(normalized_calls))
-            iter_tool_records: list[dict[str, Any]] = []
+            iter_tool_records = []
 
             for call in normalized_calls:
                 tool_call_count += 1

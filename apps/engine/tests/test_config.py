@@ -52,6 +52,7 @@ def test_tuning_defaults_come_from_constants(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.delenv("QA_AGENT_MIN_CONFIDENCE", raising=False)
     monkeypatch.delenv("QA_PLAYBOOK_MAX_PER_PROJECT", raising=False)
     monkeypatch.delenv("QA_PLAYBOOK_LEARNING_ENABLED", raising=False)
+    monkeypatch.delenv("QA_PLAYBOOK_WARM_START_ENABLED", raising=False)
     monkeypatch.delenv("RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS", raising=False)
     settings = load_settings()
     assert settings.retrieval_vector_top_k == constants.RETRIEVAL_VECTOR_TOP_K
@@ -69,6 +70,12 @@ def test_tuning_defaults_come_from_constants(monkeypatch: pytest.MonkeyPatch) ->
     assert settings.qa_playbook_min_similarity == constants.QA_PLAYBOOK_MIN_SIMILARITY
     assert settings.qa_playbook_merge_similarity == constants.QA_PLAYBOOK_MERGE_SIMILARITY
     assert settings.qa_playbook_learning_enabled == constants.QA_PLAYBOOK_LEARNING_ENABLED
+    assert settings.qa_playbook_warm_start_enabled == constants.QA_PLAYBOOK_WARM_START_ENABLED
+    assert (
+        settings.qa_playbook_warm_start_similarity
+        == constants.QA_PLAYBOOK_WARM_START_SIMILARITY
+    )
+    assert constants.QA_PLAYBOOK_WARM_START_ENABLED is False
     assert (
         settings.retrieval_adaptive_xlarge_min_chunks
         == constants.RETRIEVAL_ADAPTIVE_XLARGE_MIN_CHUNKS
