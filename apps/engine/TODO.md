@@ -52,6 +52,7 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 
 ## Cross-cutting
 - [x] Contract codegen wired (Pydantic in `src/generated/`).
+- [x] Agent QA golden fixture + G1–G6 regression matrix + xlarge config smoke (ADR 0026 plan 08).
 - [x] `indexing/xrepo_enqueue` — queue `xrepo` when all project repos are indexed (Phase 2).
 - [x] `indexing/distill_enqueue` — queue `distill` when indexing completes or artifacts go stale (Phase 4).
 - [x] `freshness/poll_repos` — scheduled poll fallback + `cron_poll` sync enqueue (Phase 3).

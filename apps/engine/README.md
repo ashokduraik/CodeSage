@@ -459,6 +459,54 @@ uv run pytest -v -s
 uv run pytest --no-cov    # skip gate locally only
 ```
 
+### Agent QA golden matrix
+
+`tests/services/test_agent_qa_golden.py` runs the ADR 0026 developer-QA regressions against the
+committed fixture in `tests/fixtures/agent_qa_repo/`. CI scripts planner turns and retrieval
+results, so these cases require neither PostgreSQL nor a live LLM:
+
+| ID | Question / path | Required result |
+|---|---|---|
+| G1 | `what does getMinEmi do?` | Symbol search; cite `src/loan.utils.ts`; answer |
+| G2 | `how is EMI calculated?` | Hybrid evidence; loan citation; confidence metrics |
+| G3 | `where is UserService defined?` | Symbol search; cite `user.service.ts` |
+| G4 | `hello` | Social reply; no retrieval; no abstain |
+| G5 | Unknown `quantum_flux_capacitor` | Exhaust iterations and abstain |
+| G6 | `LoanService` rate-policy call | `graph_expand`; cross-repo backend citation |
+
+Run the focused agent gate:
+
+```bash
+uv run pytest \
+  -o addopts="" \
+  --cov=services.qa \
+  --cov=services.llm.vllm_client \
+  --cov-branch \
+  --cov-report=term-missing \
+  --cov-fail-under=80 \
+  tests/services/test_agent_loop.py \
+  tests/services/test_qa_tools.py \
+  tests/services/test_agent_qa_golden.py \
+  tests/services/test_vllm_tool_calling.py
+```
+
+`AGENT_QA_LIVE_LLM=1` is reserved for the optional nightly/integration variant that replaces the
+scripted planner with the configured tool-calling model. Do not enable it in the default unit
+suite; live runs require the model services and a migrated PostgreSQL fixture database.
+
+### Manual 5M LOC benchmark
+
+Do not synthesize a million-row fixture in CI. On recommended hardware:
+
+1. Index a representative project with at least 1M chunks, or a 100k-chunk sample suitable for
+   documented extrapolation.
+2. Send `how is EMI calculated?` (G2) to `POST /engine/query`.
+3. Run the fixed 20-question benchmark sheet enough times to calculate p95 end-to-end and
+   per-tool latency.
+4. Record p95 latency, agent iterations, tool-call count, and abstain rate.
+5. Add measured results to `docs/plans/agent-qa/benchmark-results.md` (create it only after a real
+   benchmark run).
+
 ### Test layout
 
 ```
@@ -466,6 +514,8 @@ tests/
 ├── test_config.py      # settings / env overrides
 ├── test_health.py      # FastAPI /health (TestClient)
 ├── test_jobs.py        # job type registry
+├── fixtures/           # deterministic source trees and seed helpers
+├── services/           # agent QA, retrieval, LLM, and indexing service tests
 └── db/                 # models, repos, session, pgvector, graph SQL
     ├── test_models.py
     ├── test_session.py

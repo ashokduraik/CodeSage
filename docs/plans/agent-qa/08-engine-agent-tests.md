@@ -69,9 +69,11 @@ live LLM if `AGENT_QA_LIVE_LLM=1`.
 
 ```bash
 cd apps/engine && uv run pytest \
-  --cov=services/qa \
-  --cov=services/llm/vllm_client \
+  -o addopts="" \
+  --cov=services.qa \
+  --cov=services.llm.vllm_client \
   --cov-branch \
+  --cov-report=term-missing \
   --cov-fail-under=80 \
   tests/services/test_agent_loop.py \
   tests/services/test_qa_tools.py \
@@ -92,11 +94,11 @@ cd apps/engine && uv run pytest \
 
 ## Definition of Done
 
-- [ ] Fixture repo + seed helper committed
-- [ ] Golden tests G1–G5 pass with mocked planner
-- [ ] `services/qa` coverage ≥ 80% line + branch
-- [ ] xlarge tier config test passes
-- [ ] Document manual 5M LOC benchmark procedure (steps to run on large project — not automated)
+- [x] Fixture repo + seed helper committed
+- [x] Golden tests G1–G5 pass with mocked planner
+- [x] `services/qa` coverage ≥ 80% line + branch
+- [x] xlarge tier config test passes
+- [x] Document manual 5M LOC benchmark procedure (steps to run on large project — not automated)
 
 ---
 
