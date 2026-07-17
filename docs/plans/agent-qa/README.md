@@ -35,7 +35,7 @@ plan (or a tight pair where noted) per PR to keep review manageable.
 | 13 | [Documentation & ADR acceptance](./13-documentation-and-adr-acceptance.md) | Accept ADRs, update phase plans, remove stale README sections | 0026, 0027 | Complete |
 | 14 | [Span-aware path evidence](./14-span-aware-path-evidence.md) | Windowed `read_chunks_for_path` (`around_line` / `chunk_id`); remove fake `path: 1.0` | 0026 | Complete |
 | 15 | [Gate coupling & honest abstain](./15-agent-loop-gate-coupling.md) | Nudge planner when gate fails with pool; distinct abstain copy | 0026 | Complete |
-| 16 | [Evidence confidence accuracy](./16-evidence-confidence-accuracy.md) | `symbol_refs` + excerpt overlap; EMI golden answer; no threshold-first | 0026 | Planned |
+| 16 | [Evidence confidence accuracy](./16-evidence-confidence-accuracy.md) | `symbol_refs` + excerpt overlap; EMI golden answer; no threshold-first | 0026 | Complete |
 
 ### Accuracy follow-up (14–16)
 

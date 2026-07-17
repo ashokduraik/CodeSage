@@ -31,3 +31,16 @@ export function calculateEmi(
   const growth = (1 + monthlyRate) ** months;
   return Math.round(((principal * monthlyRate * growth) / (growth - 1)) * 100) / 100;
 }
+
+/**
+ * EMI formula used by the calculator UI (principal, rate, tenure).
+ *
+ * @param P - Loan principal.
+ * @param R - Monthly interest rate.
+ * @param N - Tenure in months.
+ * @returns Monthly EMI amount.
+ */
+export function getEMIAmount(P: number, R: number, N: number): number {
+  // EMI = P * R * (1+R)^N / ((1+R)^N - 1)
+  return (P * R * Math.pow(1 + R, N)) / (Math.pow(1 + R, N) - 1);
+}

@@ -67,6 +67,9 @@ QA_AGENT_CONFIDENCE_TOP_N = 10  # pool matches scored for evidence confidence
 QA_AGENT_MAX_POOL_CHUNKS = 20  # hard cap on evidence pool size
 QA_AGENT_MAX_TOOL_HITS = 8  # max hits returned per tool call
 QA_AGENT_MAX_EXCERPT_TOKENS = 512  # per-hit excerpt token cap in tool JSON
+# Path/unscored hits lack RRF fused scores; scale excerpt–term overlap into a synthetic fused
+# floor so answerable drill-downs can clear the 0.8 gate without inventing a fake path:1.0 leg.
+QA_AGENT_EXCERPT_OVERLAP_FUSED_SCALE = 0.05
 QA_AGENT_PLANNER_TIMEOUT_SECONDS = 180.0  # planner LLM timeout per iteration
 QA_AGENT_FINAL_TIMEOUT_SECONDS = LLM_TIMEOUT_SECONDS  # final answer stream timeout
 

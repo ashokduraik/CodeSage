@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy import func, select
@@ -52,6 +52,7 @@ class QaToolHit:
     @param excerpt - Token-truncated chunk content for the planner / final prompt.
     @param scores - Per-retriever signals (symbol, keyword, vector_distance, fused, …).
     @param graph_node_id - Optional graph node that produced this hit.
+    @param symbol_refs - AST symbol metadata from the chunk (names for exactness boost).
     """
 
     chunk_id: uuid.UUID
@@ -61,6 +62,7 @@ class QaToolHit:
     excerpt: str
     scores: dict[str, float | None]
     graph_node_id: uuid.UUID | None = None
+    symbol_refs: list[Any] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -405,6 +407,7 @@ def _hit_from_chunk(
     @returns Populated tool hit.
     """
     span = chunk.span if isinstance(chunk.span, dict) else {}
+    refs = list(chunk.symbol_refs or [])
     return QaToolHit(
         chunk_id=chunk.id,
         repo_id=chunk.repo_id,
@@ -413,6 +416,7 @@ def _hit_from_chunk(
         excerpt=_excerpt_for_chunk(chunk, settings),
         scores=scores,
         graph_node_id=graph_node_id,
+        symbol_refs=refs,
     )
 
 

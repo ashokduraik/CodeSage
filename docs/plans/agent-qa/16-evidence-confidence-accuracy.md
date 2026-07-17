@@ -4,7 +4,7 @@
 **no new ADR** unless gate semantics change — see §ADR gate)  
 **Depends on:** [14](./14-span-aware-path-evidence.md), [15](./15-agent-loop-gate-coupling.md)  
 **Blocks:** none (closes accuracy follow-up series)  
-**Status:** Planned  
+**Status:** Complete  
 **Goal theme:** Raise answer accuracy by making the **0.8 gate** reflect answerable code evidence
 (symbol refs, excerpt–term overlap, path-hit scoring) — without LLM self-confidence and without
 lowering the threshold as the first move.
@@ -247,13 +247,13 @@ cd apps/engine && uv run pytest \
 
 ## Definition of Done
 
-- [ ] `symbol_refs` preserved from DB → hit → confidence.
-- [ ] Excerpt–term overlap contributes to exactness (or documented fifth weight).
-- [ ] Path/unscored hits no longer rely on fake `path: 1.0`; scored via overlap at gate time.
-- [ ] `QA_AGENT_MIN_CONFIDENCE` still 0.8 **or** explicitly tuned with golden justification.
-- [ ] G2/G2b answer; G5 + UI-noise negative still abstain.
-- [ ] No gate bypass without ADR; no LLM confidence.
-- [ ] Docs/TODO/README/plan index updated; unwanted hard-codes removed.
+- [x] `symbol_refs` preserved from DB → hit → confidence.
+- [x] Excerpt–term overlap contributes to exactness (or documented fifth weight).
+- [x] Path/unscored hits no longer rely on fake `path: 1.0`; scored via overlap at gate time.
+- [x] `QA_AGENT_MIN_CONFIDENCE` still 0.8 **or** explicitly tuned with golden justification.
+- [x] G2/G2b answer; G5 + UI-noise negative still abstain.
+- [x] No gate bypass without ADR; no LLM confidence.
+- [x] Docs/TODO/README/plan index updated; unwanted hard-codes removed.
 
 ---
 

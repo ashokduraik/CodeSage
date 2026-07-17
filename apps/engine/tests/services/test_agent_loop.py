@@ -130,6 +130,77 @@ def test_hits_to_retrieval_matches_maps_vector_keyword_and_graph() -> None:
     assert match.is_graph_expanded is True
 
 
+def test_hits_to_retrieval_matches_preserves_symbol_refs() -> None:
+    """Chunk symbol_refs flow through to RetrievalMatch for exactness scoring."""
+    refs = [{"kind": "function", "name": "getEMIAmount"}]
+    hit = QaToolHit(
+        chunk_id=uuid.uuid4(),
+        repo_id=uuid.uuid4(),
+        file_path="src/loan.utils.ts",
+        span={"startLine": 40, "endLine": 48},
+        excerpt="export function getEMIAmount() {}",
+        scores={"symbol": 0.9, "fused": 0.05},
+        symbol_refs=refs,
+    )
+    match = hits_to_retrieval_matches([hit])[0]
+    assert match.chunk.symbol_refs == refs  # type: ignore[attr-defined]
+
+
+def test_evaluate_evidence_confidence_passes_with_emi_formula_excerpt() -> None:
+    """Formula excerpt + EMI terms + moderate hybrid legs clear the 0.8 gate."""
+    hit = QaToolHit(
+        chunk_id=uuid.uuid4(),
+        repo_id=uuid.uuid4(),
+        file_path="src/loan.utils.ts",
+        span={"startLine": 40, "endLine": 48},
+        excerpt=(
+            "export function getEMIAmount(P: number, R: number, N: number): number {\n"
+            "  // EMI = P * R * Math.pow(1 + R, N) / (Math.pow(1 + R, N) - 1)\n"
+            "  return (P * R * Math.pow(1 + R, N)) / (Math.pow(1 + R, N) - 1);\n"
+            "}"
+        ),
+        scores={"symbol": 0.92, "keyword": 0.84, "fused": 0.05},
+        symbol_refs=[{"kind": "function", "name": "getEMIAmount"}],
+    )
+    pool = EvidencePool(max_chunks=5)
+    pool.add(hit, tool="search_hybrid", iteration=1)
+    confidence, passes = evaluate_evidence_confidence(
+        pool,
+        Settings(qa_agent_min_confidence=0.8),
+        intent=QueryIntentProfile.BALANCED,
+        terms=["EMI"],
+    )
+    assert confidence >= 0.8
+    assert passes is True
+
+
+def test_evaluate_evidence_confidence_path_hit_uses_excerpt_overlap() -> None:
+    """Unscored path drill-down hits inherit keyword signal from excerpt overlap."""
+    hit = QaToolHit(
+        chunk_id=uuid.uuid4(),
+        repo_id=uuid.uuid4(),
+        file_path="src/loan.utils.ts",
+        span={"startLine": 40, "endLine": 48},
+        excerpt=(
+            "export function getEMIAmount(P, R, N) {\n"
+            "  return (P * R * Math.pow(1 + R, N)) / (Math.pow(1 + R, N) - 1); // EMI\n"
+            "}"
+        ),
+        scores={},
+        symbol_refs=[{"kind": "function", "name": "getEMIAmount"}],
+    )
+    pool = EvidencePool(max_chunks=5)
+    pool.add(hit, tool="read_chunks_for_path", iteration=1)
+    confidence, passes = evaluate_evidence_confidence(
+        pool,
+        Settings(qa_agent_min_confidence=0.8),
+        intent=QueryIntentProfile.BALANCED,
+        terms=["EMI"],
+    )
+    assert confidence >= 0.8
+    assert passes is True
+
+
 def test_abstains_after_max_iterations_no_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings(qa_agent_max_iterations=2, qa_agent_min_confidence=0.8)
     session_factory = MagicMock(return_value=MagicMock())

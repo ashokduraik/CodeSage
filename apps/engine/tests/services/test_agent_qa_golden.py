@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -91,6 +92,7 @@ def _run_scripted_question(
     turns: list[PlannerTurnResult],
     hits_by_tool: dict[str, list[QaToolHit]] | None = None,
     confidence_outcomes: list[tuple[float, bool]] | None = None,
+    use_real_confidence: bool = False,
 ) -> GoldenRun:
     """Run the public agent stream with deterministic planner and retrieval outputs.
 
@@ -99,7 +101,8 @@ def _run_scripted_question(
     @param question - Developer question under test.
     @param turns - Scripted planner turns.
     @param hits_by_tool - Tool name to deterministic hits.
-    @param confidence_outcomes - Gate results in iteration order.
+    @param confidence_outcomes - Gate results in iteration order (ignored when real).
+    @param use_real_confidence - When True, keep ``evaluate_evidence_confidence``.
     @returns Decoded stream and invoked tool names.
     """
     max_iterations = max(len(turns), 1)
@@ -160,19 +163,20 @@ def _run_scripted_question(
 
     monkeypatch.setattr("services.qa.agent_loop.execute_tool", _execute)
 
-    outcomes = iter(confidence_outcomes or [(0.9, True)])
+    if not use_real_confidence:
+        outcomes = iter(confidence_outcomes or [(0.9, True)])
 
-    def _confidence(*_args: object, **_kwargs: object) -> tuple[float, bool]:
-        """Return the next deterministic confidence-gate result.
+        def _confidence(*_args: object, **_kwargs: object) -> tuple[float, bool]:
+            """Return the next deterministic confidence-gate result.
 
-        @returns Configured confidence and pass/fail decision.
-        """
-        return next(outcomes)
+            @returns Configured confidence and pass/fail decision.
+            """
+            return next(outcomes)
 
-    monkeypatch.setattr(
-        "services.qa.agent_loop.evaluate_evidence_confidence",
-        _confidence,
-    )
+        monkeypatch.setattr(
+            "services.qa.agent_loop.evaluate_evidence_confidence",
+            _confidence,
+        )
 
     def _final_answer(
         _settings: Settings,
@@ -260,10 +264,10 @@ def test_g1_get_min_emi_cites_implementation(
     assert "abstain" not in _event_types(run)
 
 
-def test_g2_emi_calculation_exercises_confidence_path(
+def test_g2_emi_calculation_answers_with_realistic_confidence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """G2 uses hybrid evidence and reports the deterministic confidence metric."""
+    """G2 answers EMI questions when hybrid evidence has realistic legs + formula."""
     emi_question = "how is EMI calculated?"
     terms = extract_search_terms(emi_question)
     assert classify_query_intent(emi_question, terms) == QueryIntentProfile.BALANCED
@@ -279,16 +283,79 @@ def test_g2_emi_calculation_exercises_confidence_path(
         question=emi_question,
         turns=[_turn("search_hybrid", query=emi_question)],
         hits_by_tool={"search_hybrid": [hit]},
-        confidence_outcomes=[(0.87, True)],
+        use_real_confidence=True,
     )
 
     assert run.tool_names == ["search_hybrid"]
+    assert "abstain" not in _event_types(run)
+    assert "token" in _event_types(run)
     assert any("loan" in path for path in _citation_paths(run))
     metrics = next(
         event["metrics"] for event in run.events if event["type"] == "metrics"
     )
-    assert metrics["evidenceConfidence"] == 0.87
+    assert metrics["evidenceConfidence"] >= 0.8
     assert metrics["agentIterations"] == 1
+
+
+def test_g2b_path_drill_down_answers_with_formula_excerpt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """G2b: hybrid then path window near getEMIAmount answers without abstaining."""
+    emi_question = "how is EMI calculated?"
+    seed = build_agent_qa_seed()
+    hybrid_hit = seed.hit_for_path(
+        "src/loan.utils.ts",
+        scores={"symbol": 0.7, "keyword": 0.6, "fused": 0.03},
+        excerpt="const loanHelpers = true; // shared payment utilities",
+    )
+    formula_excerpt = (
+        "export function getEMIAmount(P: number, R: number, N: number): number {\n"
+        "  // EMI = P * R * Math.pow(1 + R, N) / (Math.pow(1 + R, N) - 1)\n"
+        "  return (P * R * Math.pow(1 + R, N)) / (Math.pow(1 + R, N) - 1);\n"
+        "}"
+    )
+    path_hit = seed.hit_for_path(
+        "src/loan.utils.ts",
+        scores={},
+        excerpt=formula_excerpt,
+    )
+    # Distinct chunk id so the path hit is not deduped away from the hybrid hit.
+    path_hit = QaToolHit(
+        chunk_id=uuid.uuid4(),
+        repo_id=path_hit.repo_id,
+        file_path=path_hit.file_path,
+        span={"startLine": 43, "endLine": 48},
+        excerpt=formula_excerpt,
+        scores={},
+        symbol_refs=[{"kind": "function", "name": "getEMIAmount"}],
+    )
+    run = _run_scripted_question(
+        monkeypatch,
+        seed,
+        question=emi_question,
+        turns=[
+            _turn("search_hybrid", query=emi_question),
+            _turn(
+                "read_chunks_for_path",
+                path="loan.utils.ts",
+                around_line=45,
+            ),
+        ],
+        hits_by_tool={
+            "search_hybrid": [hybrid_hit],
+            "read_chunks_for_path": [path_hit],
+        },
+        use_real_confidence=True,
+    )
+
+    assert run.tool_names == ["search_hybrid", "read_chunks_for_path"]
+    assert "abstain" not in _event_types(run)
+    assert "token" in _event_types(run)
+    assert "src/loan.utils.ts" in _citation_paths(run)
+    metrics = next(
+        event["metrics"] for event in run.events if event["type"] == "metrics"
+    )
+    assert metrics["evidenceConfidence"] >= 0.8
 
 
 def test_g2_path_follow_up_reads_loan_utils(
@@ -384,6 +451,38 @@ def test_g5_unknown_concept_abstains_after_max_iterations(
     assert _citation_paths(run) == []
     assert _event_types(run)[-2:] == ["abstain", "done"]
     assert "token" not in _event_types(run)
+
+
+def test_g_neg_ui_module_noise_abstains(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """UI Angular module stubs with weak vector legs must not clear the gate."""
+    seed = build_agent_qa_seed()
+    noise_hit = seed.hit_for_path(
+        "src/emi-calculator.module.ts",
+        scores={"vector_distance": 0.92},
+    )
+    run = _run_scripted_question(
+        monkeypatch,
+        seed,
+        question="how is EMI calculated?",
+        turns=[
+            _turn("search_vectors", query="how is EMI calculated?"),
+            _turn("search_hybrid", query="how is EMI calculated?"),
+            _turn("search_code", query="EMI"),
+        ],
+        hits_by_tool={
+            "search_vectors": [noise_hit],
+            "search_hybrid": [noise_hit],
+            "search_code": [noise_hit],
+        },
+        use_real_confidence=True,
+    )
+
+    assert "abstain" in _event_types(run)
+    assert "token" not in _event_types(run)
+    metrics_events = [e for e in run.events if e["type"] == "metrics"]
+    assert not metrics_events or metrics_events[-1]["metrics"]["evidenceConfidence"] < 0.8
 
 
 def test_g6_graph_expand_adds_cross_repo_backend_citation(

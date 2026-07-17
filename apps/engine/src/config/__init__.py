@@ -103,6 +103,9 @@ class Settings(BaseSettings):
     qa_agent_max_pool_chunks: int = constants.QA_AGENT_MAX_POOL_CHUNKS
     qa_agent_max_tool_hits: int = constants.QA_AGENT_MAX_TOOL_HITS
     qa_agent_max_excerpt_tokens: int = constants.QA_AGENT_MAX_EXCERPT_TOKENS
+    qa_agent_excerpt_overlap_fused_scale: float = (
+        constants.QA_AGENT_EXCERPT_OVERLAP_FUSED_SCALE
+    )
     qa_agent_planner_timeout_seconds: float = constants.QA_AGENT_PLANNER_TIMEOUT_SECONDS
     qa_agent_final_timeout_seconds: float = constants.QA_AGENT_FINAL_TIMEOUT_SECONDS
     # QA playbooks (ADR 0027) — env-overridable; defaults from constants (not in .env.example).

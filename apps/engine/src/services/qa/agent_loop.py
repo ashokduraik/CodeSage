@@ -46,6 +46,7 @@ from services.qa.tools import (
 )
 from services.retrieval.hybrid_confidence import (
     compute_hybrid_confidence,
+    excerpt_term_overlap,
     has_hard_vector_fail,
 )
 from services.retrieval.query_intent import QueryIntentProfile, classify_query_intent
@@ -179,22 +180,44 @@ def is_social_question(question: str) -> bool:
     return normalized in _SOCIAL_PHRASES
 
 
-def hits_to_retrieval_matches(hits: list[QaToolHit]) -> list[RetrievalMatch]:
+def hits_to_retrieval_matches(
+    hits: list[QaToolHit],
+    *,
+    terms: list[str] | None = None,
+    overlap_fused_scale: float = 0.05,
+) -> list[RetrievalMatch]:
     """Convert evidence-pool hits into ``RetrievalMatch`` rows for confidence scoring.
 
     Synthetic fused scores fill in when a tool only populated one leg so the hybrid
-    formula still has a ranking signal.
+    formula still has a ranking signal. Path / unscored hits (no symbol, keyword, or
+    vector leg) get a keyword-like signal from excerpt–term overlap and a scaled
+    fused floor — never a fake ``path: 1.0`` leg.
 
     @param hits - Deduplicated pool hits (best-first preferred; order preserved).
+    @param terms - Optional query tokens from ``extract_search_terms`` for overlap scoring.
+    @param overlap_fused_scale - Multiplier that turns overlap into a synthetic fused floor.
     @returns Retrieval matches suitable for ``compute_hybrid_confidence``.
     """
+    query_terms = terms or []
     matches: list[RetrievalMatch] = []
     for hit in hits:
-        scores = hit.scores
+        scores = dict(hit.scores)
         symbol = scores.get("symbol")
         keyword = scores.get("keyword")
         vector_distance = scores.get("vector_distance")
         fused = scores.get("fused")
+
+        # Only inject overlap for true path/unscored hits so weak vector-only pools
+        # still hit has_hard_vector_fail instead of clearing the gate via acronym noise.
+        is_unscored = (
+            symbol is None and keyword is None and vector_distance is None
+        )
+        overlap = 0.0
+        if is_unscored and query_terms:
+            overlap = excerpt_term_overlap(hit.excerpt, query_terms)
+            if overlap > 0.0:
+                keyword = max(float(keyword or 0.0), overlap)
+
         if fused is None:
             # Synthetic rank signal when only one leg fired (ADR 0026).
             leg = max(
@@ -202,7 +225,10 @@ def hits_to_retrieval_matches(hits: list[QaToolHit]) -> list[RetrievalMatch]:
                 float(keyword or 0.0),
                 (1.0 - float(vector_distance)) if vector_distance is not None else 0.0,
             )
-            fused = max(leg, 0.01)
+            if is_unscored and overlap > 0.0:
+                fused = max(leg, overlap * overlap_fused_scale, 0.01)
+            else:
+                fused = max(leg, 0.01)
 
         sources: list[str] = []
         if symbol is not None:
@@ -223,7 +249,7 @@ def hits_to_retrieval_matches(hits: list[QaToolHit]) -> list[RetrievalMatch]:
             file_path=hit.file_path,
             span=hit.span,
             content=hit.excerpt,
-            symbol_refs=[],
+            symbol_refs=list(hit.symbol_refs or []),
         )
         matches.append(
             RetrievalMatch(
@@ -265,7 +291,11 @@ def evaluate_evidence_confidence(
     if not hits:
         return 0.0, False
 
-    matches = hits_to_retrieval_matches(hits)[: settings.qa_agent_confidence_top_n]
+    matches = hits_to_retrieval_matches(
+        hits,
+        terms=terms,
+        overlap_fused_scale=settings.qa_agent_excerpt_overlap_fused_scale,
+    )[: settings.qa_agent_confidence_top_n]
     confidence = compute_hybrid_confidence(
         matches, settings, intent=intent, terms=terms
     )
@@ -377,7 +407,11 @@ def _pack_pool_excerpts(
     @param history - Optional prior conversation turns.
     @returns Selected hits, context blocks, tokens used, max window, trimmed history.
     """
-    ranked = hits_to_retrieval_matches(hits)
+    ranked = hits_to_retrieval_matches(
+        hits,
+        terms=extract_search_terms(question),
+        overlap_fused_scale=settings.qa_agent_excerpt_overlap_fused_scale,
+    )
     by_id = {h.chunk_id: h for h in hits}
     ordered_hits = [
         by_id[m.chunk.id]  # type: ignore[attr-defined]

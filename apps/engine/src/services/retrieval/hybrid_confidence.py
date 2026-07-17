@@ -7,6 +7,26 @@ from services.retrieval.query_intent import QueryIntentProfile, resolve_rrf_weig
 from services.retrieval.types import RetrievalMatch
 
 
+def excerpt_term_overlap(excerpt: str, terms: list[str]) -> float:
+    """Return how many query terms appear in an evidence excerpt.
+
+    Used as a deterministic exactness signal when hybrid legs are missing or weak
+    (for example path drill-down hits). Scoring is case-insensitive substring
+    match over distinct terms; empty term lists score ``0.0``.
+
+    @param excerpt - Chunk text or truncated tool excerpt.
+    @param terms - Identifier tokens from ``extract_search_terms``.
+    @returns Overlap in ``[0, 1]`` equal to matched_terms / len(terms).
+    """
+    if not terms:
+        return 0.0
+    lowered = (excerpt or "").lower()
+    if not lowered:
+        return 0.0
+    matched = sum(1 for term in terms if term.lower() in lowered)
+    return min(matched / len(terms), 1.0)
+
+
 def _retrieval_score(matches: list[RetrievalMatch], settings: Settings, intent: QueryIntentProfile) -> float:
     """Normalize top fused score against the theoretical rank-1 RRF maximum.
 
@@ -45,6 +65,11 @@ def _graph_connectivity(matches: list[RetrievalMatch]) -> float:
 def _symbol_exactness(matches: list[RetrievalMatch], terms: list[str]) -> float:
     """Score symbol/keyword strength in the top hits, with exact symbol_ref boost.
 
+    Fold excerpt–term overlap into the same leg via ``max(symbol, keyword, overlap)``
+    so path and hybrid hits that name the user's tokens can clear the gate without
+    rebalancing the four confidence weights. Exact ``symbol_refs`` name matches still
+    add ``+0.25`` on top of that leg.
+
     @param matches - Pruned retrieval hits, best first.
     @param terms - Query identifier tokens.
     """
@@ -53,7 +78,13 @@ def _symbol_exactness(matches: list[RetrievalMatch], terms: list[str]) -> float:
     top_scores: list[float] = []
     lowered_terms = {term.lower() for term in terms}
     for match in matches[:3]:
-        leg_score = max(match.symbol_score or 0.0, match.keyword_score or 0.0)
+        content = getattr(match.chunk, "content", "") or ""
+        overlap = excerpt_term_overlap(content, terms)
+        leg_score = max(
+            match.symbol_score or 0.0,
+            match.keyword_score or 0.0,
+            overlap,
+        )
         refs = getattr(match.chunk, "symbol_refs", None) or []
         for ref in refs:
             name = ref.get("name", "") if isinstance(ref, dict) else str(ref)

@@ -107,8 +107,11 @@ Server-Sent Events.
 4. **Evidence pool** — merge tool hits by chunk id, retain provenance, cap total chunks and excerpt
    tokens, and emit citations only for evidence actually returned in this request.
 5. **Application-owned confidence** — after every tool round, code runs
-   `compute_hybrid_confidence` over the strongest evidence. The LLM does **not** self-report the
-   score. At confidence **≥0.8**, proceed to generation; otherwise repeat, up to **5 iterations**.
+   `compute_hybrid_confidence` over the strongest evidence. Confidence inputs include
+   chunk `symbol_refs` and excerpt–term overlap (path/unscored hits get a keyword-like
+   overlap signal at gate time — never a fake `path: 1.0` leg). The LLM does **not**
+   self-report the score. At confidence **≥0.8**, proceed to generation; otherwise
+   repeat, up to **5 iterations**.
 6. **Abstain** — after iteration 5 below threshold, emit `abstain`; do not ask the model to fill
    missing facts. When the gate fails but evidence is already in the pool, the loop first
    **nudges the planner** with concrete anchors (top pool file paths, spans, chunk ids) to call one
@@ -236,6 +239,7 @@ Symbol search expands ALLCAPS acronyms to symbol names containing that substring
 | `QA_AGENT_MAX_ITERATIONS` | `5` | Max planner loops per question |
 | `QA_AGENT_MIN_CONFIDENCE` | `0.8` | Evidence gate before final answer |
 | `QA_AGENT_CONFIDENCE_TOP_N` | `10` | Pool matches scored for confidence |
+| `QA_AGENT_EXCERPT_OVERLAP_FUSED_SCALE` | `0.05` | Path/unscored fused floor from excerpt overlap |
 | `QA_AGENT_MAX_POOL_CHUNKS` | `20` | Evidence pool hard cap |
 | `QA_AGENT_MAX_TOOL_HITS` | `8` | Max hits per tool response |
 | `QA_AGENT_MAX_EXCERPT_TOKENS` | `512` | Per-hit excerpt token cap |
@@ -522,10 +526,12 @@ results, so these cases require neither PostgreSQL nor a live LLM:
 | ID | Question / path | Required result |
 |---|---|---|
 | G1 | `what does getMinEmi do?` | Symbol search; cite `src/loan.utils.ts`; answer |
-| G2 | `how is EMI calculated?` | Hybrid evidence; loan citation; confidence metrics |
+| G2 | `how is EMI calculated?` | Hybrid evidence; loan citation; **no abstain**; `evidenceConfidence >= 0.8` |
+| G2b | hybrid → `read_chunks_for_path` near formula | Formula excerpt; answer; no abstain |
 | G3 | `where is UserService defined?` | Symbol search; cite `user.service.ts` |
 | G4 | `hello` | Social reply; no retrieval; no abstain |
 | G5 | Unknown `quantum_flux_capacitor` | Exhaust iterations and abstain |
+| G-neg | `emi-calculator.module.ts` + weak vector | Gate fails / abstain (UI noise) |
 | G6 | `LoanService` rate-policy call | `graph_expand`; cross-repo backend citation |
 
 Run the focused agent gate:

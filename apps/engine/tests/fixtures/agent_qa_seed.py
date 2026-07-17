@@ -104,24 +104,28 @@ class AgentQaSeed:
         *,
         scores: dict[str, float | None],
         graph_node_name: str | None = None,
+        excerpt: str | None = None,
     ) -> QaToolHit:
         """Convert one fixture chunk into the stable QA tool-result shape.
 
         @param file_path - Exact indexed path.
         @param scores - Retrieval signals for confidence evaluation.
         @param graph_node_name - Optional node furnishing graph provenance.
+        @param excerpt - Optional excerpt override (defaults to full chunk content).
         @returns Tool hit ready for an evidence pool.
         """
         chunk = self.chunk_for_path(file_path)
         node = self.node_for_name(graph_node_name) if graph_node_name else None
+        refs = list(chunk.symbol_refs or [])
         return QaToolHit(
             chunk_id=chunk.id,
             repo_id=chunk.repo_id,
             file_path=chunk.file_path,
             span=chunk.span,
-            excerpt=chunk.content,
+            excerpt=excerpt if excerpt is not None else chunk.content,
             scores=scores,
             graph_node_id=node.id if node else None,
+            symbol_refs=refs,
         )
 
     def records(self) -> list[object]:
@@ -195,36 +199,53 @@ def build_agent_qa_seed(*, actor_id: uuid.UUID | None = None) -> AgentQaSeed:
             app_repo_id,
             "src/loan.utils.ts",
             "src/loan.utils.ts",
-            {"startLine": 1, "endLine": 35},
-            ["getMinEmi", "calculateEmi"],
+            {"startLine": 1, "endLine": 48},
+            [
+                {"kind": "function", "name": "getMinEmi", "startLine": 9},
+                {"kind": "function", "name": "calculateEmi", "startLine": 25},
+                {"kind": "function", "name": "getEMIAmount", "startLine": 43},
+            ],
+        ),
+        (
+            app_repo_id,
+            "src/emi-calculator.module.ts",
+            "src/emi-calculator.module.ts",
+            {"startLine": 1, "endLine": 1},
+            [],
         ),
         (
             app_repo_id,
             "src/api/loan.routes.ts",
             "src/api/loan.routes.ts",
             {"startLine": 1, "endLine": 12},
-            ["POST /loans/calculate"],
+            [{"kind": "route", "name": "POST /loans/calculate"}],
         ),
         (
             app_repo_id,
             "src/services/loan.service.ts",
             "src/services/loan.service.ts",
             {"startLine": 1, "endLine": 27},
-            ["LoanService", "LoanService.doCalc"],
+            [
+                {"kind": "class", "name": "LoanService"},
+                {"kind": "method", "name": "LoanService.doCalc"},
+            ],
         ),
         (
             app_repo_id,
             "src/services/user.service.ts",
             "src/services/user.service.ts",
             {"startLine": 1, "endLine": 14},
-            ["UserService", "UserService.displayName"],
+            [
+                {"kind": "class", "name": "UserService"},
+                {"kind": "method", "name": "UserService.displayName"},
+            ],
         ),
         (
             rates_repo_id,
             "src/rates.controller.ts",
             "backend/src/rates.controller.ts",
             {"startLine": 1, "endLine": 9},
-            ["GET /internal/rates/current"],
+            [{"kind": "route", "name": "GET /internal/rates/current"}],
         ),
     )
     chunks = tuple(
@@ -249,6 +270,7 @@ def build_agent_qa_seed(*, actor_id: uuid.UUID | None = None) -> AgentQaSeed:
     node_specs = (
         (app_repo_id, "function", "getMinEmi", "src/loan.utils.ts", 8, 15),
         (app_repo_id, "function", "calculateEmi", "src/loan.utils.ts", 24, 35),
+        (app_repo_id, "function", "getEMIAmount", "src/loan.utils.ts", 43, 48),
         (
             app_repo_id,
             "method",

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 from config import Settings
 from services.retrieval.hybrid_confidence import (
     compute_hybrid_confidence,
+    excerpt_term_overlap,
     has_hard_vector_fail,
 )
 from services.retrieval.query_intent import QueryIntentProfile
@@ -20,6 +21,7 @@ def _make_match(
     keyword_score: float | None = None,
     file_path: str = "a.ts",
     symbol_refs: list | None = None,
+    content: str = "",
     is_graph_expanded: bool = False,
     graph_depth: int | None = None,
 ) -> RetrievalMatch:
@@ -27,6 +29,7 @@ def _make_match(
     chunk.id = uuid.uuid4()
     chunk.file_path = file_path
     chunk.symbol_refs = symbol_refs or []
+    chunk.content = content
     return RetrievalMatch(
         chunk=chunk,
         fused_score=fused_score,
@@ -54,6 +57,7 @@ def test_compute_hybrid_confidence_strong_symbol_hit() -> None:
         fused_score=0.1,
         symbol_score=0.8,
         symbol_refs=[{"name": "getMinEmi"}],
+        content="export function getMinEmi() {}",
     )
     score = compute_hybrid_confidence(
         [match],
@@ -62,6 +66,51 @@ def test_compute_hybrid_confidence_strong_symbol_hit() -> None:
         terms=["getMinEmi"],
     )
     assert score >= 0.45
+
+
+def test_excerpt_term_overlap_matches_emi() -> None:
+    """EMI / getEMIAmount excerpts score high overlap for EMI query terms."""
+    excerpt = (
+        "export function getEMIAmount(P, R, N) {\n"
+        "  // EMI = P * R * Math.pow(1 + R, N) / (Math.pow(1 + R, N) - 1)\n"
+        "}"
+    )
+    assert excerpt_term_overlap(excerpt, ["EMI"]) == 1.0
+    assert excerpt_term_overlap(excerpt, ["EMI", "missing"]) == 0.5
+
+
+def test_excerpt_term_overlap_empty_terms() -> None:
+    assert excerpt_term_overlap("getEMIAmount EMI formula", []) == 0.0
+
+
+def test_symbol_exactness_boosts_on_symbol_refs() -> None:
+    """Exact symbol_ref name match raises the symbol exactness leg (+0.25)."""
+    match = _make_match(
+        fused_score=0.05,
+        symbol_score=0.5,
+        keyword_score=0.4,
+        symbol_refs=[{"name": "getEMIAmount"}],
+        content="export function getEMIAmount() { return 0; }",
+    )
+    boosted = compute_hybrid_confidence(
+        [match],
+        Settings(),
+        intent=QueryIntentProfile.BALANCED,
+        terms=["getEMIAmount"],
+    )
+    plain = compute_hybrid_confidence(
+        [_make_match(fused_score=0.05, symbol_score=0.5, keyword_score=0.4)],
+        Settings(),
+        intent=QueryIntentProfile.BALANCED,
+        terms=["getEMIAmount"],
+    )
+    assert boosted > plain
+
+
+def test_hard_vector_fail_still_blocks_weak_vector_only() -> None:
+    settings = Settings(retrieval_max_distance=0.45)
+    match = _make_match(vector_distance=0.9, content="unrelated widget code")
+    assert has_hard_vector_fail([match], settings) is True
 
 
 def test_has_hard_vector_fail_when_distance_too_high() -> None:

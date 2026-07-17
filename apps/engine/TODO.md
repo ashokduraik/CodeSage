@@ -46,7 +46,7 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 - [x] Intent reframe + acronym symbol expand + `read_chunks_for_path` tool.
 - [x] Span-aware `read_chunks_for_path` (`around_line` / `chunk_id`); remove fake `path: 1.0` (plan 14).
 - [x] Agent loop nudge when gate fails with non-empty pool; honest abstain copy (plan 15).
-- [ ] Confidence accuracy: `symbol_refs` + excerpt overlap; EMI golden answers (plan 16).
+- [x] Confidence accuracy: `symbol_refs` + excerpt overlap; EMI golden answers (plan 16).
 - [x] `qa/playbooks.py` — promote, hints, invalidation, optional warm-start (ADR 0027 plans 11–12).
 - [x] `graph/` — file + symbol node extraction during parse; HTTP/route API signals (Phase 2).
 - [x] `xrepo/` — cross-repo link resolver job (Phase 2).

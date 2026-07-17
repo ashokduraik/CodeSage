@@ -42,10 +42,12 @@ clone in unit tests.
 | ID | Question | Expected behavior |
 |---|---|---|
 | G1 | `what does getMinEmi do?` | Citations include `loan.utils.ts`; not abstain |
-| G2 | `how is EMI calculated?` | ≥1 citation in loan files; confidence path exercised |
+| G2 | `how is EMI calculated?` | ≥1 citation in loan files; **no abstain**; `metrics.evidenceConfidence >= 0.8` with realistic scores |
+| G2b | hybrid → `read_chunks_for_path` (`around_line` near formula) | Formula excerpt in pool; answer path; no abstain |
 | G3 | `where is UserService defined?` | Symbol tool path (if in fixture, else skip with pytest mark) |
 | G4 | `hello` | Short reply; no abstain; zero or no retrieval tools |
 | G5 | `how does quantum_flux_capacitor work?` | Abstain after max iterations |
+| G-neg | UI module stub + weak vector only | Gate fails / abstain (anti-regression for Angular noise) |
 | G6 | Cross-repo (if fixture has http_call edge) | `graph_expand` adds backend file citation |
 
 Use `@pytest.mark.integration` for tests needing DB + optional live LLM.
