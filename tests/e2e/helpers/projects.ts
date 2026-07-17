@@ -328,6 +328,32 @@ export async function attachPrivateRepoViaUi(page: Page, projectName: string): P
 }
 
 /**
+ * Waits until the first repo under a project shows the Indexed status badge.
+ *
+ * Polls `/projects` so connectionStatus / lastIndexedAt updates are visible.
+ * Empty JS/TS trees can still reach Indexed after sync/parse/embed finish.
+ *
+ * @param page - Authenticated page.
+ * @param projectName - Project card title.
+ * @param timeoutMs - Maximum wait for indexing pipeline (sync → embed).
+ */
+export async function waitForRepoIndexed(
+  page: Page,
+  projectName: string,
+  timeoutMs = 300_000,
+): Promise<void> {
+  await expect(async () => {
+    await page.goto("/projects");
+    await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+    const card = projectCard(page, projectName);
+    await expect(card).toBeVisible();
+    await expect(
+      repoCardsInProject(card).nth(0).getByText("Indexed", { exact: true }),
+    ).toBeVisible();
+  }).toPass({ timeout: timeoutMs, intervals: [5_000] });
+}
+
+/**
  * Asserts a project lists the expected number of attached repos with live status badges.
  *
  * @param page - Authenticated page.

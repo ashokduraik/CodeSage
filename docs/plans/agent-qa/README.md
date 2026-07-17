@@ -28,7 +28,7 @@ plan (or a tight pair where noted) per PR to keep review manageable.
 | 06 | [Legacy retrieval cleanup](./06-legacy-retrieval-cleanup.md) | **Delete** `retrieve_code_chunks`, reranker, prune QA path; verify graph toggle gone | 0026 |
 | 07 | [Node & web stream passthrough](./07-node-web-stream-passthrough.md) | Proxy new chunks; optional UI; persistence `investigation_trace` column prep | 0026 |
 | 08 | [Engine unit & integration tests](./08-engine-agent-tests.md) | Golden scenarios, ≥80% coverage on new QA modules | 0026 |
-| 09 | [E2E developer chat journey](./09-e2e-developer-chat-journey.md) | Playwright chat + citations + abstain | 0026 |
+| 09 | [E2E developer chat journey](./09-e2e-developer-chat-journey.md) | Playwright chat + citations + abstain — **exit:** `journey-developer-chat.spec.ts` + helpers; soft-skip without tools; `E2E_AGENT_QA_REQUIRED` | 0026 |
 | 10 | [Playbooks schema & migration](./10-playbooks-schema-migration.md) | `qa_playbooks`, `messages.investigation_trace` | 0027 |
 | 11 | [Playbooks learning service](./11-playbooks-learning-service.md) | `services/qa/playbooks.py` promotion + similarity | 0027 |
 | 12 | [Playbooks invalidation & hints](./12-playbooks-invalidation-and-hints.md) | Embed hook, planner hints, warm-start flag (default off) | 0027 |

@@ -33,24 +33,38 @@ Set `E2E_SKIP=1` in `.env` to skip live-stack journey specs without failing on m
 | **Public override** | Optional `E2E_PUBLIC_REPO_URL` in `.env` | None |
 | **Private** | **Required** `E2E_PRIVATE_REPO_URL` in `.env` | **Required** `E2E_GITHUB_TOKEN` |
 
-Journey attaches **public first**, then **private**, entirely through the UI (no API seed).
+Journey #1 attaches **public first**, then **private**, entirely through the UI (no API seed).
+
+**Journey #2 (developer chat)** indexes the public repo and waits for **Indexed**. The default Hello-World repo has no `.ts`/`.js` files — set `E2E_PUBLIC_REPO_URL` to a small public JavaScript/TypeScript repository so citation assertions can pass.
 
 ---
 
 ## What `npm run test:e2e` does
 
 1. Loads `tests/e2e/.env` (Playwright config + global-setup).
-2. [`global-setup.ts`](./global-setup.ts) — [`validateE2eEnv`](./helpers/validate-e2e-env.ts) (unless `E2E_SKIP=1`), then checks API + web health.
-3. Runs 9 **serial** tests in [`web/journey-project-onboarding.spec.ts`](./web/journey-project-onboarding.spec.ts): create/attach **error paths first**, then public + private attach success, repo actions, dashboard, then **UI cleanup** (soft-delete the project).
+2. [`global-setup.ts`](./global-setup.ts) — [`validateE2eEnv`](./helpers/validate-e2e-env.ts) (unless `E2E_SKIP=1`), checks API + web health, and when `E2E_AGENT_QA_REQUIRED=1` fails if engine `plannerTools` ≠ `ok`.
+3. Runs journey specs under [`web/`](./web/):
+   - [`journey-project-onboarding.spec.ts`](./web/journey-project-onboarding.spec.ts) — create/attach errors + public/private attach + cleanup
+   - [`journey-developer-chat.spec.ts`](./web/journey-developer-chat.spec.ts) — agent QA chat + citations (skips if LLM lacks tool calling)
 
 Run one journey file or grep filter:
 
 ```bash
 npx playwright test tests/e2e/web -c tests/e2e/playwright.config.ts
+npm run test:e2e -- journey-developer-chat
 npx playwright test -g "attach public" -c tests/e2e/playwright.config.ts
 ```
 
 First-time browser install: `npx playwright install chromium`.
+
+### Journey #2 — LLM tool calling
+
+Agent-orchestrated developer QA (ADR 0026) needs an OpenAI-compatible model that accepts `tools`. Engine `/health` reports `plannerTools: ok|unsupported` — see [`apps/engine/README.md`](../../apps/engine/README.md).
+
+| Mode | Behavior |
+|---|---|
+| Default (`E2E_AGENT_QA_REQUIRED` unset/`0`) | Journey #2 `test.skip`s when tools are unsupported |
+| `E2E_AGENT_QA_REQUIRED=1` | Global-setup **fails** if tools are unsupported |
 
 ---
 
@@ -62,10 +76,12 @@ First-time browser install: `npx playwright install chromium`.
 | `E2E_GITHUB_TOKEN` | Yes* | Read-only token for the private repo |
 | `E2E_BASE_URL` | No | Web app (default `http://localhost:5173`) |
 | `E2E_API_URL` | No | Node API (default `http://localhost:3000/api`) |
+| `E2E_ENGINE_URL` | No | Engine origin for `/health` (default `http://127.0.0.1:8001`) |
 | `E2E_DEV_EMAIL` / `E2E_DEV_PASSWORD` | No | Dev login (matches API seed) |
-| `E2E_PUBLIC_REPO_URL` | No | Override default public repo |
+| `E2E_PUBLIC_REPO_URL` | No | Override default public repo (use JS/TS for chat citations) |
 | `E2E_REPO_BRANCH` | No | Branch on confirm step (default `main`) |
 | `E2E_SKIP` | No | `1` skips journey specs + env validation failure |
+| `E2E_AGENT_QA_REQUIRED` | No | `1` fails global-setup when planner tools unsupported |
 | `E2E_HEADLESS` | No | `1` for headless browser |
 
 \*Not required when `E2E_SKIP=1`.
@@ -91,13 +107,15 @@ See tests/e2e/README.md
 | Journey | Spec |
 |---|---|
 | Project onboarding (errors + public/private attach + dashboard) | `web/journey-project-onboarding.spec.ts` |
+| Developer chat (agent QA citations + abstain) | `web/journey-developer-chat.spec.ts` |
 
 | Helper | Role |
 |---|---|
 | [`helpers/auth.ts`](./helpers/auth.ts) | Dev login |
-| [`helpers/projects.ts`](./helpers/projects.ts) | Create/attach flows, negative paths, dashboard |
+| [`helpers/projects.ts`](./helpers/projects.ts) | Create/attach flows, Indexed wait, dashboard |
+| [`helpers/chat.ts`](./helpers/chat.ts) | Start chat, send message, citations, review/abstain |
 | [`helpers/env.ts`](./helpers/env.ts) | Public default, `INVALID_REPO_URL`, env accessors |
-| [`helpers/validate-e2e-env.ts`](./helpers/validate-e2e-env.ts) | Required-env preflight |
+| [`helpers/validate-e2e-env.ts`](./helpers/validate-e2e-env.ts) | Required-env + optional agent QA tool preflight |
 
 ---
 

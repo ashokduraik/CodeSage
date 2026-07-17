@@ -13,6 +13,7 @@ export const INVALID_REPO_URL =
 export const e2eEnv = {
   baseUrl: process.env.E2E_BASE_URL ?? "http://localhost:5173",
   apiUrl: process.env.E2E_API_URL ?? "http://localhost:3000/api",
+  engineUrl: process.env.E2E_ENGINE_URL?.trim() || "http://127.0.0.1:8001",
   devEmail: process.env.E2E_DEV_EMAIL ?? "dev@codesage.dev",
   devPassword: process.env.E2E_DEV_PASSWORD ?? "dev123",
   publicRepoUrl: process.env.E2E_PUBLIC_REPO_URL?.trim() || DEFAULT_PUBLIC_REPO_URL,

@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 
 import dotenv from "dotenv";
 
-import { validateE2eEnv } from "./helpers/validate-e2e-env";
+import {
+  validateAgentQaToolSupport,
+  validateE2eEnv,
+} from "./helpers/validate-e2e-env";
 
 const e2eDir = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(e2eDir, ".env");
@@ -45,6 +48,9 @@ export default async function globalSetup(): Promise<void> {
     `${baseUrl.replace(/\/$/, "")}/login`,
     "Web app not reachable — start the web dev server (npm run dev:web or npm run dev).",
   );
+
+  // Optional hard fail when agent QA E2E must run (planner tool calling required).
+  await validateAgentQaToolSupport(process.env);
 }
 
 /**

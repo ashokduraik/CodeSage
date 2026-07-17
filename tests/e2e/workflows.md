@@ -38,22 +38,44 @@ Login → Projects → [create empty name — error] → create project
 
 Tests 1–4 need only dev stack + dev login. Tests 6–8 need private repo URL; test 7+ need token (validated in global-setup).
 
-### 2. Multi-repo code QA (chat + citations) — **planned**
+### 2. Developer chat (agent QA) — **implemented**
 
-Blocked until indexing completes reliably in E2E. Will use [`fixtures/`](./fixtures/) graph-linked repos.
+```
+Login → create project → attach public repo → wait Indexed
+  → start developer chat → ask code question → citation
+  → follow-up turn → nonsense (review/abstain) → greeting → delete project
+```
 
-### 3. Single-repo code QA — **planned**
+- **Spec:** [`web/journey-developer-chat.spec.ts`](./web/journey-developer-chat.spec.ts) (serial; ADR 0026 agent loop)
+- **Requires:** tool-calling LLM (`plannerTools: ok` on engine `/health`). Specs `test.skip` when unsupported; set `E2E_AGENT_QA_REQUIRED=1` to fail fast in global-setup.
+- **Indexed source:** default `octocat/Hello-World` has no `.ts`/`.js` — override `E2E_PUBLIC_REPO_URL` to a small public JS/TS repo for citations.
+- **No API seed of messages** — questions are sent through the chat UI.
+- **Does not** assert `tool_*` UI (v1).
 
-Phase 1 exit criteria; blocked on journey #2 infrastructure.
+### Test matrix
+
+| # | Test | Env / notes |
+|---|---|---|
+| 1 | Create project + wait Indexed | stack + engine + embeddings |
+| 2 | Start developer chat | tool-calling LLM |
+| 3 | Code question → citation | JS/TS public repo override recommended |
+| 4 | Follow-up turn (≥ 2 assistant bubbles) | same conversation |
+| 5 | Nonsense → needs review / abstain | NFR-7 |
+| 6 | Greeting (`hi`) without error | social turn via planner |
+| 7 | Delete created project | UI soft-delete |
+
+### 3. Multi-repo code QA (cross-repo citations) — **planned**
+
+Blocked until fixtures are published as attachable Git URLs. Will use [`fixtures/`](./fixtures/) graph-linked repos.
 
 ---
 
 ## Setup
 
-[`global-setup.ts`](./global-setup.ts): validates required `.env` via [`validate-e2e-env.ts`](./helpers/validate-e2e-env.ts), checks API + web reachable. Set `E2E_SKIP=1` to skip journey specs.
+[`global-setup.ts`](./global-setup.ts): validates required `.env` via [`validate-e2e-env.ts`](./helpers/validate-e2e-env.ts), checks API + web reachable, and optionally enforces planner tool support when `E2E_AGENT_QA_REQUIRED=1`. Set `E2E_SKIP=1` to skip journey specs.
 
 ---
 
 ## Fixtures
 
-[`fixtures/`](./fixtures/) holds minimal sample sources for **future** graph/chat E2E — not used for current onboarding. Public attach uses `octocat/Hello-World` by default.
+[`fixtures/`](./fixtures/) holds minimal sample sources for **future** graph/chat E2E — not used for current onboarding or journey #2. Public attach uses `octocat/Hello-World` by default (override for agent QA citations).

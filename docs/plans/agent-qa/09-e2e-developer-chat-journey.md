@@ -99,11 +99,11 @@ Update `tests/e2e/AGENTS.md` — list second journey spec.
 
 ## Definition of Done
 
-- [ ] `journey-developer-chat.spec.ts` passes locally against live stack (or documented skip)
-- [ ] `workflows.md` updated
-- [ ] `helpers/chat.ts` extended + used
-- [ ] `.env.example` updated for `E2E_AGENT_QA_REQUIRED`
-- [ ] No API pre-seed of messages (UI sends questions)
+- [x] `journey-developer-chat.spec.ts` passes locally against live stack (or documented skip)
+- [x] `workflows.md` updated
+- [x] `helpers/chat.ts` extended + used
+- [x] `.env.example` updated for `E2E_AGENT_QA_REQUIRED`
+- [x] No API pre-seed of messages (UI sends questions)
 
 ---
 
