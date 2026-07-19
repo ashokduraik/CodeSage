@@ -31,8 +31,12 @@ type ChatQueryRequest = NodeApi.components["schemas"]["ChatQueryRequest"];
 type CreateConversationRequest = NodeApi.components["schemas"]["CreateConversationRequest"];
 type ChatTurn = EngineApi.components["schemas"]["ChatTurn"];
 type CodeCitation = NodeApi.components["schemas"]["CodeCitation"];
+type PriorTurnEvidence = EngineApi.components["schemas"]["PriorTurnEvidence"];
+type EvidenceAnchor = EngineApi.components["schemas"]["EvidenceAnchor"];
 
 const DEFAULT_TITLE = "New Chat";
+/** Cap prior-turn anchors sent to the engine (matches contract maxItems). */
+const PRIOR_EVIDENCE_MAX_ITEMS = 20;
 
 /**
  * Maps a conversation row to the public ChatSession API shape.
@@ -95,6 +99,50 @@ export function buildHistoryFromMessages(rows: MessageRow[]): ChatTurn[] {
       role: row.role as ChatTurn["role"],
       content: row.content,
     }));
+}
+
+/**
+ * Extracts follow-up retrieval anchors from the most recent grounded assistant turn.
+ *
+ * Walks messages newest-first and returns citations and/or
+ * ``investigation_trace.evidenceAnchors`` from the first assistant row that has either.
+ * Abstain / empty rows are skipped. History stays text-only; this payload is separate
+ * so the engine can re-fetch those chunks (ADR 0028).
+ *
+ * @param rows - Chronological message rows (excluding the current user turn).
+ * @returns PriorTurnEvidence for the engine request, or undefined when none.
+ */
+export function buildPriorEvidenceFromMessages(
+  rows: MessageRow[],
+): PriorTurnEvidence | undefined {
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (!row || row.role !== "assistant") {
+      continue;
+    }
+    const citations = Array.isArray(row.citations)
+      ? (row.citations as CodeCitation[]).slice(0, PRIOR_EVIDENCE_MAX_ITEMS)
+      : [];
+    const trace =
+      row.investigation_trace && typeof row.investigation_trace === "object"
+        ? (row.investigation_trace as { evidenceAnchors?: unknown })
+        : undefined;
+    const anchors = Array.isArray(trace?.evidenceAnchors)
+      ? (trace.evidenceAnchors as EvidenceAnchor[]).slice(0, PRIOR_EVIDENCE_MAX_ITEMS)
+      : [];
+    if (citations.length === 0 && anchors.length === 0) {
+      continue;
+    }
+    const evidence: PriorTurnEvidence = {};
+    if (citations.length > 0) {
+      evidence.citations = citations;
+    }
+    if (anchors.length > 0) {
+      evidence.evidenceAnchors = anchors;
+    }
+    return evidence;
+  }
+  return undefined;
 }
 
 /**
@@ -304,6 +352,7 @@ export async function streamChatQuery(
   const priorCount = await countMessagesByConversation(app.db, body.conversationId);
   const priorMessages = await findMessagesByConversation(app.db, body.conversationId);
   const history = buildHistoryFromMessages(priorMessages);
+  const priorEvidence = buildPriorEvidenceFromMessages(priorMessages);
   const generateTitle = priorCount === 0;
 
   await insertMessage(app.db, body.conversationId, "user", question, sub);
@@ -328,6 +377,7 @@ export async function streamChatQuery(
         audience: scope.audience as EngineApi.components["schemas"]["QueryAudience"],
         generateTitle,
         history: history.length > 0 ? history : undefined,
+        priorEvidence,
       },
       abortController.signal,
     );

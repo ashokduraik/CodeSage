@@ -67,6 +67,68 @@ def test_engine_query_rejects_oversized_history(engine_client) -> None:
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
+def test_engine_query_accepts_prior_evidence(engine_client, monkeypatch) -> None:
+    """C1: priorEvidence on the request is accepted and forwarded."""
+    captured: dict[str, object] = {}
+
+    def fake_stream(*_args, **kwargs):
+        captured["prior_evidence"] = kwargs.get("prior_evidence")
+        captured["history"] = kwargs.get("history")
+        yield 'data: {"type":"done"}\n\n'
+
+    monkeypatch.setattr("api.routes.query.stream_engine_answer", fake_stream)
+    citation = {
+        "kind": "code",
+        "repoId": str(uuid.uuid4()),
+        "filePath": "src/loan.utils.ts",
+        "span": {"startLine": 10, "endLine": 20},
+    }
+    response = engine_client.post(
+        "/engine/query",
+        json={
+            "question": "I don't understand the second point",
+            "projectId": str(uuid.uuid4()),
+            "audience": "developer",
+            "history": [
+                {"role": "user", "content": "How EMI?"},
+                {"role": "assistant", "content": "EMI formula…"},
+            ],
+            "priorEvidence": {
+                "citations": [citation],
+                "evidenceAnchors": [{"filePath": "src/loan.utils.ts"}],
+            },
+        },
+    )
+    assert response.status_code == 200
+    assert "done" in response.text
+    assert captured["prior_evidence"] is not None
+    assert captured["prior_evidence"]["citations"][0]["filePath"] == "src/loan.utils.ts"
+    assert len(captured["history"]) == 2
+
+
+def test_engine_query_rejects_oversized_prior_evidence_citations(engine_client) -> None:
+    """C2: more than 20 citations fails validation."""
+    citations = [
+        {
+            "kind": "code",
+            "repoId": str(uuid.uuid4()),
+            "filePath": f"f{i}.ts",
+        }
+        for i in range(21)
+    ]
+    response = engine_client.post(
+        "/engine/query",
+        json={
+            "question": "follow up",
+            "projectId": str(uuid.uuid4()),
+            "audience": "developer",
+            "priorEvidence": {"citations": citations},
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 def test_engine_query_emits_error_chunk_when_generator_raises(engine_client) -> None:
     """Runtime failures yield a terminal error SSE chunk instead of bare close."""
 

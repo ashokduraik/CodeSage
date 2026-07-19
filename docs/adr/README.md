@@ -44,6 +44,7 @@ Consequences · Alternatives considered · Escape hatch**.
 | [0025](./0025-distillation-derived-knowledge.md) | Distillation of derived product knowledge (workflows, pages, permissions, data-flows) | Accepted |
 | [0026](./0026-agent-orchestrated-developer-qa.md) | Agent-orchestrated developer QA — tool loop, evidence confidence gate, grounded citations | Accepted |
 | [0027](./0027-qa-investigation-playbooks.md) | QA investigation playbooks — learned retrieval paths per project | Accepted |
+| [0028](./0028-followup-qa-context.md) | Follow-up QA context — rewrite + priorEvidence seed + graph expand | Accepted |
 
 ## Adding a new ADR
 

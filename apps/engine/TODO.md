@@ -48,6 +48,7 @@ Global sequencing: `docs/plans/phase-1-mvp-code-qa.md`, `docs/plans/phase-2-mult
 - [x] Agent loop nudge when gate fails with non-empty pool; honest abstain copy (plan 15).
 - [x] Confidence accuracy: `symbol_refs` + excerpt overlap; EMI golden answers (plan 16).
 - [x] `qa/playbooks.py` — promote, hints, invalidation, optional warm-start (ADR 0027 plans 11–12).
+- [x] `qa/followup.py` — rewrite + priorEvidence seed before planner (ADR 0028).
 - [x] `graph/` — file + symbol node extraction during parse; HTTP/route API signals (Phase 2).
 - [x] `xrepo/` — cross-repo link resolver job (Phase 2).
 - [x] `llm/` — vLLM streaming provider with excerpt fallback when unset.

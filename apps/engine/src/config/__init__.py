@@ -108,6 +108,10 @@ class Settings(BaseSettings):
     )
     qa_agent_planner_timeout_seconds: float = constants.QA_AGENT_PLANNER_TIMEOUT_SECONDS
     qa_agent_final_timeout_seconds: float = constants.QA_AGENT_FINAL_TIMEOUT_SECONDS
+    # Follow-up QA context (ADR 0028): toggle in .env.example; seed caps from constants.
+    qa_followup_context_enabled: bool = True
+    qa_followup_max_seed_citations: int = constants.QA_FOLLOWUP_MAX_SEED_CITATIONS
+    qa_followup_max_graph_expands: int = constants.QA_FOLLOWUP_MAX_GRAPH_EXPANDS
     # QA playbooks (ADR 0027) — env-overridable; defaults from constants (not in .env.example).
     qa_playbook_max_per_project: int = constants.QA_PLAYBOOK_MAX_PER_PROJECT
     qa_playbook_min_similarity: float = constants.QA_PLAYBOOK_MIN_SIMILARITY

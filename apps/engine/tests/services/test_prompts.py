@@ -1,6 +1,11 @@
 """Tests for grounded QA prompt templates."""
 
-from services.llm.prompts import AGENT_PLANNER_SYSTEM_PROMPT, build_code_qa_messages
+from services.llm.prompts import (
+    AGENT_PLANNER_SYSTEM_PROMPT,
+    FOLLOWUP_REWRITE_SYSTEM_PROMPT,
+    build_code_qa_messages,
+    build_followup_rewrite_messages,
+)
 
 
 def test_build_code_qa_messages_includes_exact_abstain_phrase() -> None:
@@ -29,3 +34,18 @@ def test_planner_prompt_mentions_around_line_or_chunk_id_for_path() -> None:
     prompt = AGENT_PLANNER_SYSTEM_PROMPT
     assert "around_line" in prompt or "chunk_id" in prompt
     assert "read_chunks_for_path" in prompt
+
+
+def test_build_followup_rewrite_messages_includes_history() -> None:
+    history = [
+        {"role": "user", "content": "How EMI?"},
+        {"role": "assistant", "content": "See loan.utils.ts"},
+    ]
+    messages = build_followup_rewrite_messages("explain that", history)
+    assert messages[0]["content"] == FOLLOWUP_REWRITE_SYSTEM_PROMPT
+    assert messages[1:3] == history
+    assert messages[-1]["content"] == "explain that"
+
+
+def test_planner_prompt_mentions_rewritten_followup() -> None:
+    assert "rewritten standalone follow-up" in AGENT_PLANNER_SYSTEM_PROMPT

@@ -586,3 +586,102 @@ def complete_with_tools(
         _finalize_timing(stats, time.monotonic() - start)
 
     return result
+
+
+def complete_text(
+    settings: Settings,
+    messages: list[dict[str, Any]],
+    *,
+    max_tokens: int = 256,
+    temperature: float = 0.0,
+) -> str:
+    """Run one non-streaming chat completion without tools and return assistant text.
+
+    Used for follow-up question rewrite (ADR 0028) and other small non-retrieval
+    completions. Raises ``LlmToolCallingError`` when the LLM is not configured or
+    the request fails so callers can fall back to the original input.
+
+    @param settings - Application settings including LLM base URL and model id.
+    @param messages - Chat messages (system / user / assistant).
+    @param max_tokens - Maximum completion tokens.
+    @param temperature - Sampling temperature (0 for deterministic rewrite).
+    @returns Assistant message content stripped of surrounding whitespace.
+    @raises LlmToolCallingError when the LLM is unavailable or the response is empty.
+    """
+    if not settings.vllm_base_url or not settings.vllm_model:
+        raise LlmToolCallingError(
+            "LLM text completion requires VLLM_BASE_URL and VLLM_MODEL"
+        )
+
+    ollama_root = _ollama_native_root(settings.vllm_base_url)
+    use_ollama_native = ollama_root is not None and _is_thinking_model(settings.vllm_model)
+
+    if use_ollama_native:
+        assert ollama_root is not None
+        url = f"{ollama_root}/api/chat"
+        body: dict[str, Any] = {
+            "model": settings.vllm_model,
+            "messages": messages,
+            "stream": False,
+            "think": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+            },
+        }
+    else:
+        url = f"{settings.vllm_base_url.rstrip('/')}/chat/completions"
+        body = {
+            "model": settings.vllm_model,
+            "messages": messages,
+            "stream": False,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if _is_thinking_model(settings.vllm_model):
+            body["think"] = False
+            body["chat_template_kwargs"] = {"enable_thinking": False}
+
+    try:
+        response = httpx.post(url, json=body, timeout=_planner_timeout(settings))
+    except httpx.HTTPError as exc:
+        raise LlmToolCallingError(
+            f"text completion request failed: {sanitize_log_message(str(exc))}"
+        ) from exc
+
+    if response.status_code >= 400:
+        raise LlmToolCallingError(
+            f"text completion HTTP {response.status_code}: "
+            f"{sanitize_log_message(response.text[:200])}"
+        )
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise LlmToolCallingError("text completion response was not valid JSON") from exc
+
+    if not isinstance(payload, dict):
+        raise LlmToolCallingError("text completion response was not a JSON object")
+
+    # OpenAI-compatible: choices[0].message.content; Ollama native: message.content.
+    content = ""
+    choices = payload.get("choices")
+    if isinstance(choices, list) and choices:
+        first = choices[0]
+        if isinstance(first, dict):
+            message = first.get("message")
+            if isinstance(message, dict):
+                raw = message.get("content")
+                if isinstance(raw, str):
+                    content = raw
+    if not content:
+        message = payload.get("message")
+        if isinstance(message, dict):
+            raw = message.get("content")
+            if isinstance(raw, str):
+                content = raw
+
+    text = content.strip()
+    if not text:
+        raise LlmToolCallingError("text completion returned empty content")
+    return text

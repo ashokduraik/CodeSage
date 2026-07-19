@@ -73,6 +73,11 @@ QA_AGENT_EXCERPT_OVERLAP_FUSED_SCALE = 0.05
 QA_AGENT_PLANNER_TIMEOUT_SECONDS = 180.0  # planner LLM timeout per iteration
 QA_AGENT_FINAL_TIMEOUT_SECONDS = LLM_TIMEOUT_SECONDS  # final answer stream timeout
 
+# --- Follow-up QA context (ADR 0028) ---
+# Toggle lives in .env.example; seed caps are standard tuning defaults here.
+QA_FOLLOWUP_MAX_SEED_CITATIONS = 8  # max prior citations re-fetched into the evidence pool
+QA_FOLLOWUP_MAX_GRAPH_EXPANDS = 3  # max graph_expand calls from prior evidenceAnchors
+
 # --- QA playbooks (ADR 0027) — constants only; not listed in .env.example ---
 QA_PLAYBOOK_MAX_PER_PROJECT = 500  # hard cap on active playbooks per project
 QA_PLAYBOOK_MIN_SIMILARITY = 0.85  # cosine floor for planner hint retrieval

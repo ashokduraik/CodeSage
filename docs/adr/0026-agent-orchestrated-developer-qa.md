@@ -11,6 +11,7 @@
   [ADR 0019](./0019-persist-chat-history-in-postgres.md), [ADR 0023](./0023-cross-repo-linking.md)
   (cross-repo graph as a tool)
 - **Related:** [ADR 0027](./0027-qa-investigation-playbooks.md) (learned retrieval paths — depends on this ADR),
+  [ADR 0028](./0028-followup-qa-context.md) (follow-up rewrite + priorEvidence seed before planner),
   `final-solution.md` §8, `requirement.md` NFR-7, `apps/engine/src/services/qa/stream_answer.py`,
   `contracts/openapi.engine.yaml`
 

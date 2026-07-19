@@ -34,6 +34,10 @@ src/config/                → settings, env
 - **Agent QA orchestration** lives in `src/services/qa/agent_loop.py`. Application code owns
   iteration limits, evidence-pool caps, deterministic confidence, citations, final generation,
   and abstention; never delegate those trust controls to planner self-assessment.
+- **Follow-up QA context** lives in `src/services/qa/followup.py` (ADR 0028): rewrite vague
+  multi-turn questions using history, then seed the evidence pool from `priorEvidence`
+  (citations / graph anchors) before the planner; playbook warm-start runs only if that seed
+  left the pool empty.
 - **QA playbooks** live in `src/services/qa/playbooks.py`. They store project-scoped retrieval
   strategy only, are invalidated/validated against the active index, and remain non-authoritative:
   every answer must execute fresh tools and cite fresh evidence.

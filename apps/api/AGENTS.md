@@ -19,6 +19,9 @@ instead. Heavy/blocking work is Python's job.
 - The chat proxy passes `tool_start` / `tool_result` SSE chunks through without treating them as
   answer content. Persist `metrics.investigationTrace` to the assistant message's
   `investigation_trace` column; do not reconstruct or hand-write the trace shape.
+- On each query, build text-only `history` and optional `priorEvidence` (citations +
+  `evidenceAnchors` from the last grounded assistant message) for the engine
+  (`buildHistoryFromMessages` / `buildPriorEvidenceFromMessages`, ADR 0028).
 - Small files, descriptive names, colocated `*.test.ts`.
 
 ## Auto-migrate & auto-seed on startup

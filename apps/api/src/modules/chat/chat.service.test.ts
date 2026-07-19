@@ -7,6 +7,7 @@ import {
   listConversationMessages,
   listConversations,
   buildHistoryFromMessages,
+  buildPriorEvidenceFromMessages,
   assistantPersistOptions,
   metricsForPersistence,
 } from "./chat.service";
@@ -226,6 +227,121 @@ describe("chat.service", () => {
       { role: "user", content: "first question" },
       { role: "assistant", content: "real answer" },
     ]);
+  });
+
+  it("buildPriorEvidenceFromMessages returns citations from last grounded assistant", () => {
+    const citation = {
+      kind: "code" as const,
+      repoId: "11111111-1111-1111-1111-111111111111",
+      filePath: "src/loan.utils.ts",
+      span: { startLine: 10, endLine: 20 },
+    };
+    const rows = [
+      {
+        id: "1",
+        conversation_id: CONVERSATION_ID,
+        role: "user",
+        content: "how is EMI calculated?",
+        citations: null,
+        metrics: null,
+        investigation_trace: null,
+        needs_review: false,
+        stopped: false,
+        created_at: new Date(),
+      },
+      {
+        id: "2",
+        conversation_id: CONVERSATION_ID,
+        role: "assistant",
+        content: "EMI uses formula…",
+        citations: [citation],
+        metrics: null,
+        investigation_trace: null,
+        needs_review: false,
+        stopped: false,
+        created_at: new Date(),
+      },
+    ] as MessageRow[];
+
+    expect(buildPriorEvidenceFromMessages(rows)).toEqual({
+      citations: [citation],
+    });
+  });
+
+  it("buildPriorEvidenceFromMessages includes evidenceAnchors from investigation_trace", () => {
+    const rows = [
+      {
+        id: "1",
+        conversation_id: CONVERSATION_ID,
+        role: "assistant",
+        content: "answer",
+        citations: [],
+        metrics: null,
+        investigation_trace: {
+          version: 1,
+          evidenceAnchors: [
+            { filePath: "src/loan.utils.ts", symbol: "calculateEmi" },
+          ],
+        },
+        needs_review: false,
+        stopped: false,
+        created_at: new Date(),
+      },
+    ] as MessageRow[];
+
+    expect(buildPriorEvidenceFromMessages(rows)).toEqual({
+      evidenceAnchors: [{ filePath: "src/loan.utils.ts", symbol: "calculateEmi" }],
+    });
+  });
+
+  it("buildPriorEvidenceFromMessages skips abstain rows without citations", () => {
+    const rows = [
+      {
+        id: "1",
+        conversation_id: CONVERSATION_ID,
+        role: "assistant",
+        content: "I couldn't find enough evidence",
+        citations: [],
+        metrics: null,
+        investigation_trace: null,
+        needs_review: true,
+        stopped: false,
+        created_at: new Date(),
+      },
+    ] as MessageRow[];
+
+    expect(buildPriorEvidenceFromMessages(rows)).toBeUndefined();
+  });
+
+  it("buildPriorEvidenceFromMessages prefers newest grounded assistant", () => {
+    const older = {
+      kind: "code" as const,
+      repoId: "11111111-1111-1111-1111-111111111111",
+      filePath: "old.ts",
+    };
+    const newer = {
+      kind: "code" as const,
+      repoId: "11111111-1111-1111-1111-111111111111",
+      filePath: "new.ts",
+    };
+    const rows = [
+      {
+        id: "1",
+        role: "assistant",
+        content: "old",
+        citations: [older],
+        investigation_trace: null,
+      },
+      {
+        id: "2",
+        role: "assistant",
+        content: "new",
+        citations: [newer],
+        investigation_trace: null,
+      },
+    ] as MessageRow[];
+
+    expect(buildPriorEvidenceFromMessages(rows)?.citations).toEqual([newer]);
   });
 
   it("metricsForPersistence strips investigationTrace", () => {

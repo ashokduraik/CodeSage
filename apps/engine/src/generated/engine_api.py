@@ -49,31 +49,6 @@ class ChatTurn(BaseModel):
     )
 
 
-class EngineQueryRequest(BaseModel):
-    question: constr(min_length=1, max_length=8000) = Field(
-        ..., description='Natural-language question from the user.'
-    )
-    projectId: UUID = Field(..., description='Project scope for retrieval.')
-    repoIds: list[UUID] | None = Field(
-        None,
-        description='Optional repo filter; when omitted, all project repos are searched.',
-    )
-    audience: QueryAudience
-    generateTitle: bool | None = Field(
-        False,
-        description='When true, emit a `title` chunk summarizing the question (first message in a conversation).',
-    )
-    history: list[ChatTurn] | None = Field(
-        None,
-        description='Prior conversation turns (oldest first). Node builds this from stored messages; the engine trims oldest turns when the context window is exceeded.',
-        max_length=50,
-    )
-    pageContext: constr(max_length=500) | None = Field(
-        None,
-        description='Optional current UI route for page-scoped product questions (Phase 6).',
-    )
-
-
 class Kind(Enum):
     code = 'code'
 
@@ -267,3 +242,45 @@ class Error(BaseModel):
 
 class EngineErrorResponse(BaseModel):
     error: Error
+
+
+class PriorTurnEvidence(BaseModel):
+    citations: list[CodeCitation] | None = Field(
+        None,
+        description='Code citations from the last grounded assistant message.',
+        max_length=20,
+    )
+    evidenceAnchors: list[EvidenceAnchor] | None = Field(
+        None,
+        description="Evidence anchors from the last turn's investigation_trace.",
+        max_length=20,
+    )
+
+
+class EngineQueryRequest(BaseModel):
+    question: constr(min_length=1, max_length=8000) = Field(
+        ..., description='Natural-language question from the user.'
+    )
+    projectId: UUID = Field(..., description='Project scope for retrieval.')
+    repoIds: list[UUID] | None = Field(
+        None,
+        description='Optional repo filter; when omitted, all project repos are searched.',
+    )
+    audience: QueryAudience
+    generateTitle: bool | None = Field(
+        False,
+        description='When true, emit a `title` chunk summarizing the question (first message in a conversation).',
+    )
+    history: list[ChatTurn] | None = Field(
+        None,
+        description='Prior conversation turns (oldest first). Node builds this from stored messages; the engine trims oldest turns when the context window is exceeded.',
+        max_length=50,
+    )
+    priorEvidence: PriorTurnEvidence | None = Field(
+        None,
+        description='Anchors from the previous grounded assistant turn (citations and/or investigation_trace.evidenceAnchors). Node attaches this for follow-up turns so the engine can re-fetch those chunks before a full hybrid search. Text history remains role+content only; prior answer prose is not evidence.',
+    )
+    pageContext: constr(max_length=500) | None = Field(
+        None,
+        description='Optional current UI route for page-scoped product questions (Phase 6).',
+    )

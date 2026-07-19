@@ -121,7 +121,9 @@ Server-Sent Events.
    already streamed). Two idle no-tool turns with an empty pool abstain early rather than idling to
    the iteration cap.
 7. **Grounded generation** — pack only the evidence pool plus trimmed history into the detected
-   model context window. The final model answers only from that evidence.
+   model context window. The final model answers only from that evidence. Multi-turn follow-ups
+   (ADR 0028) may first rewrite the question and seed the pool from the previous turn’s
+   `priorEvidence` before the planner runs.
 8. **SSE** — events are `tool_start`, `tool_result`, `citation`, `token`, `metrics`, and
    terminal `done` / `abstain` / `error`.
 
@@ -169,7 +171,7 @@ tools deterministically (no planner LLM); otherwise the planner runs as usual.
 |---|---|---|
 | `code_chunks` (`+ embedding` pgvector, `+ pg_trgm` keyword) | parse (rows), embed (vectors) | hybrid vector + keyword + symbol retrieval |
 | `graph_nodes` / `graph_edges` | parse | symbol search, xrepo linking, agent `graph_expand` tool |
-| `conversations` / `messages` | Node API (chat persistence) | multi-turn history for the prompt |
+| `conversations` / `messages` | Node API (chat persistence) | multi-turn history for the prompt; citations/trace feed next-turn `priorEvidence` (ADR 0028) |
 | `qa_playbooks` | successful agent investigations (promote) | similar-question retrieval hints; never answer ground truth |
 | `jobs` | Node (enqueue) + worker | worker claim loop |
 

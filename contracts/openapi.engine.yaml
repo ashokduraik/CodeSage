@@ -151,10 +151,36 @@ components:
           description: >-
             Prior conversation turns (oldest first). Node builds this from stored
             messages; the engine trims oldest turns when the context window is exceeded.
+        priorEvidence:
+          $ref: '#/components/schemas/PriorTurnEvidence'
+          description: >-
+            Anchors from the previous grounded assistant turn (citations and/or
+            investigation_trace.evidenceAnchors). Node attaches this for follow-up
+            turns so the engine can re-fetch those chunks before a full hybrid search.
+            Text history remains role+content only; prior answer prose is not evidence.
         pageContext:
           type: string
           maxLength: 500
           description: Optional current UI route for page-scoped product questions (Phase 6).
+
+    PriorTurnEvidence:
+      type: object
+      description: >-
+        Lightweight prior-turn retrieval anchors for follow-up QA (ADR 0028).
+        Engine re-reads chunks via tools; never treats prior answer text as evidence.
+      properties:
+        citations:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/CodeCitation'
+          description: Code citations from the last grounded assistant message.
+        evidenceAnchors:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/EvidenceAnchor'
+          description: Evidence anchors from the last turn's investigation_trace.
 
     CodeCitation:
       type: object

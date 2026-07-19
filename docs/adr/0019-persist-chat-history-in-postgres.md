@@ -23,7 +23,11 @@ answers on “stop generation” were lost on refresh. The data model already re
 4. **Multi-turn history:** Node sends `history: ChatTurn[]` on the internal RAG request; RAG
    inserts prior turns into the LLM prompt and trims **oldest** turns first when the context
    window is exceeded (`LLM_MAX_HISTORY_TURNS`, default 10).
-5. **Contracts-first API:** `POST/GET/DELETE /conversations`, `GET /conversations/{id}/messages`,
+5. **Follow-up evidence (ADR 0028):** Node also sends optional `priorEvidence` (citations +
+   `investigation_trace.evidenceAnchors` from the last grounded assistant turn). History remains
+   text-only; the engine rewrites vague follow-ups and re-fetches those anchors before a full
+   hybrid search. See [ADR 0028](./0028-followup-qa-context.md).
+6. **Contracts-first API:** `POST/GET/DELETE /conversations`, `GET /conversations/{id}/messages`,
    and `ChatQueryRequest { conversationId, question }` in `contracts/openapi.node.yaml`.
 
 ## Consequences

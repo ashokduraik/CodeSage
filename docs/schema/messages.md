@@ -12,6 +12,10 @@ an `investigation_trace` JSONB (tool loop; contract `InvestigationTrace`). A `st
 message records a user-initiated abort mid-stream (partial content is kept). Messages are
 append-only within a conversation for a clear audit trail.
 
+On the **next** turn, Node may attach `priorEvidence` on the engine query from this row’s
+`citations` and/or `investigation_trace.evidenceAnchors` so follow-ups can re-fetch those anchors
+([ADR 0028](../adr/0028-followup-qa-context.md)). History stays role+content only; no schema change.
+
 ## Columns
 
 | Column | Type | Null | Default | Description |

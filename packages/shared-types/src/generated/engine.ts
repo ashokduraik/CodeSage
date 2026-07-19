@@ -92,8 +92,17 @@ export interface components {
             generateTitle: boolean;
             /** @description Prior conversation turns (oldest first). Node builds this from stored messages; the engine trims oldest turns when the context window is exceeded. */
             history?: components["schemas"]["ChatTurn"][];
+            /** @description Anchors from the previous grounded assistant turn (citations and/or investigation_trace.evidenceAnchors). Node attaches this for follow-up turns so the engine can re-fetch those chunks before a full hybrid search. Text history remains role+content only; prior answer prose is not evidence. */
+            priorEvidence?: components["schemas"]["PriorTurnEvidence"];
             /** @description Optional current UI route for page-scoped product questions (Phase 6). */
             pageContext?: string;
+        };
+        /** @description Lightweight prior-turn retrieval anchors for follow-up QA (ADR 0028). Engine re-reads chunks via tools; never treats prior answer text as evidence. */
+        PriorTurnEvidence: {
+            /** @description Code citations from the last grounded assistant message. */
+            citations?: components["schemas"]["CodeCitation"][];
+            /** @description Evidence anchors from the last turn's investigation_trace. */
+            evidenceAnchors?: components["schemas"]["EvidenceAnchor"][];
         };
         CodeCitation: {
             /**

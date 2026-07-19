@@ -31,6 +31,12 @@ from services.llm.vllm_client import (
     complete_with_tools,
     stream_final_answer,
 )
+from services.qa.followup import (
+    prior_evidence_nonempty,
+    rewrite_followup_question,
+    seed_pool_from_prior_evidence,
+    should_apply_followup_context,
+)
 from services.qa.playbooks import (
     PlaybookHint,
     execute_warm_start_steps,
@@ -683,6 +689,7 @@ def stream_agent_answer(
     project_id: uuid.UUID,
     repo_ids: list[uuid.UUID] | None = None,
     history: list[dict[str, str]] | None = None,
+    prior_evidence: dict[str, Any] | None = None,
 ) -> Iterator[str]:
     """Run the agent evidence loop and stream SSE chunks for one developer question.
 
@@ -690,16 +697,37 @@ def stream_agent_answer(
     ``QA_AGENT_MAX_ITERATIONS`` is exhausted. Social turns (iteration 1, no tools,
     social question) stream a short reply without the confidence gate.
 
+    When follow-up context is enabled (ADR 0028), vague multi-turn questions are
+    rewritten using history and the pool may be seeded from prior citations before
+    the planner runs. Playbook warm-start runs only when that seed left the pool empty.
+
     @param settings - Application settings (agent + LLM knobs).
     @param session_factory - SQLAlchemy session factory for tool DB access.
     @param question - User question.
     @param project_id - Project scope.
     @param repo_ids - Optional repo filter for tools.
     @param history - Optional prior conversation turns oldest-first.
+    @param prior_evidence - Optional prior-turn citations/anchors for local seed.
     @yields SSE event strings (tool_*, citation, token, metrics, abstain, done, error).
     """
-    terms = extract_search_terms(question)
-    intent = classify_query_intent(question, terms)
+    # Social greetings skip rewrite/seed so "thanks" still short-circuits in the planner.
+    effective_question = question
+    if (
+        should_apply_followup_context(settings, history)
+        and not is_social_question(question)
+    ):
+        effective_question = rewrite_followup_question(
+            settings, question, history or []
+        )
+        if effective_question != question:
+            log_event(
+                _logger,
+                logging.INFO,
+                "Follow-up rewrite applied for multi-turn question",
+            )
+
+    terms = extract_search_terms(effective_question)
+    intent = classify_query_intent(effective_question, terms)
     pool = EvidencePool(max_chunks=settings.qa_agent_max_pool_chunks)
     tools = tool_definitions_for_planner()
 
@@ -710,9 +738,165 @@ def stream_agent_answer(
 
     session = session_factory()
     try:
+        # ADR 0028: seed from prior turn before playbook warm-start (precedence).
+        followup_seeded = False
+        if (
+            should_apply_followup_context(settings, history)
+            and not is_social_question(question)
+            and prior_evidence_nonempty(prior_evidence)
+        ):
+            assert prior_evidence is not None
+            seed_steps = seed_pool_from_prior_evidence(
+                session,
+                settings,
+                project_id=project_id,
+                prior=prior_evidence,
+                repo_ids=repo_ids,
+            )
+            iter_tool_records: list[dict[str, Any]] = []
+            for step in seed_steps:
+                followup_seeded = True
+                tool_call_count += 1
+                yield _chunk_event(
+                    "tool_start",
+                    tool={
+                        "name": step.tool,
+                        "iteration": 1,
+                        "args": step.args,
+                    },
+                )
+                if step.error or step.result is None:
+                    yield _chunk_event(
+                        "tool_result",
+                        tool={
+                            "name": step.tool,
+                            "iteration": 1,
+                            "hitCount": 0,
+                            "error": step.error or "seed failed",
+                        },
+                    )
+                    iter_tool_records.append(
+                        {
+                            "tool": step.tool,
+                            "args": step.args,
+                            "hitCount": 0,
+                            "topAnchors": [],
+                        }
+                    )
+                    continue
+                result = step.result
+                new_hits = 0
+                for hit in result.hits:
+                    if pool.add(hit, tool=step.tool, iteration=1):
+                        new_hits += 1
+                        yield _chunk_event(
+                            "citation", citation=_citation_from_hit(hit)
+                        )
+                yield _chunk_event(
+                    "tool_result",
+                    tool={
+                        "name": step.tool,
+                        "iteration": 1,
+                        "hitCount": len(result.hits),
+                        "newHits": new_hits,
+                        "durationMs": round(result.duration_ms, 2),
+                    },
+                )
+                iter_tool_records.append(
+                    {
+                        "tool": step.tool,
+                        "args": step.args,
+                        "hitCount": len(result.hits),
+                        "topAnchors": [
+                            {"filePath": h.file_path} for h in result.hits[:3]
+                        ],
+                    }
+                )
+
+            if followup_seeded:
+                last_confidence, passes = evaluate_evidence_confidence(
+                    pool, settings, intent=intent, terms=terms
+                )
+                iteration_records.append(
+                    {
+                        "index": 1,
+                        "confidenceAfter": round(last_confidence, 4),
+                        "toolCalls": iter_tool_records,
+                        "followupSeed": True,
+                    }
+                )
+                log_event(
+                    _logger,
+                    logging.INFO,
+                    f"Follow-up priorEvidence seed "
+                    f"(confidence={last_confidence:.4f}, passes={passes})",
+                )
+                if passes:
+                    selected, blocks, ctx_tokens, max_ctx, trimmed = (
+                        _pack_pool_excerpts(
+                            settings, effective_question, pool.hits(), history
+                        )
+                    )
+                    investigation_trace = _build_investigation_trace(
+                        agent_iterations=1,
+                        final_confidence=last_confidence,
+                        intent=intent,
+                        terms=terms,
+                        iterations=iteration_records,
+                        pool=pool,
+                    )
+                    stats = LlmStreamStats()
+                    for token in stream_final_answer(
+                        settings,
+                        question=effective_question,
+                        context_blocks=blocks,
+                        history=trimmed,
+                        stats=stats,
+                    ):
+                        yield _chunk_event("token", content=token)
+
+                    metrics = _metrics_payload(
+                        context_chunks=len(selected),
+                        context_tokens=ctx_tokens,
+                        max_context_tokens=max_ctx,
+                        model=settings.vllm_model or "",
+                        stats=stats,
+                        agent_iterations=1,
+                        tool_call_count=tool_call_count,
+                        evidence_confidence=last_confidence,
+                        investigation_trace=investigation_trace,
+                    )
+                    yield _chunk_event("metrics", metrics=metrics)
+                    try:
+                        promote_trace_to_playbook(
+                            session,
+                            settings,
+                            project_id=project_id,
+                            question=effective_question,
+                            trace=investigation_trace,
+                            message_id=None,
+                            user_id=None,
+                            message_meta={
+                                "abstained": False,
+                                "citation_count": len(pool.entries),
+                            },
+                        )
+                    except Exception as exc:
+                        log_event(
+                            _logger,
+                            logging.WARNING,
+                            f"Playbook promote failed: "
+                            f"{sanitize_log_message(str(exc))}",
+                        )
+                    yield _chunk_event("done")
+                    return
+                # Seed gathered evidence but stayed below the gate — planner from 2.
+                start_iteration = 2
+
         # Inject past playbooks before iteration 1 so the planner can reuse known paths.
         # Hints are validated against active anchors; warm-start (default off) may
         # deterministically replay the best match as iteration 1 without a planner call.
+        # Skip warm-start when follow-up seed already filled the pool (ADR 0028 precedence).
         system_prompt = AGENT_PLANNER_SYSTEM_PROMPT
         hints: list[PlaybookHint] = []
         try:
@@ -720,7 +904,7 @@ def stream_agent_answer(
                 session,
                 settings,
                 project_id=project_id,
-                question=question,
+                question=effective_question,
             )
             hint_block = format_playbook_hints_for_planner(hints)
             if hint_block:
@@ -737,7 +921,11 @@ def stream_agent_answer(
                 f"Playbook hint lookup failed: {sanitize_log_message(str(exc))}",
             )
 
-        warm_hint = select_warm_start_playbook(settings, hints)
+        warm_hint = (
+            select_warm_start_playbook(settings, hints)
+            if not pool.entries
+            else None
+        )
         if warm_hint is not None:
             warm_steps = execute_warm_start_steps(
                 session,
@@ -826,7 +1014,7 @@ def stream_agent_answer(
             )
             if passes:
                 selected, blocks, ctx_tokens, max_ctx, trimmed = _pack_pool_excerpts(
-                    settings, question, pool.hits(), history
+                    settings, effective_question, pool.hits(), history
                 )
                 investigation_trace = _build_investigation_trace(
                     agent_iterations=1,
@@ -839,7 +1027,7 @@ def stream_agent_answer(
                 stats = LlmStreamStats()
                 for token in stream_final_answer(
                     settings,
-                    question=question,
+                    question=effective_question,
                     context_blocks=blocks,
                     history=trimmed,
                     stats=stats,
@@ -863,7 +1051,7 @@ def stream_agent_answer(
                         session,
                         settings,
                         project_id=project_id,
-                        question=question,
+                        question=effective_question,
                         trace=investigation_trace,
                         message_id=None,
                         user_id=None,
@@ -888,7 +1076,7 @@ def stream_agent_answer(
         ]
         if history:
             planner_messages.extend(history[-settings.llm_max_history_turns :])
-        planner_messages.append({"role": "user", "content": question})
+        planner_messages.append({"role": "user", "content": effective_question})
 
         # Tracks idle turns with no evidence at all so we can abstain early instead
         # of burning every iteration on empty planner turns (plan 15 §2). Reset
@@ -1113,7 +1301,7 @@ def stream_agent_answer(
 
             if passes:
                 selected, blocks, ctx_tokens, max_ctx, trimmed = _pack_pool_excerpts(
-                    settings, question, pool.hits(), history
+                    settings, effective_question, pool.hits(), history
                 )
                 investigation_trace = _build_investigation_trace(
                     agent_iterations=iteration,
@@ -1126,7 +1314,7 @@ def stream_agent_answer(
                 stats = LlmStreamStats()
                 for token in stream_final_answer(
                     settings,
-                    question=question,
+                    question=effective_question,
                     context_blocks=blocks,
                     history=trimmed,
                     stats=stats,
@@ -1152,7 +1340,7 @@ def stream_agent_answer(
                         session,
                         settings,
                         project_id=project_id,
-                        question=question,
+                        question=effective_question,
                         trace=investigation_trace,
                         message_id=None,
                         user_id=None,

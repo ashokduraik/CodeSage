@@ -46,14 +46,17 @@ def test_stream_delegates_to_agent_loop(monkeypatch) -> None:
         project_id,
         repo_ids=None,
         history=None,
+        prior_evidence=None,
     ):
         called["question"] = question
         called["project_id"] = project_id
+        called["prior_evidence"] = prior_evidence
         yield 'data: {"type":"token","content":"from-agent"}\n\n'
         yield 'data: {"type":"done"}\n\n'
 
     monkeypatch.setattr("services.qa.stream_answer.stream_agent_answer", fake_agent)
     project_id = uuid.uuid4()
+    prior = {"citations": [{"kind": "code", "filePath": "a.ts", "repoId": str(uuid.uuid4())}]}
     events = _parse_events(
         list(
             stream_engine_answer(
@@ -62,11 +65,13 @@ def test_stream_delegates_to_agent_loop(monkeypatch) -> None:
                 question="where is login?",
                 project_id=project_id,
                 audience="developer",
+                prior_evidence=prior,
             )
         )
     )
     assert called["question"] == "where is login?"
     assert called["project_id"] == project_id
+    assert called["prior_evidence"] == prior
     assert events[0]["type"] == "token"
     assert events[0]["content"] == "from-agent"
     assert events[-1]["type"] == "done"

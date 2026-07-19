@@ -87,6 +87,23 @@ test.describe("Journey: developer chat (agent QA)", () => {
     expect(await countAssistantReplies(page)).toBeGreaterThanOrEqual(2);
   });
 
+  test("vague follow-up after cited answer does not abstain", async ({ page }) => {
+    test.setTimeout(240_000);
+
+    await startDeveloperChat(page, projectId);
+    await sendChatMessage(page, "What files are in this repository?");
+    await expectCitation(page, ".", 120_000);
+    await expectAssistantReply(page, 120_000);
+
+    await sendChatMessage(page, "I don't understand the second point from above");
+    await expectAssistantReply(page, 120_000);
+
+    expect(await countAssistantReplies(page)).toBeGreaterThanOrEqual(2);
+    await expect(page.getByText(/Low confidence|needs review|couldn't find enough evidence/i)).toHaveCount(
+      0,
+    );
+  });
+
   test("nonsense question shows review or abstain", async ({ page }) => {
     test.setTimeout(180_000);
 

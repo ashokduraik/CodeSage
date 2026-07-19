@@ -36,6 +36,7 @@ def stream_engine_answer(
     repo_ids: list[uuid.UUID] | None = None,
     generate_title: bool = False,
     history: list[dict[str, str]] | None = None,
+    prior_evidence: dict[str, Any] | None = None,
 ) -> Iterator[str]:
     """Stream an engine query answer via the agent evidence loop.
 
@@ -51,6 +52,7 @@ def stream_engine_answer(
     @param repo_ids - Optional repo filter.
     @param generate_title - When true, emit a title chunk before the answer.
     @param history - Optional prior conversation turns oldest-first.
+    @param prior_evidence - Optional prior-turn citations/anchors for follow-up seed (ADR 0028).
     @yields SSE event strings.
     """
     if generate_title:
@@ -71,4 +73,5 @@ def stream_engine_answer(
         project_id=project_id,
         repo_ids=repo_ids,
         history=history,
+        prior_evidence=prior_evidence,
     )

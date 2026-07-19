@@ -172,6 +172,7 @@ describe("POST /chat/query", () => {
             content: "",
             citations: [],
             metrics: null,
+            investigation_trace: null,
             needs_review: false,
             stopped: true,
             created_at: new Date(),
@@ -183,6 +184,7 @@ describe("POST /chat/query", () => {
             content: "prior question",
             citations: [],
             metrics: null,
+            investigation_trace: null,
             needs_review: false,
             stopped: false,
             created_at: new Date(),
@@ -198,6 +200,7 @@ describe("POST /chat/query", () => {
             content: "explain the project",
             citations: null,
             metrics: null,
+            investigation_trace: null,
             needs_review: false,
             stopped: false,
             created_at: new Date(),
@@ -227,6 +230,135 @@ describe("POST /chat/query", () => {
       }),
       expect.any(AbortSignal),
     );
+    const engineBody = mockPostEngine.mock.calls[0]?.[1] as {
+      priorEvidence?: unknown;
+      history?: unknown[];
+    };
+    expect(engineBody.priorEvidence).toBeUndefined();
+    expect(engineBody.history).toEqual([{ role: "user", content: "prior question" }]);
+    await app.close();
+  });
+
+  it("sends priorEvidence citations from last grounded assistant to engine", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"type":"done"}\n\n'));
+        controller.close();
+      },
+    });
+    mockPostEngine.mockResolvedValue(new Response(body, { status: 200 }));
+
+    const citation = {
+      kind: "code",
+      repoId: "11111111-1111-1111-1111-111111111111",
+      filePath: "src/loan.utils.ts",
+      span: { startLine: 12, endLine: 24 },
+    };
+
+    const sql = vi.fn() as ReturnType<typeof vi.fn> & { json: (v: unknown) => unknown };
+    sql.json = (v) => v;
+    sql.mockImplementation((strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("FROM conversations") && query.includes("user_id")) {
+        return Promise.resolve([
+          {
+            id: CONVERSATION_ID,
+            project_id: "11111111-1111-1111-1111-111111111111",
+            user_id: "u1",
+            audience: "developer",
+            title: "Chat",
+          },
+        ]);
+      }
+      if (query.includes("COUNT(*)") && query.includes("messages")) {
+        return Promise.resolve([{ count: 2 }]);
+      }
+      if (query.includes("FROM messages") && query.includes("ORDER BY")) {
+        return Promise.resolve([
+          {
+            id: "m-user",
+            conversation_id: CONVERSATION_ID,
+            role: "user",
+            content: "How EMI is calculated?",
+            citations: null,
+            metrics: null,
+            investigation_trace: null,
+            needs_review: false,
+            stopped: false,
+            created_at: new Date(),
+          },
+          {
+            id: "m-asst",
+            conversation_id: CONVERSATION_ID,
+            role: "assistant",
+            content: "EMI formula…",
+            citations: [citation],
+            metrics: null,
+            investigation_trace: {
+              version: 1,
+              evidenceAnchors: [{ filePath: "src/loan.utils.ts", symbol: "calculateEmi" }],
+            },
+            needs_review: false,
+            stopped: false,
+            created_at: new Date(),
+          },
+        ]);
+      }
+      if (query.includes("INSERT INTO messages")) {
+        return Promise.resolve([
+          {
+            id: "m-new",
+            conversation_id: CONVERSATION_ID,
+            role: "user",
+            content: "I don't understand the second point",
+            citations: null,
+            metrics: null,
+            investigation_trace: null,
+            needs_review: false,
+            stopped: false,
+            created_at: new Date(),
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const app = buildApp(TEST_CONFIG);
+    app.db = sql as never;
+    await app.ready();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/chat/query",
+      headers: { authorization: `Bearer ${devToken(app)}` },
+      payload: {
+        question: "I don't understand the second point",
+        conversationId: CONVERSATION_ID,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(mockPostEngine).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        history: [
+          { role: "user", content: "How EMI is calculated?" },
+          { role: "assistant", content: "EMI formula…" },
+        ],
+        priorEvidence: {
+          citations: [citation],
+          evidenceAnchors: [{ filePath: "src/loan.utils.ts", symbol: "calculateEmi" }],
+        },
+      }),
+      expect.any(AbortSignal),
+    );
+    const engineBody = mockPostEngine.mock.calls[0]?.[1] as {
+      history?: Array<{ role: string; content: string; citations?: unknown }>;
+    };
+    expect(engineBody.history?.[1]).toEqual({
+      role: "assistant",
+      content: "EMI formula…",
+    });
+    expect(engineBody.history?.[1]).not.toHaveProperty("citations");
     await app.close();
   });
 

@@ -48,6 +48,9 @@ def engine_query(request: Request, body: EngineQueryRequest) -> StreamingRespons
         if body.history
         else None
     )
+    prior_evidence = None
+    if body.priorEvidence is not None:
+        prior_evidence = body.priorEvidence.model_dump(by_alias=True, exclude_none=True)
 
     def sync_event_stream() -> Iterator[str]:
         """Bridge the QA service generator into an SSE byte stream for FastAPI.
@@ -68,6 +71,7 @@ def engine_query(request: Request, body: EngineQueryRequest) -> StreamingRespons
                 repo_ids=body.repoIds,
                 generate_title=body.generateTitle or False,
                 history=history,
+                prior_evidence=prior_evidence,
             )
         except Exception as exc:
             # Exception handlers cannot rewrite an in-flight StreamingResponse;
